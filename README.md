@@ -10,13 +10,17 @@ The first issue is related to searching through large folders. This is challengi
 
 As test suites grow larger, these issues reduce productivity and increase the risk of errors.
 
-## **Currently**
+## **The Current Solution**
 
 Currently, test cases are primarily managed using QMetry’s built-in interface. When large-scale edits, restructuring, or reviews are required, teams commonly have to manually perform them.
 
 Basic organization is handled within QMetry’s folder system. However, advanced operations such as bulk editing, batch deletion, and test suite restructuring are limited, with no efficient built-in mechanisms for grouping or reorganizing larger numbers of test cases. As a result, users often rely on spreadsheets to perform these operations or just manually selecting items and grouping them.
 
 Searching is currently handled within QMetry using a strict, field-limited approach that primarily matches only test case titles. However, test cases contain multiple important fields, such as step descriptions and summaries that users may want to search across. As a result, locating test cases based on these fields requires manual review, making the process inefficient and time-consuming. 
+
+**Competitive Analysis**
+
+While QMetry serves as the industry standard for hardware-integrated test execution, its primary strength lies in formal tracking rather than the agile maintenance required for large-scale test suites. At the enterprise scale of Form Swim, the platform's 100 time operation caps and rigid title only search parameters create significant bottlenecks. To bypass this, teams frequently resort to Microsoft Excel for its superior bulk-editing and filtering capabilities. However, Excel introduces a disconnect from the database, lacking essential security protocols essential for professional Quality Assurance. TestStream is designed to bridge this gap by combining the powerful, open-ended flexibility of a spreadsheet with the structural integrity of a dedicated management platform.
 
 ## **Proposed System** 
 
@@ -39,264 +43,47 @@ Our five Epic’s are detailed below. Here is an overview list:
 * Undo Changes (Rollback)  
 * Visualization
 
-**Epic 1: Login System**   
-**Actors**:
+**Epic 1: Login System** 
 
-- QA Engineer
+Scheduled for Iteration 1, the Login System epic enables the primary actor, the QA Engineer, to securely access the TestStream workspace . This functionality is triggered when a user submits a registration form, enters login credentials, or attempts to access a protected route within the application . Upon successful interaction, a new user account is created and stored securely, a secure session is established for the authenticated user, and access to workspace features is granted . Conversely, the system ensures that unauthorized users are redirected to the login page to maintain security.
 
-**Iteration**: 
+The system is designed to handle several error conditions, including the submission of invalid credentials, session expiration due to inactivity, or duplicate account registration attempts using an existing email or username . Success is verified through acceptance tests ensuring users can successfully register and log in with valid credentials to access the workspace . Furthermore, the system must demonstrate that attempts to access protected areas without authentication result in a redirection and that incorrect credentials prompt the display of appropriate error messages.
 
-- Iteration 1
+**Epic 2: Excel Upload, Download & Storage**
 
-**Triggers:** 
+This feature enables QA Engineers and Supervisors to upload test cases via Excel files, which are then stored in a database and made available for download on demand. It represents the core data pipeline for getting test cases into and out of the system.
 
-- User submits registration form.  
-- User submits login credentials.  
-- User attempts to access a protected route.
+When a user uploads an Excel file containing test cases, the system validates the file and stores the contents in the database. Users can later retrieve their test cases by downloading them directly from the database. To ensure data integrity, the system automatically rejects duplicate uploads, flags invalid or improperly formatted files, and prompts users to correct any missing fields or steps before a submission is accepted.
 
-**Post Conditions:** 
+The feature is considered complete when a user can successfully upload a test case, view it on a separate device through a basic UI, and download it back. Guardrails should be in place to block duplicates and enforce required fields throughout the process.
 
-- A new user account is successfully created and stored securely.  
-- A secure session is established to authenticated user.  
-- Access to workspace features is granted to authenticated user.  
-- Unauthorized users are redirected to login page.
+**Epic 3: Search & Bulk Edit** 
 
-**Error Conditions:** 
+Scheduled for Iteration 2, the Search and Bulk Edit epic allows the primary actor, the QA Engineer, to manage vast quantities of test data with efficiency . The functionality is triggered when a user searches for test cases using specific keywords or custom tags, targeting fields such as the step summary, test, data, and title . Users can then select large quantities of test cases to perform mass edits. Upon completion, all selected test cases are highlighted and systematically updated with new values, while the interface provides indicators for the number of occurrences found and edits made.
 
-- Invalid or incorrect login credentials are submitted.  
-- Login session expires due to inactivity.  
-- Duplicate account registration using an existing email or username.
+The system is designed to manage error conditions such as network failures during mass edits or attempts to modify read-only data . Acceptance tests will validate that searching accurately identifies all occurrences of keywords and custom tags. Furthermore, the system must successfully process bulk edits across 1000 or more test cases and display a clear error message if a user attempts to edit protected data.
 
-**Acceptance tests:** 
+**Epic 4: Split & Organize** 
 
-- User can successfully register with valid credentials  
-- User can log in with correct credentials and access the workspace.  
-- User is redirected to login page when attempting to access without authentication.  
-- Incorrect login attempts display appropriate error messages.
+The Split and Organize feature, planned for Iteration 2, allows primary actors like QA Engineers and secondary actors such as Test Leads or Managers to manage large-scale test suites with precision . The process is initiated when a user selects a specific test suite or folder and chooses to either split or organize the contents . Users can apply organizational logic by grouping cases according to component, status, or custom tags, or they may manually define a new group. Upon clicking save, the system ensures that all test cases are correctly categorized within the UI and that the specified split rules are applied.
 
-**Epic 2: Excel Upload, Download, Storage**  
-**Actors**
+To maintain system integrity, TestStream is built to handle error conditions such as missing required fields, invalid grouping rules, or network failures during the saving process . Furthermore, the system will prevent operations if no test cases are selected, displaying a clear error message to the user . The success of this epic is verified through rigorous acceptance testing. For instance, a user should be able to select multiple cases and create a group titled "demo," which should then be immediately visible and contain the correct items . The system must also support tagging test cases for category membership and automatically splitting suites based on field values . Finally, users must be able to export these specific groups into XLS files, ensuring that only the selected group data is included in the download.
 
-- QA Engineer (Primary)  
-- Supervisors 
+**Epic 5: Undo & Redo Changes**
 
-**Iteration**
+Scheduled for Iteration 2, the Undo and Redo epic provides the primary actor, the QA Engineer, with a reliable mechanism to manage version control within the workspace. This functionality is triggered when a user performs edits, utilizes keyboard shortcuts like Ctrl/Cmd \+ Z or Ctrl/Cmd \+ Y, or accesses the "History" menu to select a previously saved version . Upon activation, the most recent edit is reverted or re-applied, or the entire test suite is restored to a selected historical state . The editor and all associated visualizations are then updated to reflect the change, while a history entry is recorded with a specific timestamp and user ID.
 
-- Iteration 1
+To ensure robust performance, the system manages several error conditions, including instances where undo or redo is triggered without available changes, or when network and server errors prevent the history from loading . The application also accounts for cases where a selected history version cannot be restored or fails validation due to missing fields . Acceptance tests verify that basic undo and redo operations function successfully without affecting unrelated test cases . If no changes are available, the undo feature will be disabled or show an error message. For larger restorations, the UI must match the selected historical version after the user confirms the action through a prompt, while any server failures will keep the current version unchanged and notify the user .
 
-**Triggers**
+**Epic 6: Visualization Results**
 
-- User uploads test cases in excel form  
-  - Uploads are stored in database  
-- User requests test cases downloaded
+This feature gives QA Engineers and Test Leads a dashboard for understanding the outcomes of a Test Cycle. It brings visual interpretation to the test cases through charts and metrics. This is a feature planned for a later cycle of this project, and is to push our team’s technical and design knowledge and skills.
 
-**Post Conditions**
+Results can enter the system in one of two ways, either through a bulk upload of a results spreadsheet or by a user manually selecting the outcome for an individual test case. Once results are loaded, the dashboard automatically generates a summary of key metrics including pass/fail counts, not-executed cases, and an overall pass rate. Users can filter and group the data to focus on specific subsets, such as a particular demo group, and the system remembers those filter selections for that run so context isn't lost between sessions. To provide deeper analytical value, the system will interface with the OpenAI REST API, gathering natural language insights and trend summaries based on the uploaded execution data. 
 
-- Successful upload of test cases to database  
-- Storage of uploaded test cases  
-- Successful download from database to user of requested test cases
-
-**Error Conditions** 
-
-- Format is invalid for test case examples or missing  
-- Missing fields or steps  
-- Duplicate uploads (rejected automatically)
-
-**Acceptance tests**
-
-- User can upload a test case, view it on another device(primative UI), and download it  
-- Duplicate test cases are blocked or rejected  
-- Missing fields are rejected or prompted to be fixed before uploading
-
-**Epic 3: Search & Bulk Edit**   
-**Actors**
-
-- QA Engineer (Primary)
-
-**Iteration**
-
-- Iteration 2
-
-**Triggers**
-
-- User searches test cases using keywords  
-- User searches test cases using custom tags  
-- User edits large quantities of test cases  
-- Edit fields *step summary, test, data,* and *title*
-
-**Post Conditions**
-
-- All selected test cases are available to view and highlighted  
-- All selected test cases are systematically updated with new values after editing  
-- Indicator of how many occurrences found  
-- Indicator of how many edits made
-
-**Error Conditions** 
-
-- Network error during mass edits  
-- Editing read-only data
-
-**Acceptance tests**
-
-- Bulk edit replaces data across 1000+ test cases  
-- Error message trying to edit protected data  
-- Validate that searching identifies ALL occurrences of desired keyword  
-- Validate that searching identifies ALL test cases with custom tag
-
-**Epic 4: Split & Organize**   
-**Actors**
-
-- QA Engineer (Primary)  
-- Test Lead / Manager (Secondary)
-
-**Iteration**
-
-- Iteration 2 (Features)
-
-**Triggers**
-
-- User selects a test suite or folder to organize  
-- User selects multiple test cases and chooses to Split or Organize  
-- User applies grouping by component, tag, status or creates a manual group  
-- User uses grouping or select and chooses to export by those rules  
-- User clicks save/apply
-
-**Post Conditions**
-
-- Test cases are organized into the user-defined groupings  
-- Any selected split rule is applied correctly  
-- Specified group names and structures are saved properly and visible in the UI  
-- Test case tag reflects user-defined choice
-
-**Error Conditions** 
-
-- Test suite/case not selected while grouping  
-- Invalid or misinputted grouping rules  
-- Missing required fields in test cases  
-- Network/server error while saving
-
-**Acceptance tests**
-
-- Manual Selection creates a new group  
-  - Given a test suite is active and x test cases are selected  
-  - When the user creates a group title “demo” and clicks apply  
-  - Then the grouping “demo” appears in the test suite and contains the x test cases  
-- Tag assigns new category for test case  
-  - Given a test suite is active and user has created “test” tag  
-  - When the user clicks on test case and selects “test” tag and clicks save  
-  - Then the test case now has membership to the “test” category  
-- Split by field  
-  - Given a test suite containing test cases with different components and tags  
-  - When the user selects split by component or tag  
-  - Then the system creates groups based on the specified rule  
-- Export by group  
-  - Given a test suite with multiple groups  
-  - When the user selects the group and clicks export by group  
-  - Then the system will export the selected group only in an xls file  
-- No selection error  
-  - Given no test cases are selected  
-  - When the user clicks create group  
-  - Then the system shows an error message to the user and does not create group
-
-**Epic 5: Undo & Redo Changes**  
-**Actors**  
-QA Engineer (Primary)  
-**Iteration**
-
-- Iteration 2 (Features)
-
-**Triggers**
-
-- User edits a test case or test suite in the workspace  
-- User clicks “Undo” or uses Ctrl/Cmd \+ Z  
-- User clicks “Redo” or uses Ctrl/Cmd \+ Y or Ctrl/Cmd \+ Shift \+ Z  
-- User opens “History” and selects earlier saved version (Like in Google Docs)
-
-**Post Conditions**
-
-- Most recent edit is reverted when undo is triggered  
-- Redo re-applies most recently undone change  
-- When restoring from “History”, test suite is reverted to the selected version  
-- The editor and any visualization is updated to reflect the reverted changes/restored state  
-- History entry is recorded alongside timestamp and user
-
-**Error Conditions** 
-
-- Undo is triggered when there is no changes to undo  
-- Redo is triggered when there are no changes to redo  
-- History cannot be loaded due to lack of history/network/server error  
-- Selected history version does not exist/cannot be restored  
-- If permissions are added, user attempts rollback without permission  
-- Restore fails validation due to missing fields
-
-**Acceptance tests**
-
-- Basic undo  
-  - User can make an edit and successfully undo it  
-  - Undo does not affect unrelated test cases  
-- Basic redo  
-  - User can undo a change and redo it successfully  
-- No undo available  
-  - If no changes exist, Undo is disabled or an error message is shown   
-- History restore  
-  - Given a test suite has multiple saved versions, when the user selects an older version and clicks “Restore”, the test suite content matches the selected version and is shown in the UI  
-- Restore Confirmation  
-  - When a user clicks Restore, the app prompts the user for confirmation. “Cancel” makes no change; “Confirm” restores the changes.  
-- Server error handling   
-  - If restore (undo, redo, restore from history) fails due to server/network error, systems shows the appropriate error message and keeps the current version unchanged.
-
-**Epic 6: Visualization Results**  
-**Actors**
-
-- Qa Engineer (Primary)  
-- Test Lead / Manager (Secondary)
-
-**Iteration**
-
-- Iteration 3
-
-**Triggers**
-
-- User uploads a “Test Result” spreadsheet  
-- User manually selects the test result for a test case  
-- User opens the results dashboard for a Test Cycle  
-- User clicks a chart segment / metric   
-- Users exports a summary report or visualization
-
-**Post Conditions**
-
-- Dashboard generated showing key metrics (Pass/Fail, not executed, pass rate)  
-- Chart reflect the currently selected filters and grouping rules  
-- System stores visualization state for that run (saved filters)
-
-**Error Conditions**
-
-- Invalid result spreadsheet format/headers  
-- Missing required columns (e.g., test case id/name, status, execution timestamp)  
-- Results data contains unmapped values
-
-**Acceptance tests**
-
-- Given a result file with known counts of Pass/Fail/Blocked/Not Run, when the dashboard loads, then each metric matches the file  
-- Given test cases that were previously split into groups, when the user selects group “demo”, then the dashboard shows only that group’s results  
-- Export works  
-- Given the results file contains an unknown value, system shows a clear warning and continues without corrupting metrics
+This feature must validate any uploaded results file before processing it, rejecting files with invalid formats or missing required columns like test case ID, status, or execution timestamp. If an unknown result value is encountered, the system fails loudly and allows the mistake or error to be fixed without corrupting any data.
 
 # **Team Work Distribution and Team Roles** 
 
-For the first iteration, we have decided to focus on our authentication system, simple UI flow (wireframes) and excel uploading and storage. We have decided to assign 3 members to work on the backend, implementing and testing the iteration features, while 2 members are focusing on prototyping the UI for coming features and UX. This project has a sufficient amount of work for a team of 5\. Right now we have 6 main features that we are aiming to implement, each feature has its intricacies and will be a solid workload for the five of us.  
-**Flexible Distributions**  
-Our Backend team will be
-
-- Michael Bazett  
-- Angelo  
-- Andy Ngo
-
-Our Frontend team will be:
-
-- Jayden Truong  
-- Armin Mehrabian
-
-
-
+For the first iteration, we have decided to focus on our authentication system, a simple UI flow and our first Epic of excel uploading and storage. We have decided to assign 3 members to work on the backend, implementing and testing the iteration features, while 2 members are focusing on prototyping the UI for coming features and UX. This project has a sufficient amount of work for a team of 5\. Right now we have 6 main features that we are aiming to implement, each feature has its intricacies and will be a solid workload for the five of us. Our backend team will be Michael Bazett, Angelo Yap*,* Andy Ngo. Our frontend team will currently be Jayden Troung and Armin Mehrabian. These are subject to change as we iterate through the project.
 
