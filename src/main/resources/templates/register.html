@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>TestStream - Register</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@900&display=swap" rel="stylesheet">
+</head>
+<body class="bg-black">
+	<div class="min-h-screen flex items-center justify-center py-16">
+		<div class="w-full max-w-md px-8 py-6">
+			<div class="mb-12 text-center">
+				<h1 class="text-3xl tracking-tight text-white mb-2 uppercase" style="font-family: 'Work Sans', sans-serif; font-weight: 900;">
+					TestStream
+				</h1>
+				<div class="w-16 h-1 mx-auto" style="background-color: #E7FF02;"></div>
+			</div>
+
+			<div class="mb-6 text-center">
+				<h2 class="text-white text-xl font-bold">Create your account</h2>
+				<p class="text-white/60 text-sm mt-1">Get started with easy edits.</p>
+			</div>
+
+			<form th:action="@{/register}" method="POST" class="space-y-6">
+
+				<!-- Generic message blocks (set these in the model in your controller) -->
+				<div th:if="${successMessage}" class="p-3 bg-emerald-500/10 border border-emerald-500 text-emerald-400 text-sm rounded text-center" th:text="${successMessage}"></div>
+				<div th:if="${errorMessage}" class="p-3 bg-red-500/10 border border-red-500 text-red-500 text-sm rounded text-center" th:text="${errorMessage}"></div>
+
+				<!-- If you prefer querystring-based messages (e.g., redirect:/register?error), this works too -->
+				<div th:if="${param.error}" class="p-3 bg-red-500/10 border border-red-500 text-red-500 text-sm rounded text-center">
+					Something went wrong. Please check the form and try again.
+				</div>
+				<div th:if="${param.success}" class="p-3 bg-emerald-500/10 border border-emerald-500 text-emerald-400 text-sm rounded text-center">
+					Account created. You can sign in now.
+				</div>
+
+				<div>
+					<label for="email" class="block text-white mb-2 font-semibold">
+						Email
+					</label>
+					<input
+						type="email"
+						id="email"
+						name="email"
+						required
+						autocomplete="email"
+						th:value="${email}"
+						class="w-full px-4 py-3 bg-black text-white border border-white/30 focus:border-[#E7FF02] focus:outline-none transition-colors placeholder:text-white/40"
+						placeholder="your@email.com"
+					/>
+					<p th:if="${fieldErrors != null and fieldErrors.email != null}" class="text-red-500 text-xs mt-2" th:text="${fieldErrors.email}"></p>
+				</div>
+
+				<div>
+					<label for="password" class="block text-white mb-2 font-semibold">
+						Password
+					</label>
+					<input
+						type="password"
+						id="password"
+						name="password"
+						required
+						autocomplete="new-password"
+						class="w-full px-4 py-3 bg-black text-white border border-white/30 focus:border-[#E7FF02] focus:outline-none transition-colors placeholder:text-white/40"
+						placeholder="••••••••"
+					/>
+					<p class="text-white/50 text-xs mt-2">Use at least 8 characters.</p>
+					<p th:if="${fieldErrors != null and fieldErrors.password != null}" class="text-red-500 text-xs mt-2" th:text="${fieldErrors.password}"></p>
+				</div>
+
+				<div>
+					<label for="confirmPassword" class="block text-white mb-2 font-semibold">
+						Confirm password
+					</label>
+					<input
+						type="password"
+						id="confirmPassword"
+						name="confirmPassword"
+						required
+						autocomplete="new-password"
+						class="w-full px-4 py-3 bg-black text-white border border-white/30 focus:border-[#E7FF02] focus:outline-none transition-colors placeholder:text-white/40"
+						placeholder="••••••••"
+					/>
+					<p th:if="${fieldErrors != null and fieldErrors.confirmPassword != null}" class="text-red-500 text-xs mt-2" th:text="${fieldErrors.confirmPassword}"></p>
+				</div>
+
+				<!-- MVP team/workspace hook: optional team code (leave blank to create a new team) -->
+				<div>
+					<label for="teamCode" class="block text-white mb-2 font-semibold">
+						Team code <span class="text-white/50 font-normal">(optional)</span>
+					</label>
+					<input
+						type="text"
+						id="teamCode"
+						name="teamCode"
+						th:value="${teamCode}"
+						class="w-full px-4 py-3 bg-black text-white border border-white/30 focus:border-[#E7FF02] focus:outline-none transition-colors placeholder:text-white/40"
+						placeholder="ABC123"
+					/>
+					<p class="text-white/50 text-xs mt-2">Leave blank to create a new team.</p>
+					<p th:if="${fieldErrors != null and fieldErrors.teamCode != null}" class="text-red-500 text-xs mt-2" th:text="${fieldErrors.teamCode}"></p>
+				</div>
+
+				<button
+					type="submit"
+					class="w-full py-3 px-4 text-black font-bold transition-all hover:opacity-80"
+					style="background-color: #E7FF02;"
+				>
+					Create Account
+				</button>
+
+				<div class="flex justify-between text-sm mt-4">
+					<a th:href="@{/login}" class="text-white/60 hover:text-white transition-colors">
+						Already have an account? Sign in
+					</a>
+					<a th:href="@{/}" class="text-[#E7FF02] hover:opacity-80 transition-colors">
+						Back to home
+					</a>
+				</div>
+			</form>
+		</div>
+	</div>
+</body>
+</html>
