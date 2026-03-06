@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TestStream – Upload Test Cases</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; }
+        h1   { margin-bottom: 4px; }
+        p    { color: #555; margin-top: 0; }
+        .upload-area { border: 2px dashed #aaa; border-radius: 6px; padding: 30px; text-align: center; margin: 20px 0; }
+        input[type="file"] { font-size: 1rem; }
+        button { margin-top: 16px; padding: 8px 24px; font-size: 1rem; cursor: pointer; }
+        #status { margin-top: 12px; font-weight: bold; }
+        #status.error  { color: red; }
+        #status.success { color: green; }
+        pre { background: #f4f4f4; padding: 16px; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <h1>TestStream</h1>
+    <p>Upload a QMetry-exported <strong>.xlsx</strong> file to parse and preview test cases.</p>
+
+    <form id="uploadForm" enctype="multipart/form-data">
+        <div class="upload-area">
+            <input type="file" id="file" name="file" accept=".xlsx" required>
+        </div>
+        <button type="submit">Upload &amp; Parse</button>
+    </form>
+
+    <p id="status"></p>
+    <pre id="result" hidden></pre>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const status = document.getElementById('status');
+            const result = document.getElementById('result');
+
+            status.className = '';
+            status.textContent = 'Uploading…';
+            result.hidden = true;
+
+            try {
+                const formData = new FormData(e.target);
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const json = await res.json();
+
+                if (res.ok) {
+                    status.className = 'success';
+                    status.textContent = `Parsed ${json.testCasesParsed} test case(s), ${json.totalStepsParsed} step(s).`;
+                } else {
+                    status.className = 'error';
+                    status.textContent = 'Server returned an error.';
+                }
+
+                result.hidden = false;
+                result.textContent = JSON.stringify(json, null, 2);
+            } catch (err) {
+                status.className = 'error';
+                status.textContent = 'Request failed: ' + err.message;
+            }
+        });
+    </script>
+</body>
+</html>
