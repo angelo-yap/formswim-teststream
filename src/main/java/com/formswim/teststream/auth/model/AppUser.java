@@ -10,6 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 
 @Entity
 @Table(
@@ -43,10 +45,20 @@ public class AppUser {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
-	protected AppUser() {
-		// for JPA
-	}
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, length = 20)
+	private Role role = Role.USER;
 
+
+	// Protected no-args constructor for JPA
+	protected AppUser() { }
+
+	public AppUser(String email, String passwordHash, String teamKey, Role role) {
+		this.email = email;
+		this.passwordHash = passwordHash;
+		this.teamKey = teamKey;
+		this.role = role != null ? role : Role.USER;
+	}	
 	public AppUser(String email, String passwordHash, String teamKey) {
 		this.email = email;
 		this.passwordHash = passwordHash;
@@ -101,5 +113,12 @@ public class AppUser {
 
 	public Instant getCreatedAt() {
 		return createdAt;
+	}
+	public Role getRole() {
+		return role;
+	}
+
+	public void setRole(Role role) {
+		this.role = role;
 	}
 }
