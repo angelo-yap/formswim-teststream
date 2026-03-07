@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpSession;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,7 +16,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Optional;
 
 @Controller
-@RequestMapping("/auth")  
 public class AuthController {
 
     @Autowired
@@ -24,69 +24,111 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-
-    // redirect /auth to login
+    // Shows landing page
     @GetMapping("/")
-    public String root() {
-        return "redirect:/auth/login";
+    public String landing() {
+        return "landing";
     }
 
-
-    // show login page
+    // Shows login page + displays any error/success/logout messages
     @GetMapping("/login")
-    public String getLogin(HttpSession session) {
+    public String getLogin(HttpSession session,
+                           Model model,
+                           @RequestParam(required = false) String error,
+                           @RequestParam(required = false) String success,
+                           @RequestParam(required = false) String logout) {
 
         AppUser user = (AppUser) session.getAttribute("session_user");
 
-        if (user == null) {
-            return "login";
+        if (user != null) {
+            return "redirect:/workspace";
         }
 
-        return "workspace";
+        if (error != null) model.addAttribute("errorMessage", error);
+        if (success != null) model.addAttribute("successMessage", success);
+        if (logout != null) model.addAttribute("logoutMessage", logout);
+
+        return "login";
     }
 
+    // Shows register page + displays messages if needed
+    @GetMapping("/register")
+    public String getRegister(HttpSession session,
+                              Model model,
+                              @RequestParam(required = false) String error,
+                              @RequestParam(required = false) String success) {
 
-    // process login (hashed)
+        AppUser user = (AppUser) session.getAttribute("session_user");
+
+        if (user != null) {
+            return "redirect:/workspace";
+        }
+
+        if (error != null) model.addAttribute("errorMessage", error);
+        if (success != null) model.addAttribute("successMessage", success);
+
+        return "register";
+    }
+
+    // Processes login: checks email + password and creates session
     @PostMapping("/login")
-    public String login(@RequestParam String email, @RequestParam String password, HttpServletRequest request) {
+    public String login(@RequestParam String email,
+                        @RequestParam String password,
+                        HttpServletRequest request) {
 
         Optional<AppUser> userOptional = userRepository.findByEmail(email);
 
         if (userOptional.isEmpty()) {
-            return "login";
+            return "redirect:/login?error=User not found";
         }
 
         AppUser user = userOptional.get();
 
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            return "login";
+            return "redirect:/login?error=Invalid email or password";
         }
 
         request.getSession().setAttribute("session_user", user);
 
-        return "workspace";
+        return "redirect:/workspace";
     }
 
-
-    // register user (hashed)
+    // Processes registration: creates new user with hashed password
     @PostMapping("/register")
-    public String register(@RequestParam String email, @RequestParam String password) {
+    public String register(@RequestParam String email,
+                           @RequestParam String password,
+                           @RequestParam(required = false, name = "teamCode") String teamCode) {
 
         Optional<AppUser> existingUser = userRepository.findByEmail(email);
 
         if (existingUser.isPresent()) {
-            return "login";
+            return "redirect:/register?error=User already exists";
         }
 
         String hashedPassword = passwordEncoder.encode(password);
 
-        AppUser user = new AppUser(email, hashedPassword, null);
+        AppUser user = new AppUser(email, hashedPassword, teamCode);
         userRepository.save(user);
 
-        return "login";
+        return "redirect:/login?success=Account created successfully";
     }
 
-    // return logged in user's email
+    // Shows workspace page (only if logged in)
+    @GetMapping("/workspace")
+    public String workspace(HttpSession session, Model model) {
+
+        AppUser user = (AppUser) session.getAttribute("session_user");
+
+        if (user == null) {
+            return "redirect:/login?error=Please log in first";
+        }
+
+        model.addAttribute("userEmail", user.getEmail());
+
+        return "workspace";
+    }
+
+    // Returns current logged-in user's email (for testing/debugging)
     @GetMapping("/me")
     @ResponseBody
     public String getCurrentUser(HttpSession session) {
@@ -100,11 +142,10 @@ public class AuthController {
         return "Logged in user: " + user.getEmail();
     }
 
-
-    // logout
-    @GetMapping("/logout")
+    // Logs user out by destroying session
+    @PostMapping("/logout")
     public String logout(HttpServletRequest request) {
         request.getSession().invalidate();
-        return "login";
+        return "redirect:/login?logout=You have been logged out";
     }
 }
