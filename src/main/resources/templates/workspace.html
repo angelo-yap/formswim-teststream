@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Workspace</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;700;900&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-black text-white">
+	<div class="min-h-screen">
+		<!-- Top bar: search + filters (left), import/export + account/logout (right) -->
+		<header class="border-b border-white/10">
+			<div class="max-w-7xl mx-auto px-6 sm:px-8 py-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+				<div class="flex-1 min-w-0">
+					<div class="flex flex-col sm:flex-row sm:items-center gap-3">
+						<div class="flex-1 min-w-0">
+							<label class="block text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Search</label>
+							<div class="mt-2">
+								<input id="wsSearch" type="text"
+									placeholder="Search ID, title, tags…"
+									class="w-full bg-black border border-white/15 px-4 py-3 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]" />
+							</div>
+						</div>
+
+						<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:w-[34rem]">
+							<div>
+								<label class="block text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Component</label>
+								<select id="wsFilterComponent" class="mt-2 w-full bg-black border border-white/15 px-3 py-3 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]">
+									<option value="">All</option>
+									<option>UI</option>
+									<option>Firmware</option>
+									<option>API</option>
+								</select>
+							</div>
+							<div>
+								<label class="block text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Status</label>
+								<select id="wsFilterStatus" class="mt-2 w-full bg-black border border-white/15 px-3 py-3 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]">
+									<option value="">All</option>
+									<option>Draft</option>
+									<option>Pass</option>
+									<option>Fail</option>
+								</select>
+							</div>
+							<div>
+								<label class="block text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Tags</label>
+								<select id="wsFilterTag" class="mt-2 w-full bg-black border border-white/15 px-3 py-3 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]">
+									<option value="">All</option>
+									<option>UI</option>
+									<option>Firmware</option>
+									<option>Regression</option>
+									<option>Smoke</option>
+								</select>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="shrink-0 flex flex-wrap items-start justify-between lg:justify-end gap-3 lg:pt-6">
+					<div class="flex items-center gap-2">
+						<form id="importForm" th:action="@{/workspace/import}" method="post" enctype="multipart/form-data" class="flex items-center">
+							<input id="importFile" type="file" name="file" accept=".xlsx,.xls,.csv" class="hidden" />
+							<button type="button" id="importBtn" class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
+								Import
+							</button>
+						</form>
+						<a th:href="@{/workspace/export}" class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
+							Export
+						</a>
+					</div>
+
+					<div class="flex items-center gap-3">
+						<div class="hidden sm:block text-right min-w-0">
+							<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Account</p>
+							<p class="text-sm text-white/70 truncate" th:text="${userEmail != null ? userEmail : 'Signed in'}">Signed in</p>
+						</div>
+						<form th:action="@{/logout}" method="post">
+							<button type="submit" class="px-4 py-2 text-black font-bold hover:opacity-80 transition-opacity text-sm" style="background-color: #E7FF02;">
+								Logout
+							</button>
+						</form>
+					</div>
+				</div>
+			</div>
+		</header>
+
+		<!-- Main view: high-density data grid -->
+		<main class="max-w-7xl mx-auto px-0 sm:px-0">
+			<div class="px-6 sm:px-8 py-6 border-b border-white/10">
+				<div class="flex items-center justify-between gap-6">
+					<div>
+						<h1 class="text-base uppercase tracking-wider text-white/70" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Test cases</h1>
+						<p class="text-xs text-white/45 mt-1">Select rows for bulk actions. Click a row to edit in the drawer.</p>
+					</div>
+					<div class="text-right">
+						<p class="text-xs text-white/45">Total</p>
+						<p class="text-sm text-white/70" th:text="${testCaseCount != null ? testCaseCount : '—'}">—</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="overflow-x-auto">
+				<table class="min-w-full text-sm">
+					<thead class="text-white/50">
+						<tr class="border-b border-white/10">
+							<th class="px-6 sm:px-8 py-3 w-10">
+								<input id="wsSelectAll" type="checkbox" class="h-4 w-4 accent-[#E7FF02]" aria-label="Select all" />
+							</th>
+							<th class="text-left px-6 py-3 sm:px-0 sm:pr-8 font-medium">ID</th>
+							<th class="text-left px-6 py-3 font-medium">Title</th>
+							<th class="text-left px-6 py-3 font-medium">Status</th>
+							<th class="text-left px-6 py-3 font-medium">Tags</th>
+							<th class="text-left px-6 py-3 font-medium">Last updated</th>
+						</tr>
+					</thead>
+					<tbody id="wsTbody" class="text-white/75">
+						<!-- SAMPLE DATA rows (when not wired yet) -->
+						<tr class="border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer"
+							th:if="${testCases == null}"
+							data-id="TC-001" data-title="Login with valid credentials" data-status="Pass" data-tags="UI, Regression" data-updated="2026-03-01">
+							<td class="px-6 sm:px-8 py-2.5" onclick="event.stopPropagation();">
+								<input type="checkbox" class="ws-row-check h-4 w-4 accent-[#E7FF02]" aria-label="Select row" />
+							</td>
+							<td class="px-6 py-2.5 sm:px-0 sm:pr-8 text-white/55">TC-001</td>
+							<td class="px-6 py-2.5">
+								<div class="min-w-0 truncate">
+									<span class="font-semibold text-white/85">Login with valid credentials</span>
+									<span class="text-white/45"> - </span>
+									<span class="text-white/45">Auth flow baseline</span>
+								</div>
+							</td>
+							<td class="px-6 py-2.5">
+								<span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">Pass</span>
+							</td>
+							<td class="px-6 py-2.5">
+								<div class="flex flex-wrap gap-2">
+									<span class="px-2 py-1 text-xs border border-white/15 text-white/60">UI</span>
+									<span class="px-2 py-1 text-xs border border-white/15 text-white/60">Regression</span>
+								</div>
+							</td>
+							<td class="px-6 py-2.5 text-white/55">2026-03-01</td>
+						</tr>
+
+						<tr class="border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer"
+							th:if="${testCases == null}"
+							data-id="TC-014" data-title="Export test cases to Excel" data-status="Draft" data-tags="API, Smoke" data-updated="2026-03-03">
+							<td class="px-6 sm:px-8 py-2.5" onclick="event.stopPropagation();">
+								<input type="checkbox" class="ws-row-check h-4 w-4 accent-[#E7FF02]" aria-label="Select row" />
+							</td>
+							<td class="px-6 py-2.5 sm:px-0 sm:pr-8 text-white/55">TC-014</td>
+							<td class="px-6 py-2.5">
+								<div class="min-w-0 truncate">
+									<span class="font-semibold text-white/85">Export test cases to Excel</span>
+									<span class="text-white/45"> - </span>
+									<span class="text-white/45">Download from DB</span>
+								</div>
+							</td>
+							<td class="px-6 py-2.5">
+								<span class="inline-flex items-center px-2 py-1 border text-xs" style="border-color: rgba(231, 255, 2, 0.35); color: rgba(231, 255, 2, 0.9);">Draft</span>
+							</td>
+							<td class="px-6 py-2.5">
+								<div class="flex flex-wrap gap-2">
+									<span class="px-2 py-1 text-xs border border-white/15 text-white/60">API</span>
+									<span class="px-2 py-1 text-xs border border-white/15 text-white/60">Smoke</span>
+								</div>
+							</td>
+							<td class="px-6 py-2.5 text-white/55">2026-03-03</td>
+						</tr>
+
+						<tr class="border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer"
+							th:if="${testCases == null}"
+							data-id="TC-221" data-title="Firmware update interruption handling" data-status="Fail" data-tags="Firmware" data-updated="2026-02-27">
+							<td class="px-6 sm:px-8 py-2.5" onclick="event.stopPropagation();">
+								<input type="checkbox" class="ws-row-check h-4 w-4 accent-[#E7FF02]" aria-label="Select row" />
+							</td>
+							<td class="px-6 py-2.5 sm:px-0 sm:pr-8 text-white/55">TC-221</td>
+							<td class="px-6 py-2.5">
+								<div class="min-w-0 truncate">
+									<span class="font-semibold text-white/85">Firmware update interruption handling</span>
+									<span class="text-white/45"> - </span>
+									<span class="text-white/45">Edge cases</span>
+								</div>
+							</td>
+							<td class="px-6 py-2.5">
+								<span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs" style="border-color: rgba(255, 255, 255, 0.18); color: rgba(255, 255, 255, 0.7);">Fail</span>
+							</td>
+							<td class="px-6 py-2.5">
+								<div class="flex flex-wrap gap-2">
+									<span class="px-2 py-1 text-xs border border-white/15 text-white/60">Firmware</span>
+								</div>
+							</td>
+							<td class="px-6 py-2.5 text-white/55">2026-02-27</td>
+						</tr>
+
+						<!-- Real rows (when wired) -->
+						<tr th:if="${testCases != null}" th:each="tc : ${testCases}"
+							class="border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer"
+							th:attr="data-id=${tc.id},data-title=${tc.title},data-status=${tc.status},data-tags=${tc.tags},data-updated=${tc.lastUpdated}">
+							<td class="px-6 sm:px-8 py-2.5" onclick="event.stopPropagation();">
+								<input type="checkbox" class="ws-row-check h-4 w-4 accent-[#E7FF02]" aria-label="Select row" />
+							</td>
+							<td class="px-6 py-2.5 sm:px-0 sm:pr-8 text-white/55" th:text="${tc.id}">TC-000</td>
+							<td class="px-6 py-2.5">
+								<div class="min-w-0 truncate">
+									<span class="font-semibold text-white/85" th:text="${tc.title}">Title</span>
+									<span class="text-white/45"> - </span>
+									<span class="text-white/45" th:text="${tc.summary}">Summary</span>
+								</div>
+							</td>
+							<td class="px-6 py-2.5">
+								<span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70" th:text="${tc.status}">Draft</span>
+							</td>
+							<td class="px-6 py-2.5 text-white/55" th:text="${tc.tags}">—</td>
+							<td class="px-6 py-2.5 text-white/55" th:text="${tc.lastUpdated}">—</td>
+						</tr>
+
+						<!-- Empty row when wired but list is empty -->
+						<tr th:if="${testCases != null and #lists.isEmpty(testCases)}" class="border-b border-white/10">
+							<td class="px-6 sm:px-8 py-6" colspan="6">
+								<p class="text-sm text-white/70">No matching test cases.</p>
+								<p class="text-xs text-white/45 mt-1">Try adjusting search or filters.</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</main>
+	</div>
+
+	<!-- Floating bulk action bar -->
+	<div id="bulkBar" class="fixed left-0 right-0 bottom-0 z-40 hidden">
+		<div class="max-w-7xl mx-auto px-6 sm:px-8 pb-6">
+			<div class="border border-white/10 bg-black/95 backdrop-blur p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+				style="border-color: rgba(231, 255, 2, 0.25);">
+				<div class="flex items-center gap-3">
+					<div class="w-2 h-2 rounded-full" style="background-color: #E7FF02;"></div>
+					<p class="text-sm text-white/80">
+						<span id="bulkCount" class="font-bold" style="color: #E7FF02;">0</span>
+						items selected
+					</p>
+				</div>
+				<p class="text-xs text-white/45">
+					Bulk actions ship in Iteration 2.
+				</p>
+			</div>
+		</div>
+	</div>
+
+	<!-- Slide-out drawer for single edits -->
+	<div id="drawer" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+		<div id="drawerBackdrop" class="absolute inset-0 bg-black/70"></div>
+		<aside id="drawerPanel" class="absolute right-0 top-0 h-full w-full sm:w-[26rem] lg:w-[40%] bg-black border-l border-white/10 translate-x-full transition-transform">
+			<div class="h-full flex flex-col">
+				<div class="shrink-0 px-6 py-5 border-b border-white/10">
+					<div class="flex items-start justify-between gap-4">
+						<div>
+							<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Edit test case</p>
+							<h2 class="text-lg font-semibold text-white/85 mt-1">
+								<span id="drawerId" class="text-white/55">TC-—</span>
+							</h2>
+						</div>
+						<button id="drawerClose" type="button" class="px-3 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
+							Close
+						</button>
+					</div>
+				</div>
+
+				<div class="flex-1 min-h-0 overflow-auto px-6 py-6">
+					<div class="space-y-5">
+						<div>
+							<label class="block text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Title</label>
+							<input id="drawerTitle" type="text" class="mt-2 w-full bg-black border border-white/15 px-4 py-3 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]" />
+						</div>
+						<div>
+							<label class="block text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Summary</label>
+							<textarea id="drawerSummary" rows="3" class="mt-2 w-full bg-black border border-white/15 px-4 py-3 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]" placeholder="One clear sentence describing the goal."></textarea>
+						</div>
+						<div>
+							<div class="flex items-center justify-between gap-4">
+								<label class="block text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Steps</label>
+								<span class="text-xs text-white/45">Action • Data • Expected</span>
+							</div>
+							<div class="mt-3 space-y-3">
+								<div class="border border-white/10 p-4">
+									<div class="flex items-center justify-between">
+										<p class="text-xs text-white/45">Step 1</p>
+										<p class="text-xs" style="color: rgba(231, 255, 2, 0.8);">Prototype</p>
+									</div>
+									<div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+										<input type="text" class="bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]" placeholder="Action" />
+										<input type="text" class="bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]" placeholder="Data" />
+										<input type="text" class="bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]" placeholder="Expected" />
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div class="border border-white/10 bg-white/5 p-4">
+							<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Context</p>
+							<div class="mt-2 grid grid-cols-2 gap-3 text-sm">
+								<div>
+									<p class="text-xs text-white/45">Status</p>
+									<select id="drawerStatus" class="mt-1 w-full bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]">
+										<option>Draft</option>
+										<option>Pass</option>
+										<option>Fail</option>
+									</select>
+								</div>
+								<div>
+									<p class="text-xs text-white/45">Last updated</p>
+									<p id="drawerUpdated" class="text-white/75">—</p>
+								</div>
+							</div>
+							<div class="mt-3">
+								<p class="text-xs text-white/45">Tags</p>
+								<p id="drawerTags" class="text-white/75">—</p>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="shrink-0 px-6 py-5 border-t border-white/10 flex items-center justify-between gap-3">
+					<p class="text-xs text-white/45">Save updates and return to grid.</p>
+					<button id="drawerSave" type="button" class="px-5 py-2 text-black font-bold hover:opacity-80 transition-opacity text-sm" style="background-color: #E7FF02;">
+						Save
+					</button>
+				</div>
+			</div>
+		</aside>
+	</div>
+
+	<script>
+		(function () {
+			var importBtn = document.getElementById('importBtn');
+			var importFile = document.getElementById('importFile');
+			var importForm = document.getElementById('importForm');
+			if (importBtn && importFile && importForm) {
+				importBtn.addEventListener('click', function () { importFile.click(); });
+				importFile.addEventListener('change', function () {
+					if (importFile.files && importFile.files.length > 0) {
+						importForm.submit();
+					}
+				});
+			}
+
+			var tbody = document.getElementById('wsTbody');
+			var selectAll = document.getElementById('wsSelectAll');
+			var bulkBar = document.getElementById('bulkBar');
+			var bulkCount = document.getElementById('bulkCount');
+
+			function getRowCheckboxes() {
+				return Array.prototype.slice.call(document.querySelectorAll('.ws-row-check'));
+			}
+			function updateBulkBar() {
+				var checks = getRowCheckboxes();
+				var selected = checks.filter(function (c) { return c.checked; }).length;
+				if (bulkCount) bulkCount.textContent = String(selected);
+				if (bulkBar) bulkBar.classList.toggle('hidden', selected === 0);
+				if (selectAll) {
+					if (checks.length === 0) {
+						selectAll.checked = false;
+						selectAll.indeterminate = false;
+					} else if (selected === 0) {
+						selectAll.checked = false;
+						selectAll.indeterminate = false;
+					} else if (selected === checks.length) {
+						selectAll.checked = true;
+						selectAll.indeterminate = false;
+					} else {
+						selectAll.checked = false;
+						selectAll.indeterminate = true;
+					}
+				}
+			}
+
+			if (selectAll) {
+				selectAll.addEventListener('change', function () {
+					getRowCheckboxes().forEach(function (c) { c.checked = selectAll.checked; });
+					updateBulkBar();
+				});
+			}
+			document.addEventListener('change', function (e) {
+				if (e && e.target && e.target.classList && e.target.classList.contains('ws-row-check')) {
+					updateBulkBar();
+				}
+			});
+
+			// Drawer
+			var drawer = document.getElementById('drawer');
+			var drawerPanel = document.getElementById('drawerPanel');
+			var drawerBackdrop = document.getElementById('drawerBackdrop');
+			var drawerClose = document.getElementById('drawerClose');
+			var drawerSave = document.getElementById('drawerSave');
+			var drawerId = document.getElementById('drawerId');
+			var drawerTitle = document.getElementById('drawerTitle');
+			var drawerStatus = document.getElementById('drawerStatus');
+			var drawerTags = document.getElementById('drawerTags');
+			var drawerUpdated = document.getElementById('drawerUpdated');
+
+			function openDrawer(row) {
+				if (!drawer || !drawerPanel) return;
+				var id = row.getAttribute('data-id') || 'TC-—';
+				var title = row.getAttribute('data-title') || '';
+				var status = row.getAttribute('data-status') || '—';
+				var tags = row.getAttribute('data-tags') || '—';
+				var updated = row.getAttribute('data-updated') || '—';
+
+				if (drawerId) drawerId.textContent = id;
+				if (drawerTitle) drawerTitle.value = title;
+				if (drawerStatus) drawerStatus.value = status;
+				if (drawerTags) drawerTags.textContent = tags;
+				if (drawerUpdated) drawerUpdated.textContent = updated;
+
+				drawer.classList.remove('hidden');
+				drawer.setAttribute('aria-hidden', 'false');
+				requestAnimationFrame(function () {
+					drawerPanel.classList.remove('translate-x-full');
+				});
+			}
+			function closeDrawer() {
+				if (!drawer || !drawerPanel) return;
+				drawerPanel.classList.add('translate-x-full');
+				drawer.setAttribute('aria-hidden', 'true');
+				setTimeout(function () {
+					drawer.classList.add('hidden');
+				}, 180);
+			}
+			if (drawerBackdrop) drawerBackdrop.addEventListener('click', closeDrawer);
+			if (drawerClose) drawerClose.addEventListener('click', closeDrawer);
+			if (drawerSave) drawerSave.addEventListener('click', closeDrawer);
+
+			if (tbody) {
+				tbody.addEventListener('click', function (e) {
+					var target = e.target;
+					if (target && target.classList && target.classList.contains('ws-row-check')) return;
+					var row = target && target.closest ? target.closest('tr') : null;
+					if (!row) return;
+					openDrawer(row);
+				});
+			}
+
+			updateBulkBar();
+		})();
+	</script>
+</body>
+
+</html>
