@@ -1,5 +1,6 @@
 package com.formswim.teststream.auth.model;
 
-public class Role {
-    
+public enum Role {
+    USER,
+    ADMIN
 }
