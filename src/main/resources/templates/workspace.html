@@ -61,6 +61,7 @@
 				<div class="shrink-0 flex flex-wrap items-start justify-between lg:justify-end gap-3 lg:pt-6">
 					<div class="flex items-center gap-2">
 						<form id="importForm" th:action="@{/workspace/import}" method="post" enctype="multipart/form-data" class="flex items-center">
+							<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
 							<input id="importFile" type="file" name="file" accept=".xlsx,.xls,.csv" class="hidden" />
 							<button type="button" id="importBtn" class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
 								Import
@@ -77,6 +78,7 @@
 							<p class="text-sm text-white/70 truncate" th:text="${userEmail != null ? userEmail : 'Signed in'}">Signed in</p>
 						</div>
 						<form th:action="@{/logout}" method="post">
+							<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
 							<button type="submit" class="px-4 py-2 text-black font-bold hover:opacity-80 transition-opacity text-sm" style="background-color: #E7FF02;">
 								Logout
 							</button>

@@ -1,28 +1,33 @@
 package com.formswim.teststream.auth.controller;
 
+import com.formswim.teststream.auth.dto.RegistrationForm;
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
-
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
-
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
+import org.springframework.validation.BindingResult;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @Controller
 public class AuthController {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     // Shows landing page
     @GetMapping("/")
@@ -30,142 +35,84 @@ public class AuthController {
         return "landing";
     }
 
-    // Shows login page + displays any error/success/logout messages
     @GetMapping("/login")
-    public String getLogin(HttpSession session,
-                           Model model,
-                           @RequestParam(required = false) String error,
-                           @RequestParam(required = false) String success,
-                           @RequestParam(required = false) String logout) {
-
-        String sessionEmail = (String) session.getAttribute("session_user");
-
-        if (sessionEmail != null) {
+    public String getLogin(Authentication authentication, HttpSession session, Model model) {
+        if (isAuthenticated(authentication)) {
             return "redirect:/workspace";
         }
 
-        if (error != null) model.addAttribute("errorMessage", error);
-        if (success != null) model.addAttribute("successMessage", success);
-        if (logout != null) model.addAttribute("logoutMessage", logout);
+        moveSessionMessage(session, model, "errorMessage");
+        moveSessionMessage(session, model, "successMessage");
+        moveSessionMessage(session, model, "logoutMessage");
 
         return "login";
     }
 
-    // Shows register page + displays messages if needed
     @GetMapping("/register")
-    public String getRegister(HttpSession session,
-                              Model model,
-                              @RequestParam(required = false) String error,
-                              @RequestParam(required = false) String success) {
-        
-        String sessionEmail = (String) session.getAttribute("session_user");
-        if (sessionEmail != null) {
+    public String getRegister(Authentication authentication) {
+        if (isAuthenticated(authentication)) {
             return "redirect:/workspace";
         }
-
-        if (error != null) model.addAttribute("errorMessage", error);
-        if (success != null) model.addAttribute("successMessage", success);
 
         return "register";
     }
 
-    // Processes login: checks email + password and creates session
-    @PostMapping("/login")
-    public String login(@RequestParam String email,
-                        @RequestParam String password,
-                        HttpServletRequest request) {
-
-        Optional<AppUser> userOptional = userRepository.findByEmail(email);
-
-        if (userOptional.isEmpty()) {
-            return "redirect:/login?error=User not found";
-        }
-
-        AppUser user = userOptional.get();
-
-        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            return "redirect:/login?error=Invalid email or password";
-        }
-
-        request.getSession().setAttribute("session_user", user.getEmail());
-
-        return "redirect:/workspace";
-    }
-
-    // Processes registration: creates new user with hashed password
     @PostMapping("/register")
-    public String register(@RequestParam String email,
-                           @RequestParam String password,
-                           @RequestParam String confirmPassword,
-                           @RequestParam(required = false, name = "teamCode") String teamCode) {
-        
-        if (email == null || email.isBlank()) {
-            return "redirect:/register?error=Email is required";
+    public String register(@Valid @ModelAttribute RegistrationForm registrationForm,
+                           BindingResult bindingResult,
+                           RedirectAttributes redirectAttributes) {
+        String normalizedEmail = AppUser.normalizeEmail(registrationForm.getEmail());
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+
+        if (bindingResult.hasErrors()) {
+            bindingResult.getFieldErrors().forEach(error -> fieldErrors.putIfAbsent(error.getField(), error.getDefaultMessage()));
         }
 
-        if (password == null || password.isBlank()) {
-            return "redirect:/register?error=Password is required";
+        if (!fieldErrors.containsKey("confirmPassword")
+            && registrationForm.getPassword() != null
+            && registrationForm.getConfirmPassword() != null
+            && !registrationForm.getPassword().equals(registrationForm.getConfirmPassword())) {
+            fieldErrors.put("confirmPassword", "Passwords do not match");
         }
 
-        if (password.length() < 8) {
-            return "redirect:/register?error=Password must be at least 8 characters";
+        if (normalizedEmail != null && userRepository.findByEmailIgnoreCase(normalizedEmail).isPresent()) {
+            fieldErrors.putIfAbsent("email", "An account with that email already exists");
         }
 
-        if (confirmPassword == null || confirmPassword.isBlank()) {
-            return "redirect:/register?error=Please confirm your password";
+        if (!fieldErrors.isEmpty()) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Please correct the highlighted fields.");
+            redirectAttributes.addFlashAttribute("fieldErrors", fieldErrors);
+            redirectAttributes.addFlashAttribute("email", registrationForm.getEmail());
+            redirectAttributes.addFlashAttribute("teamCode", registrationForm.getTeamCode());
+            return "redirect:/register";
         }
 
-        if (!password.equals(confirmPassword)) {
-            return "redirect:/register?error=Passwords do not match";
-        }
-        
-        Optional<AppUser> existingUser = userRepository.findByEmail(email);
-
-        if (existingUser.isPresent()) {
-            return "redirect:/register?error=User already exists";
-        }
-
-        String hashedPassword = passwordEncoder.encode(password);
-
-        AppUser user = new AppUser(email, hashedPassword, teamCode);
+        String hashedPassword = passwordEncoder.encode(registrationForm.getPassword());
+        AppUser user = new AppUser(normalizedEmail, hashedPassword, registrationForm.getTeamCode());
         userRepository.save(user);
 
-        return "redirect:/login?success=Account created successfully";
+        redirectAttributes.addFlashAttribute("successMessage", "Account created successfully. Sign in to continue.");
+        return "redirect:/login";
     }
 
-    // Shows workspace page (only if logged in)
     @GetMapping("/workspace")
-    public String workspace(HttpSession session, Model model) {
-
-        String sessionEmail = (String) session.getAttribute("session_user");
-
-        if (sessionEmail == null) {
-            return "redirect:/login?error=Please log in first";
-        }
-
-        model.addAttribute("userEmail", sessionEmail);
+    public String workspace(Authentication authentication, Model model) {
+        model.addAttribute("userEmail", authentication.getName());
 
         return "workspace";
     }
 
-    // Returns current logged-in user's email (for testing/debugging)
-    @GetMapping("/me")
-    @ResponseBody
-    public String getCurrentUser(HttpSession session) {
-
-        String sessionEmail = (String) session.getAttribute("session_user");
-
-        if (sessionEmail == null) {
-            return "No user logged in";
-        }
-
-        return "Logged in user: " + sessionEmail;
+    private boolean isAuthenticated(Authentication authentication) {
+        return authentication != null
+            && authentication.isAuthenticated()
+            && !(authentication instanceof AnonymousAuthenticationToken);
     }
 
-    // Logs user out by destroying session
-    @PostMapping("/logout")
-    public String logout(HttpServletRequest request) {
-        request.getSession().invalidate();
-        return "redirect:/login?logout=You have been logged out";
+    private void moveSessionMessage(HttpSession session, Model model, String attributeName) {
+        Object value = session.getAttribute(attributeName);
+        if (value != null) {
+            model.addAttribute(attributeName, value);
+            session.removeAttribute(attributeName);
+        }
     }
 }
