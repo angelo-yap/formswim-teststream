@@ -1,0 +1,205 @@
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>TestStream - Landing</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;600;700;900&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-black text-white">
+	<div class="min-h-screen">
+		<div class="max-w-5xl mx-auto px-8 py-16">
+			<header class="flex items-center justify-between gap-6">
+				<div class="flex items-center gap-4">
+					<div>
+						<h1 class="text-2xl tracking-tight uppercase" style="font-family: 'Work Sans', sans-serif; font-weight: 900;">
+							TestStream
+						</h1>
+						<div class="w-16 h-1 mt-2" style="background-color: #E7FF02;"></div>
+					</div>
+				</div>
+
+				<div class="flex items-center gap-3">
+					<a th:href="@{/login}"
+					   class="px-5 py-2 border border-white/30 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors">
+						Login
+					</a>
+					<a th:href="@{/register}"
+					   class="px-5 py-2 text-black font-bold hover:opacity-80 transition-opacity"
+					   style="background-color: #E7FF02;">
+						Register
+					</a>
+				</div>
+			</header>
+
+			<main class="mt-28">
+				<section class="text-center max-w-2xl mx-auto pt-14">
+					<h2 class="text-5xl sm:text-4xl leading-tight tracking-normal uppercase" style="font-family: 'Work Sans', sans-serif; font-weight: 900;">
+						Test Case Editing Made Easy.
+					</h2>
+					<p class="text-white/70 mt-6 text-lg max-w-prose mx-auto">
+						Import Excel or CSV, make easy edits to your test cases, get team reviews, then export back to Excel.
+					</p>
+
+					<div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+						<a th:href="@{/register}"
+						   class="inline-flex justify-center px-7 py-3 text-black font-bold hover:opacity-80 transition-opacity"
+						   style="background-color: #E7FF02;">
+							Get started
+						</a>
+						<a th:href="@{/login}"
+						   class="inline-flex justify-center px-7 py-3 border border-white/30 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors">
+							Sign in
+						</a>
+					</div>
+				</section>
+
+				<section class="mt-32">
+					<div class="text-center">
+						<h3 class="text-lg font-semibold tracking-normal" style="font-family: 'Work Sans', sans-serif; font-weight: 600;">How it works</h3>
+						<p class="text-white/60 text-sm mt-1">A simple workflow from file → clean data → file.</p>
+					</div>
+
+					<div class="mt-10 relative">
+						<!-- Connector line for horizontal layout -->
+						<div class="hidden sm:block absolute left-0 right-0 top-5 h-px" style="background-color: rgba(231, 255, 2, 0.35);"></div>
+
+						<ol class="grid grid-cols-1 sm:grid-cols-4 gap-8">
+							<li class="text-center">
+								<div class="mx-auto w-10 h-10 rounded-full flex items-center justify-center text-black font-bold" style="background-color: #E7FF02;">
+									1
+								</div>
+								<p class="mt-4 font-semibold">Import</p>
+								<p class="text-white/60 text-sm mt-1">Excel or CSV</p>
+							</li>
+
+							<li class="text-center">
+								<div class="mx-auto w-10 h-10 rounded-full flex items-center justify-center text-black font-bold" style="background-color: #E7FF02;">
+									2
+								</div>
+								<p class="mt-4 font-semibold">Edit</p>
+								<p class="text-white/60 text-sm mt-1">Update or delete</p>
+							</li>
+
+							<li class="text-center">
+								<div class="mx-auto w-10 h-10 rounded-full flex items-center justify-center text-black font-bold" style="background-color: #E7FF02;">
+									3
+								</div>
+								<p class="mt-4 font-semibold">Review</p>
+								<p class="text-white/60 text-sm mt-1">Work with team</p>
+							</li>
+
+							<li class="text-center">
+								<div class="mx-auto w-10 h-10 rounded-full flex items-center justify-center text-black font-bold" style="background-color: #E7FF02;">
+									4
+								</div>
+								<p class="mt-4 font-semibold">Export</p>
+								<p class="text-white/60 text-sm mt-1">Back to Excel</p>
+							</li>
+						</ol>
+					</div>
+				</section>
+
+				<section class="mt-36">
+					<div class="text-center">
+						<h3 class="text-2xl sm:text-3xl font-semibold tracking-tight" style="font-family: 'Work Sans', sans-serif; font-weight: 600;">Why TestStream is better</h3>
+						<p class="text-white/60 text-sm mt-2">The old workflow breaks at scale. This fixes it.</p>
+					</div>
+
+					<div class="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
+						<!-- Left: The pain -->
+						<section class="border border-white/10 bg-black p-8">
+							<div class="flex items-center justify-between gap-4">
+								<h4 class="text-xl font-bold text-white/75">The Old Way</h4>
+								<span class="text-white/40 text-sm">Rigid • Manual • Capped</span>
+							</div>
+							<p class="text-white/55 mt-3">
+								Rigid searches, disconnected Excel files, and frustrating operation caps.
+							</p>
+
+							<div class="mt-7 border border-white/10 bg-white/5 p-6">
+								<p class="text-white/40 text-xs uppercase tracking-wider">Example</p>
+								<div class="mt-3 border border-white/10 p-4">
+									<div class="flex items-center justify-between text-white/40 text-xs">
+										<span>Bulk delete</span>
+										<span class="text-white/40">100-item cap reached</span>
+									</div>
+									<div class="mt-3 grid grid-cols-6 gap-2">
+										<div class="h-2 bg-white/10"></div>
+										<div class="h-2 bg-white/10"></div>
+										<div class="h-2 bg-white/10"></div>
+										<div class="h-2 bg-white/10"></div>
+										<div class="h-2 bg-white/10"></div>
+										<div class="h-2 bg-white/10"></div>
+										<div class="h-2 bg-white/10"></div>
+										<div class="h-2 bg-white/10"></div>
+										<div class="h-2 bg-white/10"></div>
+										<div class="h-2 bg-white/10"></div>
+										<div class="h-2 bg-white/10"></div>
+										<div class="h-2 bg-white/10"></div>
+									</div>
+								</div>
+							</div>
+
+							<ul class="mt-7 space-y-3 text-white/55 text-sm">
+								<li>• Search is strict and field-limited (often title-only).</li>
+								<li>• Bulk edit/delete is painful (caps force repeated batches).</li>
+								<li>• Large restructures require manual folder work + spreadsheets.</li>
+								<li>• Reviews happen in raw spreadsheets instead of a clear workspace.</li>
+							</ul>
+						</section>
+
+						<!-- Right: The relief -->
+						<section class="border border-white/15 p-8" style="border-color: rgba(231, 255, 2, 0.35);">
+							<div class="flex items-center justify-between gap-4">
+								<h4 class="text-xl font-bold">The TestStream Way</h4>
+								<span class="text-sm font-bold" style="color: #E7FF02;">Flexible • Fast • Scalable</span>
+							</div>
+							<p class="text-white/70 mt-3">
+								Fluid bulk editing, unlimited batch selections, and a secure, database-synced workspace.
+							</p>
+
+							<div class="mt-7 border border-white/10 p-6" style="border-color: rgba(231, 255, 2, 0.25); background-color: rgba(231, 255, 2, 0.06);">
+								<p class="text-black text-xs uppercase tracking-wider font-bold" style="color: #E7FF02;">Workspace preview</p>
+								<div class="mt-3 border border-white/10 bg-black p-4">
+									<div class="flex items-center justify-between text-xs">
+										<span class="text-white/60">Selected</span>
+										<span style="color: #E7FF02;" class="font-bold">1,247</span>
+									</div>
+									<div class="mt-3 grid grid-cols-5 gap-2">
+										<div class="h-2" style="background-color: rgba(231, 255, 2, 0.35);"></div>
+										<div class="h-2" style="background-color: rgba(231, 255, 2, 0.25);"></div>
+										<div class="h-2" style="background-color: rgba(231, 255, 2, 0.18);"></div>
+										<div class="h-2" style="background-color: rgba(231, 255, 2, 0.25);"></div>
+										<div class="h-2" style="background-color: rgba(231, 255, 2, 0.35);"></div>
+									</div>
+								</div>
+							</div>
+
+							<ul class="mt-7 space-y-3 text-white/70 text-sm">
+								<li><span style="color: #E7FF02;">•</span> Advanced search across fields (titles, summaries, step text).</li>
+								<li><span style="color: #E7FF02;">•</span> Bulk edit and mass deletion without artificial caps.</li>
+								<li><span style="color: #E7FF02;">•</span> Reorganize and split large suites quickly and safely.</li>
+								<li><span style="color: #E7FF02;">•</span> Database-synced workspace (less spreadsheet drift, better security).</li>
+							</ul>
+						</section>
+					</div>
+				</section>
+			</main>
+
+			<footer class="mt-16 pt-8 border-t border-white/10">
+				<div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+					<p class="text-white/50 text-sm">© TestStream</p>
+					<div class="flex items-center gap-4 text-sm">
+						<a href="#" class="text-white/60 hover:text-white transition-colors">Contact us</a>
+						<a href="#" class="text-white/60 hover:text-white transition-colors">FAQ</a>
+					</div>
+				</div>
+			</footer>
+		</div>
+	</div>
+</body>
+</html>
