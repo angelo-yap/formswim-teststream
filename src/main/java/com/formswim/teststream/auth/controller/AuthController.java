@@ -38,9 +38,9 @@ public class AuthController {
                            @RequestParam(required = false) String success,
                            @RequestParam(required = false) String logout) {
 
-        AppUser user = (AppUser) session.getAttribute("session_user");
+        String sessionEmail = (String) session.getAttribute("session_user");
 
-        if (user != null) {
+        if (sessionEmail != null) {
             return "redirect:/workspace";
         }
 
@@ -57,10 +57,9 @@ public class AuthController {
                               Model model,
                               @RequestParam(required = false) String error,
                               @RequestParam(required = false) String success) {
-
-        AppUser user = (AppUser) session.getAttribute("session_user");
-
-        if (user != null) {
+        
+        String sessionEmail = (String) session.getAttribute("session_user");
+        if (sessionEmail != null) {
             return "redirect:/workspace";
         }
 
@@ -88,7 +87,7 @@ public class AuthController {
             return "redirect:/login?error=Invalid email or password";
         }
 
-        request.getSession().setAttribute("session_user", user);
+        request.getSession().setAttribute("session_user", user.getEmail());
 
         return "redirect:/workspace";
     }
@@ -97,8 +96,29 @@ public class AuthController {
     @PostMapping("/register")
     public String register(@RequestParam String email,
                            @RequestParam String password,
+                           @RequestParam String confirmPassword,
                            @RequestParam(required = false, name = "teamCode") String teamCode) {
+        
+        if (email == null || email.isBlank()) {
+            return "redirect:/register?error=Email is required";
+        }
 
+        if (password == null || password.isBlank()) {
+            return "redirect:/register?error=Password is required";
+        }
+
+        if (password.length() < 8) {
+            return "redirect:/register?error=Password must be at least 8 characters";
+        }
+
+        if (confirmPassword == null || confirmPassword.isBlank()) {
+            return "redirect:/register?error=Please confirm your password";
+        }
+
+        if (!password.equals(confirmPassword)) {
+            return "redirect:/register?error=Passwords do not match";
+        }
+        
         Optional<AppUser> existingUser = userRepository.findByEmail(email);
 
         if (existingUser.isPresent()) {
@@ -117,13 +137,13 @@ public class AuthController {
     @GetMapping("/workspace")
     public String workspace(HttpSession session, Model model) {
 
-        AppUser user = (AppUser) session.getAttribute("session_user");
+        String sessionEmail = (String) session.getAttribute("session_user");
 
-        if (user == null) {
+        if (sessionEmail == null) {
             return "redirect:/login?error=Please log in first";
         }
 
-        model.addAttribute("userEmail", user.getEmail());
+        model.addAttribute("userEmail", sessionEmail);
 
         return "workspace";
     }
@@ -133,13 +153,13 @@ public class AuthController {
     @ResponseBody
     public String getCurrentUser(HttpSession session) {
 
-        AppUser user = (AppUser) session.getAttribute("session_user");
+        String sessionEmail = (String) session.getAttribute("session_user");
 
-        if (user == null) {
+        if (sessionEmail == null) {
             return "No user logged in";
         }
 
-        return "Logged in user: " + user.getEmail();
+        return "Logged in user: " + sessionEmail;
     }
 
     // Logs user out by destroying session
