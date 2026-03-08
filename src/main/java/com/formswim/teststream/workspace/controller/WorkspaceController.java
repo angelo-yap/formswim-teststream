@@ -18,11 +18,6 @@ public class WorkspaceController {
         this.excelExportService = excelExportService;
     }
 
-    @GetMapping("/workspace")
-    public String workspace() {
-        return "workspace";
-    }
-
     @GetMapping("/workspace/export")
     @ResponseBody
     public ResponseEntity<List<TestCase>> export() {
