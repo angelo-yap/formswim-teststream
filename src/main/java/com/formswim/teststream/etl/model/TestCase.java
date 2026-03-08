@@ -1,44 +1,71 @@
 package com.formswim.teststream.etl.model;
 
+import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 
 // Represents one QMetry test case, mapping to a test case block in the export.
+@Entity
+@Table(name = "test_case")
 public class TestCase {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     private String workKey;
+
+    @Column(columnDefinition = "TEXT")
     private String summary;
+    
+    @Column(columnDefinition = "TEXT")
     private String description;
+    @Column(columnDefinition = "TEXT")
     private String precondition;
+
     private String status;
     private String priority;
     private String assignee;
     private String reporter;
     private String estimatedTime;
+
+    @Column(columnDefinition = "TEXT")
     private String labels;
+
     private String components;
     private String sprint;
     private String fixVersions;
     private String version;
+
+    @Column(columnDefinition = "TEXT")
     private String folder;
+    
     private String testCaseType;
     private String createdBy;
     private String createdOn;
     private String updatedBy;
     private String updatedOn;
+
+    @Column(columnDefinition = "TEXT")
     private String storyLinkages;
+
     private String isSharableStep;
     private String flakyScore;
+
+    @OneToMany(mappedBy = "testCase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TestStep> steps = new ArrayList<>();
 
+    protected TestCase() {
+    }
+
     public TestCase(String workKey, String summary, String description,
-                    String precondition, String status, String priority,
-                    String assignee, String reporter, String estimatedTime,
-                    String labels, String components, String sprint,
-                    String fixVersions, String version, String folder,
-                    String testCaseType, String createdBy, String createdOn,
-                    String updatedBy, String updatedOn, String storyLinkages,
-                    String isSharableStep, String flakyScore) {
+            String precondition, String status, String priority,
+            String assignee, String reporter, String estimatedTime,
+            String labels, String components, String sprint,
+            String fixVersions, String version, String folder,
+            String testCaseType, String createdBy, String createdOn,
+            String updatedBy, String updatedOn, String storyLinkages,
+            String isSharableStep, String flakyScore) {
         this.workKey = workKey;
         this.summary = summary;
         this.description = description;
@@ -65,7 +92,12 @@ public class TestCase {
     }
 
     public void addStep(TestStep step) {
+        step.setTestCase(this);
         steps.add(step);
+    }
+
+    public Long getId() {
+        return id;
     }
 
     public String getWorkKey() {
@@ -164,4 +196,3 @@ public class TestCase {
         return steps;
     }
 }
-
