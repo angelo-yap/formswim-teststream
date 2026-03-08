@@ -133,21 +133,6 @@ public class AuthController {
         return "redirect:/login?success=Account created successfully";
     }
 
-    // Shows workspace page (only if logged in)
-    @GetMapping("/workspace")
-    public String workspace(HttpSession session, Model model) {
-
-        String sessionEmail = (String) session.getAttribute("session_user");
-
-        if (sessionEmail == null) {
-            return "redirect:/login?error=Please log in first";
-        }
-
-        model.addAttribute("userEmail", sessionEmail);
-
-        return "workspace";
-    }
-
     // Returns current logged-in user's email (for testing/debugging)
     @GetMapping("/me")
     @ResponseBody

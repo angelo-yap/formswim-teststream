@@ -11,15 +11,16 @@ public class TestStep {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "step_number", nullable = false)
     private int stepNumber;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "step_summary", columnDefinition = "TEXT")
     private String stepSummary;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "test_data", columnDefinition = "TEXT")
     private String testData;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "expected_result", columnDefinition = "TEXT")
     private String expectedResult;
 
     @ManyToOne(fetch = FetchType.LAZY)

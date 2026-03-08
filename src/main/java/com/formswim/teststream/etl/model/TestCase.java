@@ -13,43 +13,73 @@ public class TestCase {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "work_key", nullable = false, unique = true, length = 100)
     private String workKey;
 
     @Column(columnDefinition = "TEXT")
     private String summary;
-    
+
     @Column(columnDefinition = "TEXT")
     private String description;
+
     @Column(columnDefinition = "TEXT")
     private String precondition;
 
+    @Column(length = 100)
     private String status;
+
+    @Column(length = 100)
     private String priority;
+
+    @Column(name = "assignee", length = 255)
     private String assignee;
+
+    @Column(name = "reporter", length = 255)
     private String reporter;
+
+    @Column(name = "estimated_time", length = 100)
     private String estimatedTime;
 
     @Column(columnDefinition = "TEXT")
     private String labels;
 
+    @Column(name = "components", length = 255)
     private String components;
+
+    @Column(name = "sprint", length = 255)
     private String sprint;
+
+    @Column(name = "fix_versions", length = 255)
     private String fixVersions;
+
+    @Column(name = "version", length = 100)
     private String version;
 
     @Column(columnDefinition = "TEXT")
     private String folder;
-    
+
+    @Column(name = "test_case_type", length = 100)
     private String testCaseType;
+
+    @Column(name = "created_by", length = 255)
     private String createdBy;
+
+    @Column(name = "created_on", length = 100)
     private String createdOn;
+
+    @Column(name = "updated_by", length = 255)
     private String updatedBy;
+
+    @Column(name = "updated_on", length = 100)
     private String updatedOn;
 
     @Column(columnDefinition = "TEXT")
     private String storyLinkages;
 
+    @Column(name = "is_sharable_step", length = 10)
     private String isSharableStep;
+
+    @Column(name = "flaky_score", length = 50)
     private String flakyScore;
 
     @OneToMany(mappedBy = "testCase", cascade = CascadeType.ALL, orphanRemoval = true)

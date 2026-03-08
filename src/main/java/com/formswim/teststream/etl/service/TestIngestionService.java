@@ -7,7 +7,6 @@ import com.formswim.teststream.etl.dto.EtlResultSummary;
 import com.formswim.teststream.etl.model.TestCase;
 import com.formswim.teststream.etl.repository.TestCaseRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
@@ -15,24 +14,34 @@ import java.util.List;
 public class TestIngestionService {
 
     private final ExcelParserService excelParserService;
+    private final CsvParserService csvParserService;
     private final TestCaseRepository testCaseRepository;
 
     public TestIngestionService(ExcelParserService excelParserService,
+            CsvParserService csvParserService,
             TestCaseRepository testCaseRepository) {
         this.excelParserService = excelParserService;
+        this.csvParserService = csvParserService;
         this.testCaseRepository = testCaseRepository;
     }
 
-    @Transactional
     public EtlResultSummary ingestFile(MultipartFile file) {
-        if (file.isEmpty() || !file.getOriginalFilename().endsWith(".xlsx")) {
-            return new EtlResultSummary(0, 0, List.of("Invalid file. only .xlsx files are supported."), List.of());
+        String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase();
+
+        if (file.isEmpty()) {
+            return new EtlResultSummary(0, 0, List.of("File is empty."), List.of());
         }
-        EtlResultSummary parsed = excelParserService.parse(file);
+        if (!filename.endsWith(".xlsx") && !filename.endsWith(".csv")) {
+            return new EtlResultSummary(0, 0, List.of("Only .xlsx and .csv files are supported."), List.of());
+        }
+
+        EtlResultSummary parsed = filename.endsWith(".csv")
+                ? csvParserService.parse(file)
+                : excelParserService.parse(file);
 
         try {
-            if (parsed.getErrors().size() > 0 || parsed.getTestCases().isEmpty()) {
-                return parsed; // If parsing has error do not save
+            if (!parsed.getErrors().isEmpty() || parsed.getTestCases().isEmpty()) {
+                return parsed; // If parsing has errors, do not save
             }
 
             for (TestCase testcase : parsed.getTestCases()) {
