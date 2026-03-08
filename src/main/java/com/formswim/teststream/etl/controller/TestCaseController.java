@@ -11,13 +11,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 
 
-
 @RestController
 @RequestMapping("/api/upload")
 public class TestCaseController {
 
     private final TestIngestionService testIngestionService;
-    
+
 
 
 
@@ -36,4 +35,5 @@ public class TestCaseController {
         EtlResultSummary result = testIngestionService.ingestFile(file);
         return ResponseEntity.ok(result);
     }
+
 }
