@@ -171,6 +171,7 @@ public class CsvParserService {
     }
 
     private String get(String[] row, Integer col) {
+        // Also Silently ignore missing columns???
         if (col == null || col >= row.length) return "";
         return row[col] == null ? "" : row[col].trim();
     }

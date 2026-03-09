@@ -29,6 +29,35 @@ import java.util.*;
 @Service
 public class ExcelParserService {
 
+    public static final List<String> CANONICAL_HEADERS = List.of(
+            "Work Key",
+            "Summary",
+            "Description",
+            "Precondition",
+            "Status",
+            "Priority",
+            "Assignee",
+            "Reporter",
+            "Estimated Time",
+            "Labels",
+            "Components",
+            "Sprint",
+            "Fix Versions",
+            "Step Summary",
+            "Test Data",
+            "Expected Result",
+            "Version",
+            "Folder",
+            "Testcase Type",
+            "Created By",
+            "Created On",
+            "Updated By",
+            "Updated On",
+            "Story Linkages",
+            "Is Shareable Step",
+            "Flaky Score"
+    );
+
     // Exact header names from the QMetry export (case-insensitive lookup)
     private static final String COL_WORK_KEY = "work key";
     private static final String COL_SUMMARY = "summary";
@@ -56,6 +85,10 @@ public class ExcelParserService {
     private static final String COL_STORY_LINKAGES = "story linkages";
     private static final String COL_IS_SHARABLE_STEP = "is shareable step";
     private static final String COL_FLAKY_SCORE = "flaky score";
+
+    public List<String> canonicalHeaders() {
+        return CANONICAL_HEADERS;
+    }
 
     public EtlResultSummary parse(MultipartFile file) {
         List<String> errors = new ArrayList<>();
@@ -192,6 +225,7 @@ public class ExcelParserService {
 
     /** Safe cell read: returns empty string for null/missing cells. */
     private String cell(Row row, Integer col) {
+        // Silently ignore missing columns???
         if (col == null) return "";
         Cell c = row.getCell(col, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
         return c == null ? "" : cellString(c);

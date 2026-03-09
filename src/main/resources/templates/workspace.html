@@ -7,6 +7,8 @@
 	<title>Workspace</title>
 	<script src="https://cdn.tailwindcss.com"></script>
 	<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;700;900&display=swap" rel="stylesheet">
+	<meta name="workspace-api-base" content="/api/testcases">
+	<meta name="workspace-export-base" content="/workspace/export">
 </head>
 
 <body class="bg-black text-white">
@@ -62,7 +64,7 @@
 					<div class="flex items-center gap-2">
 						<form id="importForm" th:action="@{/workspace/import}" method="post" enctype="multipart/form-data" class="flex items-center">
 							<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-							<input id="importFile" type="file" name="file" accept=".xlsx,.xls,.csv" class="hidden" />
+							<input id="importFile" type="file" name="file" accept=".xlsx,.csv" class="hidden" />
 							<button type="button" id="importBtn" class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
 								Import
 							</button>
@@ -142,9 +144,14 @@
 						items selected
 					</p>
 				</div>
-				<p class="text-xs text-white/45">
-					Bulk actions ship in Iteration 2.
-				</p>
+				<div class="flex items-center gap-3">
+					<button id="bulkExportSelected" type="button" class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
+						Export selected
+					</button>
+					<p class="text-xs text-white/45">
+						Selected rows export as XLSX.
+					</p>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -236,312 +243,7 @@
 		</aside>
 	</div>
 
-	<script>
-		(function () {
-			var importBtn   = document.getElementById('importBtn');
-			var importFile  = document.getElementById('importFile');
-			var tbody       = document.getElementById('wsTbody');
-			var totalCount  = document.getElementById('wsTotalCount');
-			var selectAll   = document.getElementById('wsSelectAll');
-			var searchInput = document.getElementById('wsSearch');
-			var filterComp  = document.getElementById('wsFilterComponent');
-			var filterStatus = document.getElementById('wsFilterStatus');
-
-			/** Full list fetched from the DB – used for client-side filtering */
-			var allTestCases = [];
-			var tcMap = {};
-
-			// ────────────────────────────────────────────
-			// Row rendering
-			// ────────────────────────────────────────────
-			function renderRows(testCases) {
-				if (!tbody) return;
-				tbody.innerHTML = '';
-				tcMap = {};
-
-				if (!testCases || testCases.length === 0) {
-					var emptyRow = document.createElement('tr');
-					emptyRow.className = 'border-b border-white/10';
-					emptyRow.innerHTML =
-						'<td class="px-6 sm:px-8 py-6" colspan="6">' +
-						'<p class="text-sm text-white/70">No test cases found.</p>' +
-						'<p class="text-xs text-white/45 mt-1">Import a CSV or XLSX file to get started.</p>' +
-						'</td>';
-					tbody.appendChild(emptyRow);
-					return;
-				}
-
-				for (var i = 0; i < testCases.length; i++) {
-					var tc      = testCases[i];
-					var id      = tc.workKey      || '—';
-					var title   = tc.summary      || '—';
-					var sub     = tc.folder       || '';
-					var status  = tc.status       || '—';
-					var tags    = tc.components   || '';
-					var tcType  = tc.testCaseType || '';
-					var updated = tc.updatedOn    || '—';
-
-					tcMap[id] = tc;
-
-					var row = document.createElement('tr');
-					row.className = 'border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer';
-					row.setAttribute('data-id',      id);
-					row.setAttribute('data-title',   title);
-					row.setAttribute('data-status',  status);
-					row.setAttribute('data-tags',    tags);
-					row.setAttribute('data-updated', updated);
-
-					var titleCell = '<span class="font-semibold text-white/85">' + escHtml(title) + '</span>' +
-						(sub ? '<span class="text-white/45"> – </span><span class="text-white/45">' + escHtml(sub) + '</span>' : '');
-
-					var tagsCell = '';
-					if (tags)   tagsCell += '<span class="px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(tags) + '</span>';
-					if (tcType) tagsCell += '<span class="px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(tcType) + '</span>';
-					if (!tagsCell) tagsCell = '<span class="text-white/45">—</span>';
-
-					row.innerHTML =
-						'<td class="px-6 sm:px-8 py-2.5" onclick="event.stopPropagation();">' +
-							'<input type="checkbox" class="ws-row-check h-4 w-4 accent-[#E7FF02]" aria-label="Select row" />' +
-						'</td>' +
-						'<td class="px-6 py-2.5 sm:px-0 sm:pr-8 text-white/55">' + escHtml(id) + '</td>' +
-						'<td class="px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
-						'<td class="px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
-						'<td class="px-6 py-2.5"><div class="flex flex-wrap gap-2">' + tagsCell + '</div></td>' +
-						'<td class="px-6 py-2.5 text-white/55">' + escHtml(updated) + '</td>';
-
-					tbody.appendChild(row);
-				}
-				updateBulkBar();
-			}
-
-			function escHtml(str) {
-				return String(str)
-					.replace(/&/g, '&amp;')
-					.replace(/</g, '&lt;')
-					.replace(/>/g, '&gt;')
-					.replace(/"/g, '&quot;');
-			}
-
-			// ────────────────────────────────────────────
-			// Filtering (client-side)
-			// ────────────────────────────────────────────
-			function applyFilters() {
-				var q    = searchInput  ? searchInput.value.trim().toLowerCase()  : '';
-				var comp = filterComp   ? filterComp.value.trim().toLowerCase()   : '';
-				var stat = filterStatus ? filterStatus.value.trim().toLowerCase() : '';
-
-				var filtered = allTestCases.filter(function (tc) {
-					var matchQ = !q ||
-						(tc.workKey    && tc.workKey.toLowerCase().includes(q))    ||
-						(tc.summary    && tc.summary.toLowerCase().includes(q))    ||
-						(tc.components && tc.components.toLowerCase().includes(q));
-					var matchComp = !comp ||
-						(tc.components && tc.components.toLowerCase().includes(comp));
-					var matchStat = !stat ||
-						(tc.status     && tc.status.toLowerCase() === stat);
-					return matchQ && matchComp && matchStat;
-				});
-				renderRows(filtered);
-			}
-
-			if (searchInput)  searchInput.addEventListener('input',  applyFilters);
-			if (filterComp)   filterComp.addEventListener('change',  applyFilters);
-			if (filterStatus) filterStatus.addEventListener('change', applyFilters);
-
-			// ────────────────────────────────────────────
-			// Load all test cases from the database
-			// ────────────────────────────────────────────
-			function loadAllTestCases(callback) {
-				fetch('/api/testcases')
-					.then(function (res) { return res.json(); })
-					.then(function (data) {
-						allTestCases = Array.isArray(data) ? data : [];
-						if (totalCount) totalCount.textContent = String(allTestCases.length);
-						applyFilters();
-						if (callback) callback();
-					})
-					.catch(function (err) {
-						console.error('Failed to load test cases', err);
-						renderRows([]);
-					});
-			}
-
-			// Initial page load
-			loadAllTestCases();
-
-			// ────────────────────────────────────────────
-			// Import button
-			// ────────────────────────────────────────────
-			if (importBtn && importFile) {
-				importBtn.addEventListener('click', function () { importFile.click(); });
-				importFile.addEventListener('change', function () {
-					if (!importFile.files || importFile.files.length === 0) return;
-
-					var formData = new FormData();
-					formData.append('file', importFile.files[0]);
-
-					importBtn.textContent = 'Importing…';
-					importBtn.disabled    = true;
-
-					fetch('/api/upload', { method: 'POST', body: formData })
-						.then(function (res) { return res.json(); })
-						.then(function (json) {
-							importBtn.textContent = 'Import';
-							importBtn.disabled    = false;
-							importFile.value      = '';
-
-							if (json.errors && json.errors.length > 0) {
-								alert('Import warnings:\n' + json.errors.join('\n'));
-							}
-							// Reload the full list from DB so all (incl. pre-existing) rows appear
-							loadAllTestCases();
-						})
-						.catch(function (err) {
-							console.error('Upload failed', err);
-							importBtn.textContent = 'Import';
-							importBtn.disabled    = false;
-						});
-				});
-			}
-
-			// ────────────────────────────────────────────
-			// Bulk selection bar
-			// ────────────────────────────────────────────
-			var bulkBar   = document.getElementById('bulkBar');
-			var bulkCount = document.getElementById('bulkCount');
-
-			function getRowCheckboxes() {
-				return Array.prototype.slice.call(document.querySelectorAll('.ws-row-check'));
-			}
-			function updateBulkBar() {
-				var checks   = getRowCheckboxes();
-				var selected = checks.filter(function (c) { return c.checked; }).length;
-				if (bulkCount) bulkCount.textContent = String(selected);
-				if (bulkBar)   bulkBar.classList.toggle('hidden', selected === 0);
-				if (selectAll) {
-					if (checks.length === 0 || selected === 0) {
-						selectAll.checked       = false;
-						selectAll.indeterminate = false;
-					} else if (selected === checks.length) {
-						selectAll.checked       = true;
-						selectAll.indeterminate = false;
-					} else {
-						selectAll.checked       = false;
-						selectAll.indeterminate = true;
-					}
-				}
-			}
-
-			if (selectAll) {
-				selectAll.addEventListener('change', function () {
-					getRowCheckboxes().forEach(function (c) { c.checked = selectAll.checked; });
-					updateBulkBar();
-				});
-			}
-			document.addEventListener('change', function (e) {
-				if (e && e.target && e.target.classList && e.target.classList.contains('ws-row-check')) {
-					updateBulkBar();
-				}
-			});
-
-			// ────────────────────────────────────────────
-			// Slide-out drawer
-			// ────────────────────────────────────────────
-			var drawer       = document.getElementById('drawer');
-			var drawerPanel  = document.getElementById('drawerPanel');
-			var drawerBackdrop  = document.getElementById('drawerBackdrop');
-			var drawerClose  = document.getElementById('drawerClose');
-			var drawerSave   = document.getElementById('drawerSave');
-			var drawerId     = document.getElementById('drawerId');
-			var drawerTitle  = document.getElementById('drawerTitle');
-			var drawerSteps  = document.getElementById('drawerSteps');
-			var drawerStatus = document.getElementById('drawerStatus');
-			var drawerUpdated   = document.getElementById('drawerUpdated');
-			var drawerAssignee  = document.getElementById('drawerAssignee');
-			var drawerReporter  = document.getElementById('drawerReporter');
-			var drawerCreatedOn = document.getElementById('drawerCreatedOn');
-			var drawerTags   = document.getElementById('drawerTags');
-
-			function renderSteps(steps) {
-				if (!drawerSteps) return;
-				drawerSteps.innerHTML = '';
-
-				if (!steps || steps.length === 0) {
-					drawerSteps.innerHTML = '<p class="text-xs text-white/45">No steps.</p>';
-					return;
-				}
-
-				for (var i = 0; i < steps.length; i++) {
-					var s     = steps[i];
-					var block = document.createElement('div');
-					block.className = 'border border-white/10 p-4';
-					block.innerHTML =
-						'<p class="text-xs text-white/45">Step ' + s.stepNumber + '</p>' +
-						'<div class="mt-3 grid grid-cols-1 gap-3">' +
-							'<input type="text" value="' + escHtml(s.stepSummary    || '') + '" class="bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]" placeholder="Action" />' +
-							'<input type="text" value="' + escHtml(s.testData       || '') + '" class="bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]" placeholder="Data" />' +
-							'<input type="text" value="' + escHtml(s.expectedResult || '') + '" class="bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]" placeholder="Expected" />' +
-						'</div>';
-					drawerSteps.appendChild(block);
-				}
-			}
-
-			function openDrawer(row) {
-				if (!drawer || !drawerPanel) return;
-				var id      = row.getAttribute('data-id')      || '—';
-				var title   = row.getAttribute('data-title')   || '';
-				var status  = row.getAttribute('data-status')  || '—';
-				var updated = row.getAttribute('data-updated') || '—';
-
-				var tc = tcMap[id] || {};
-
-				if (drawerId)      drawerId.textContent      = id;
-				if (drawerTitle)   drawerTitle.value         = title;
-				if (drawerStatus)  drawerStatus.value        = status;
-				if (drawerUpdated)   drawerUpdated.textContent   = updated;
-				if (drawerAssignee)  drawerAssignee.textContent  = tc.assignee  || '—';
-				if (drawerReporter)  drawerReporter.textContent  = tc.reporter  || '—';
-				if (drawerCreatedOn) drawerCreatedOn.textContent = tc.createdOn || '—';
-				if (drawerTags) {
-					var tagParts = [];
-					if (tc.components)   tagParts.push(tc.components);
-					if (tc.testCaseType) tagParts.push(tc.testCaseType);
-					drawerTags.textContent = tagParts.length ? tagParts.join(', ') : '—';
-				}
-
-				renderSteps(tc.steps || []);
-
-				drawer.classList.remove('hidden');
-				drawer.setAttribute('aria-hidden', 'false');
-				requestAnimationFrame(function () {
-					drawerPanel.classList.remove('translate-x-full');
-				});
-			}
-
-			function closeDrawer() {
-				if (!drawer || !drawerPanel) return;
-				drawerPanel.classList.add('translate-x-full');
-				drawer.setAttribute('aria-hidden', 'true');
-				setTimeout(function () { drawer.classList.add('hidden'); }, 180);
-			}
-
-			if (drawerBackdrop) drawerBackdrop.addEventListener('click', closeDrawer);
-			if (drawerClose)    drawerClose.addEventListener('click',    closeDrawer);
-			if (drawerSave)     drawerSave.addEventListener('click',     closeDrawer);
-
-			if (tbody) {
-				tbody.addEventListener('click', function (e) {
-					var target = e.target;
-					if (target && target.classList && target.classList.contains('ws-row-check')) return;
-					var row = target && target.closest ? target.closest('tr') : null;
-					if (!row || !row.getAttribute('data-id')) return;
-					openDrawer(row);
-				});
-			}
-
-			updateBulkBar();
-		})();
-	</script>
+	<script type="module" th:src="@{/js/workspace/page.js}"></script>
 </body>
 
 </html>

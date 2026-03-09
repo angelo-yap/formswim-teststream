@@ -1,5 +1,6 @@
 package com.formswim.teststream.etl.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 // Represents one step within a TestCase.
@@ -23,6 +24,7 @@ public class TestStep {
     @Column(name = "expected_result", columnDefinition = "TEXT")
     private String expectedResult;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "test_case_id", nullable = false)
     private TestCase testCase;

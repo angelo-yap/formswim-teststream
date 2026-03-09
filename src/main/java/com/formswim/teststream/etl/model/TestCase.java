@@ -83,6 +83,7 @@ public class TestCase {
     private String flakyScore;
 
     @OneToMany(mappedBy = "testCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("stepNumber ASC")
     private List<TestStep> steps = new ArrayList<>();
 
     protected TestCase() {

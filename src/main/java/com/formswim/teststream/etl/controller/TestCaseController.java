@@ -7,12 +7,19 @@ import com.formswim.teststream.etl.service.TestIngestionService;
 
 import jakarta.servlet.http.HttpSession;
 
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.formswim.teststream.etl.service.ExcelExportService;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,11 +28,14 @@ public class TestCaseController {
 
     private final TestIngestionService testIngestionService;
     private final TestCaseRepository testCaseRepository;
+    private final ExcelExportService excelExportService;
 
     public TestCaseController(TestIngestionService testIngestionService,
-                              TestCaseRepository testCaseRepository) {
+                              TestCaseRepository testCaseRepository,
+                              ExcelExportService excelExportService) {
         this.testIngestionService = testIngestionService;
         this.testCaseRepository = testCaseRepository;
+        this.excelExportService = excelExportService;
     }
 
     /**
@@ -34,12 +44,13 @@ public class TestCaseController {
      */
     @GetMapping("/workspace")
     public String workspace(HttpSession session,
+                            Authentication authentication,
                             Model model,
                             @RequestParam(required = false) String search,
                             @RequestParam(required = false) String status,
                             @RequestParam(required = false) String component) {
 
-        String sessionEmail = (String) session.getAttribute("session_user");
+        String sessionEmail = resolveUserEmail(session, authentication);
         if (sessionEmail == null) {
             return "redirect:/login?error=Please log in first";
         }
@@ -81,9 +92,10 @@ public class TestCaseController {
      */
     @PostMapping("/workspace/import")
     public String importFile(@RequestParam("file") MultipartFile file,
-                             HttpSession session) {
+                             HttpSession session,
+                             Authentication authentication) {
 
-        String sessionEmail = (String) session.getAttribute("session_user");
+        String sessionEmail = resolveUserEmail(session, authentication);
         if (sessionEmail == null) {
             return "redirect:/login?error=Please log in first";
         }
@@ -108,11 +120,26 @@ public class TestCaseController {
      */
     @GetMapping("/api/testcases")
     @ResponseBody
-    public ResponseEntity<List<TestCase>> apiGetTestCases(HttpSession session) {
-        if (session.getAttribute("session_user") == null) {
+    public ResponseEntity<List<TestCase>> apiGetTestCases(HttpSession session,
+                                                          Authentication authentication) {
+        if (resolveUserEmail(session, authentication) == null) {
             return ResponseEntity.status(401).build();
         }
-        return ResponseEntity.ok(testCaseRepository.findAll());
+        return ResponseEntity.ok(testCaseRepository.findAllWithSteps());
+    }
+
+    @GetMapping("/workspace/export")
+    @ResponseBody
+    public ResponseEntity<ByteArrayResource> exportSelected(@RequestParam(required = false) List<String> workKeys,
+                                                            HttpSession session,
+                                                            Authentication authentication) {
+        if (resolveUserEmail(session, authentication) == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<TestCase> testCases = excelExportService.getSelectedTestCasesForExport(workKeys);
+        String filename = buildExportFilename(workKeys == null || workKeys.isEmpty() ? "workspace-export" : "workspace-selected");
+        return excelExportService.buildDownloadResponse(testCases, filename);
     }
 
     /**
@@ -123,8 +150,9 @@ public class TestCaseController {
     @PostMapping("/api/upload")
     @ResponseBody
     public ResponseEntity<EtlResultSummary> apiUpload(@RequestParam("file") MultipartFile file,
-                                                      HttpSession session) {
-        if (session.getAttribute("session_user") == null) {
+                                                      HttpSession session,
+                                                      Authentication authentication) {
+        if (resolveUserEmail(session, authentication) == null) {
             return ResponseEntity.status(401).build();
         }
         if (file == null || file.isEmpty()) {
@@ -134,6 +162,25 @@ public class TestCaseController {
         }
         EtlResultSummary result = testIngestionService.ingestFile(file);
         return ResponseEntity.ok(result);
+    }
+
+    private String buildExportFilename(String prefix) {
+        String date = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        return prefix + "-" + date + ".xlsx";
+    }
+
+    private String resolveUserEmail(HttpSession session, Authentication authentication) {
+        String sessionEmail = (String) session.getAttribute("session_user");
+        if (sessionEmail != null && !sessionEmail.isBlank()) {
+            return sessionEmail;
+        }
+        if (authentication != null && authentication.isAuthenticated()) {
+            String principalName = authentication.getName();
+            if (principalName != null && !principalName.isBlank() && !"anonymousUser".equals(principalName)) {
+                return principalName;
+            }
+        }
+        return null;
     }
 
 }
