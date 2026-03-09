@@ -3,6 +3,6 @@ COPY . .
 RUN mvn clean package -DskipTests
 
 FROM openjdk:17.0.1-jdk-slim
-COPY --from=build /target/ratestaff-0.0.1-SNAPSHOT.jar teststream.jar
+COPY --from=build /target/teststream-0.0.1-SNAPSHOT.jar teststream.jar
 EXPOSE 8080
 ENTRYPOINT ["java","-jar","teststream.jar"]
