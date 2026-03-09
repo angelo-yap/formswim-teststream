@@ -5,6 +5,9 @@ target/
 !**/src/test/**/target/
 .env
 
+Proposal.txt
+.testcases
+src/main/resources/application.properties
 ### STS ###
 .apt_generated
 .classpath
@@ -32,3 +35,4 @@ build/
 
 ### VS Code ###
 .vscode/
+.env
