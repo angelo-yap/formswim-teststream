@@ -18,10 +18,11 @@
             </div>
 
             <form th:action="@{/login}" method="POST" class="space-y-6">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
                 
-                <div th:if="${param.error}" class="p-3 bg-red-500/10 border border-red-500 text-red-500 text-sm rounded text-center">
-                    Invalid email or password.
-                </div>
+                <div th:if="${errorMessage}" class="p-3 bg-red-500/10 border border-red-500 text-red-500 text-sm rounded text-center" th:text="${errorMessage}"></div>
+                <div th:if="${successMessage}" class="p-3 bg-emerald-500/10 border border-emerald-500 text-emerald-400 text-sm rounded text-center" th:text="${successMessage}"></div>
+                <div th:if="${logoutMessage}" class="p-3 bg-white/10 border border-white/20 text-white text-sm rounded text-center" th:text="${logoutMessage}"></div>
 
                 <div>
                     <label for="email" class="block text-white mb-2 font-semibold">
@@ -32,6 +33,7 @@
                         id="email"
                         name="email" 
                         required
+                        autocomplete="email"
                         class="w-full px-4 py-3 bg-black text-white border border-white/30 focus:border-[#E7FF02] focus:outline-none transition-colors placeholder:text-white/40"
                         placeholder="your@email.com"
                     />
@@ -46,6 +48,7 @@
                         id="password"
                         name="password"
                         required
+                        autocomplete="current-password"
                         class="w-full px-4 py-3 bg-black text-white border border-white/30 focus:border-[#E7FF02] focus:outline-none transition-colors placeholder:text-white/40"
                         placeholder="••••••••"
                     />

@@ -1,14 +1,46 @@
 package com.formswim.teststream.auth.config;
 
+import com.formswim.teststream.auth.service.AppUserDetailsService;
+import com.formswim.teststream.auth.service.LoginThrottleService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
+import org.springframework.web.servlet.FlashMap;
+import org.springframework.web.servlet.support.RequestContextUtils;
+
 
 @Configuration
 public class SecurityConfig {
+
+    private static final String GENERIC_LOGIN_ERROR = "Invalid email or password";
+    private static final String CONTENT_SECURITY_POLICY =
+        "default-src 'self'; " +
+            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; " +
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+            "font-src 'self' https://fonts.gstatic.com data:; " +
+            "img-src 'self' data:; " +
+            "connect-src 'self'; " +
+            "base-uri 'self'; " +
+            "form-action 'self'; " +
+            "frame-ancestors 'none'; " +
+            "object-src 'none'";
+
+    private final LoginThrottleService loginThrottleService;
+    private final AppUserDetailsService appUserDetailsService;
+
+    public SecurityConfig(LoginThrottleService loginThrottleService,
+                          AppUserDetailsService appUserDetailsService) {
+        this.loginThrottleService = loginThrottleService;
+        this.appUserDetailsService = appUserDetailsService;
+    }
 
     // Keeps password hashing working
     @Bean
@@ -16,16 +48,84 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // TODO: For later — enable CSRF for production and add CSRF tokens
-    // to all POST forms (login, register, logout, etc.) using Thymeleaf.
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
+            .userDetailsService(appUserDetailsService)
             .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
+                .requestMatchers("/", "/login", "/register", "/error", "/test.html").permitAll()
+                .requestMatchers("/workspace/**", "/logout").authenticated()
+                .anyRequest().authenticated()
+            )
+            .formLogin(form -> form
+                .loginPage("/login")
+                .loginProcessingUrl("/login")
+                .usernameParameter("email")
+                .successHandler(authenticationSuccessHandler())
+                .failureHandler(authenticationFailureHandler())
+                .permitAll()
+            )
+            .logout(logout -> logout
+                .logoutUrl("/logout")
+                .invalidateHttpSession(true)
+                .deleteCookies("JSESSIONID")
+                .logoutSuccessHandler(logoutSuccessHandler())
+            )
+            .sessionManagement(session -> session
+                .sessionFixation(sessionFixation -> sessionFixation.migrateSession())
+            )
+            .headers(headers -> headers
+                .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
+                .frameOptions(frameOptions -> frameOptions.deny())
+                .contentTypeOptions(contentTypeOptions -> {})
+                .referrerPolicy(referrerPolicy -> referrerPolicy.policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
             );
 
         return http.build();
+    }
+
+    @Bean
+    public AuthenticationSuccessHandler authenticationSuccessHandler() {
+        return (request, response, authentication) -> {
+            loginThrottleService.resetFailures(authentication.getName());
+            response.sendRedirect(request.getContextPath() + "/workspace");
+        };
+    }
+
+    @Bean
+    public AuthenticationFailureHandler authenticationFailureHandler() {
+        return (request, response, exception) -> {
+            if (!(exception instanceof org.springframework.security.authentication.LockedException)
+                && !(exception instanceof org.springframework.security.authentication.DisabledException)) {
+                loginThrottleService.recordFailure(request.getParameter("email"));
+            }
+
+            addFlashMessage(request, response, "errorMessage", GENERIC_LOGIN_ERROR);
+            response.sendRedirect(request.getContextPath() + "/login");
+        };
+    }
+
+    @Bean
+    public LogoutSuccessHandler logoutSuccessHandler() {
+        return (request, response, authentication) -> {
+            addFlashMessage(request, response, "logoutMessage", "You have been logged out");
+            response.sendRedirect(request.getContextPath() + "/login");
+        };
+    }
+
+    private void addFlashMessage(HttpServletRequest request,
+                                 HttpServletResponse response,
+                                 String attributeName,
+                                 String attributeValue) {
+        FlashMap flashMap = RequestContextUtils.getOutputFlashMap(request);
+        var flashMapManager = RequestContextUtils.getFlashMapManager(request);
+
+        if (flashMap != null && flashMapManager != null) {
+            flashMap.put(attributeName, attributeValue);
+            flashMapManager.saveOutputFlashMap(flashMap, request, response);
+            return;
+        }
+
+        request.getSession(true).setAttribute(attributeName, attributeValue);
     }
 }

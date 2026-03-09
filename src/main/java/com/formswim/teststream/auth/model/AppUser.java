@@ -1,6 +1,7 @@
 package com.formswim.teststream.auth.model;
 
 import java.time.Instant;
+import java.util.Locale;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -8,8 +9,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.EnumType;
 
@@ -54,25 +58,32 @@ public class AppUser {
 	protected AppUser() { }
 
 	public AppUser(String email, String passwordHash, String teamKey, Role role) {
-		this.email = email;
+		this.email = normalizeEmail(email);
 		this.passwordHash = passwordHash;
 		this.teamKey = teamKey;
 		this.role = role != null ? role : Role.USER;
 	}	
 	public AppUser(String email, String passwordHash, String teamKey) {
-		this.email = email;
+		this.email = normalizeEmail(email);
 		this.passwordHash = passwordHash;
 		this.teamKey = teamKey;
 	}
 
 	@PrePersist
+	@PreUpdate
 	void prePersist() {
 		if (createdAt == null) {
 			createdAt = Instant.now();
 		}
-		if (email != null) {
-			email = email.trim().toLowerCase();
+		email = normalizeEmail(email);
+	}
+
+	public static String normalizeEmail(String email) {
+		if (email == null) {
+			return null;
 		}
+
+		return email.trim().toLowerCase(Locale.ROOT);
 	}
 
 	public Long getId() {
@@ -84,7 +95,7 @@ public class AppUser {
 	}
 
 	public void setEmail(String email) {
-		this.email = email;
+		this.email = normalizeEmail(email);
 	}
 
 	public String getPasswordHash() {
