@@ -16,7 +16,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Optional;
 
 @Controller
 public class AuthController {
@@ -94,14 +93,6 @@ public class AuthController {
         redirectAttributes.addFlashAttribute("successMessage", "Account created successfully. Sign in to continue.");
         return "redirect:/login";
     }
-
-    @GetMapping("/workspace")
-    public String workspace(Authentication authentication, Model model) {
-        model.addAttribute("userEmail", authentication.getName());
-
-        return "workspace";
-    }
-
     private boolean isAuthenticated(Authentication authentication) {
         return authentication != null
             && authentication.isAuthenticated()
