@@ -25,8 +25,12 @@ public class TestIngestionService {
         this.testCaseRepository = testCaseRepository;
     }
 
-    public EtlResultSummary ingestFile(MultipartFile file) {
+    public EtlResultSummary ingestFile(MultipartFile file, String teamKey) {
         String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase();
+
+        if (teamKey == null || teamKey.isBlank()) {
+            return new EtlResultSummary(0, 0, List.of("A valid team is required."), List.of());
+        }
 
         if (file.isEmpty()) {
             return new EtlResultSummary(0, 0, List.of("File is empty."), List.of());
@@ -36,8 +40,8 @@ public class TestIngestionService {
         }
 
         EtlResultSummary parsed = filename.endsWith(".csv")
-                ? csvParserService.parse(file)
-                : excelParserService.parse(file);
+            ? csvParserService.parse(file, teamKey)
+            : excelParserService.parse(file, teamKey);
 
         try {
             if (!parsed.getErrors().isEmpty() || parsed.getTestCases().isEmpty()) {
@@ -45,7 +49,7 @@ public class TestIngestionService {
             }
 
             for (TestCase testcase : parsed.getTestCases()) {
-                if (testCaseRepository.existsByWorkKey(testcase.getWorkKey())) {
+                if (testCaseRepository.existsByTeamKeyAndWorkKey(teamKey, testcase.getWorkKey())) {
                     parsed.getErrors().add("Skipped duplicate test case with workKey: " + testcase.getWorkKey());
                     continue;
                 }

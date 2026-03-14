@@ -1,5 +1,7 @@
 package com.formswim.teststream;
 
+import com.formswim.teststream.auth.model.AppUser;
+import com.formswim.teststream.auth.repository.UserRepository;
 import com.formswim.teststream.etl.model.TestCase;
 import com.formswim.teststream.etl.model.TestStep;
 import com.formswim.teststream.etl.repository.TestCaseRepository;
@@ -31,11 +33,19 @@ class WorkspaceExportIntegrationTests {
     @Autowired
     private TestCaseRepository testCaseRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @BeforeEach
     void setUp() {
         testCaseRepository.deleteAll();
+        userRepository.deleteAll();
+
+        userRepository.save(new AppUser("user@example.com", "$2a$10$WjTRvWwE2MJaPKU6fS5LMObD4FepNKe7J1fLGN9g2M8sOAxYQvNQe", "TEAM1"));
+        userRepository.save(new AppUser("teamb@example.com", "$2a$10$WjTRvWwE2MJaPKU6fS5LMObD4FepNKe7J1fLGN9g2M8sOAxYQvNQe", "TEAM2"));
 
         TestCase first = new TestCase(
+                "TEAM1",
                 "TC-101",
                 "Login works",
                 "Login description",
@@ -64,6 +74,7 @@ class WorkspaceExportIntegrationTests {
         first.addStep(new TestStep(2, "Submit credentials", "user/pass", "Dashboard opens"));
 
         TestCase second = new TestCase(
+            "TEAM2",
                 "TC-202",
                 "Reset password",
                 "Reset description",
@@ -118,5 +129,13 @@ class WorkspaceExportIntegrationTests {
                     + workbook.getSheetAt(0).getRow(2).getCell(13).getStringCellValue();
             assertThat(sheetText).doesNotContain("Reset password");
         }
+    }
+
+    @Test
+    void exportEndpointRejectsSelectedWorkKeysFromAnotherTeam() throws Exception {
+        mockMvc.perform(get("/workspace/export")
+                        .param("workKeys", "TC-202")
+                        .with(user("user@example.com").roles("USER")))
+                .andExpect(status().isForbidden());
     }
 }
