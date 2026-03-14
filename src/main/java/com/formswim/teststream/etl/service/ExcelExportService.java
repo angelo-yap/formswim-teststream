@@ -41,13 +41,13 @@ public class ExcelExportService {
         this.testCaseRepository = testCaseRepository;
     }
 
-    public List<TestCase> getAllTestCasesForExport() {
-        return testCaseRepository.findAllWithSteps();
+    public List<TestCase> getAllTestCasesForExport(String teamKey) {
+        return testCaseRepository.findAllWithStepsByTeamKey(teamKey);
     }
 
-    public List<TestCase> getSelectedTestCasesForExport(Collection<String> requestedWorkKeys) {
+    public List<TestCase> getSelectedTestCasesForExport(String teamKey, Collection<String> requestedWorkKeys) {
         if (requestedWorkKeys == null || requestedWorkKeys.isEmpty()) {
-            return getAllTestCasesForExport();
+            return getAllTestCasesForExport(teamKey);
         }
 
         List<String> normalizedWorkKeys = requestedWorkKeys.stream()
@@ -56,10 +56,16 @@ public class ExcelExportService {
                 .toList();
 
         if (normalizedWorkKeys.isEmpty()) {
-            return getAllTestCasesForExport();
+            return getAllTestCasesForExport(teamKey);
         }
 
-        List<TestCase> testCases = testCaseRepository.findAllWithStepsByWorkKeyIn(normalizedWorkKeys);
+        long scopedMatches = testCaseRepository.countByTeamKeyAndWorkKeyIn(teamKey, normalizedWorkKeys);
+        long totalMatches = testCaseRepository.countByWorkKeyIn(normalizedWorkKeys);
+        if (totalMatches > scopedMatches) {
+            throw new IllegalArgumentException("Requested test cases include work keys outside your team.");
+        }
+
+        List<TestCase> testCases = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn(teamKey, normalizedWorkKeys);
         Map<String, TestCase> byWorkKey = new LinkedHashMap<>();
         for (TestCase testCase : testCases) {
             byWorkKey.put(testCase.getWorkKey(), testCase);

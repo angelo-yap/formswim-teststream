@@ -51,9 +51,14 @@ public class CsvParserService {
     private static final String COL_IS_SHARABLE_STEP = "is shareable step";
     private static final String COL_FLAKY_SCORE      = "flaky score";
 
-    public EtlResultSummary parse(MultipartFile file) {
+    public EtlResultSummary parse(MultipartFile file, String teamKey) {
         List<String> errors = new ArrayList<>();
         List<TestCase> testCases = new ArrayList<>();
+
+        if (teamKey == null || teamKey.isBlank()) {
+            errors.add("A valid team is required.");
+            return new EtlResultSummary(0, 0, errors, testCases);
+        }
 
         try (CSVReader csvReader = new CSVReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
@@ -111,6 +116,7 @@ public class CsvParserService {
 
                 if (!workKey.isEmpty()) {
                     current = new TestCase(
+                            teamKey,
                             workKey,
                             get(row, summaryCol),
                             get(row, descriptionCol),

@@ -1,5 +1,7 @@
 package com.formswim.teststream.etl.controller;
 
+import com.formswim.teststream.auth.model.AppUser;
+import com.formswim.teststream.auth.repository.UserRepository;
 import com.formswim.teststream.etl.dto.EtlResultSummary;
 import com.formswim.teststream.etl.model.TestCase;
 import com.formswim.teststream.etl.repository.TestCaseRepository;
@@ -21,6 +23,7 @@ import com.formswim.teststream.etl.service.ExcelExportService;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Controller
@@ -29,13 +32,16 @@ public class TestCaseController {
     private final TestIngestionService testIngestionService;
     private final TestCaseRepository testCaseRepository;
     private final ExcelExportService excelExportService;
+    private final UserRepository userRepository;
 
     public TestCaseController(TestIngestionService testIngestionService,
                               TestCaseRepository testCaseRepository,
-                              ExcelExportService excelExportService) {
+                              ExcelExportService excelExportService,
+                              UserRepository userRepository) {
         this.testIngestionService = testIngestionService;
         this.testCaseRepository = testCaseRepository;
         this.excelExportService = excelExportService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -50,12 +56,17 @@ public class TestCaseController {
                             @RequestParam(required = false) String status,
                             @RequestParam(required = false) String component) {
 
-        String sessionEmail = resolveUserEmail(session, authentication);
-        if (sessionEmail == null) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
             return "redirect:/login?error=Please log in first";
         }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return "redirect:/login?error=User+is+missing+team+assignment";
+        }
 
-        List<TestCase> cases = testCaseRepository.findAll();
+        String teamKey = user.getTeamKey();
+        List<TestCase> cases = testCaseRepository.findByTeamKey(teamKey);
 
         if (search != null && !search.isBlank()) {
             String q = search.trim().toLowerCase();
@@ -76,9 +87,9 @@ public class TestCaseController {
                 .collect(Collectors.toList());
         }
 
-        model.addAttribute("userEmail", sessionEmail);
+        model.addAttribute("userEmail", user.getEmail());
         model.addAttribute("testCases", cases);
-        model.addAttribute("testCaseCount", testCaseRepository.count());
+        model.addAttribute("testCaseCount", testCaseRepository.countByTeamKey(teamKey));
         model.addAttribute("search", search != null ? search : "");
         model.addAttribute("filterStatus", status != null ? status : "");
         model.addAttribute("filterComponent", component != null ? component : "");
@@ -95,16 +106,20 @@ public class TestCaseController {
                              HttpSession session,
                              Authentication authentication) {
 
-        String sessionEmail = resolveUserEmail(session, authentication);
-        if (sessionEmail == null) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
             return "redirect:/login?error=Please log in first";
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return "redirect:/workspace?importError=User+is+missing+team+assignment";
         }
 
         if (file == null || file.isEmpty()) {
             return "redirect:/workspace?importError=No+file+selected";
         }
 
-        EtlResultSummary result = testIngestionService.ingestFile(file);
+        EtlResultSummary result = testIngestionService.ingestFile(file, user.getTeamKey());
 
         if (!result.getErrors().isEmpty()) {
             String msg = result.getErrors().get(0).replace(" ", "+");
@@ -122,10 +137,15 @@ public class TestCaseController {
     @ResponseBody
     public ResponseEntity<List<TestCase>> apiGetTestCases(HttpSession session,
                                                           Authentication authentication) {
-        if (resolveUserEmail(session, authentication) == null) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
             return ResponseEntity.status(401).build();
         }
-        return ResponseEntity.ok(testCaseRepository.findAllWithSteps());
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(403).build();
+        }
+        return ResponseEntity.ok(testCaseRepository.findAllWithStepsByTeamKey(user.getTeamKey()));
     }
 
     @GetMapping("/workspace/export")
@@ -133,11 +153,21 @@ public class TestCaseController {
     public ResponseEntity<ByteArrayResource> exportSelected(@RequestParam(required = false) List<String> workKeys,
                                                             HttpSession session,
                                                             Authentication authentication) {
-        if (resolveUserEmail(session, authentication) == null) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
-        List<TestCase> testCases = excelExportService.getSelectedTestCasesForExport(workKeys);
+        List<TestCase> testCases;
+        try {
+            testCases = excelExportService.getSelectedTestCasesForExport(user.getTeamKey(), workKeys);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         String filename = buildExportFilename(workKeys == null || workKeys.isEmpty() ? "workspace-export" : "workspace-selected");
         return excelExportService.buildDownloadResponse(testCases, filename);
     }
@@ -152,15 +182,20 @@ public class TestCaseController {
     public ResponseEntity<EtlResultSummary> apiUpload(@RequestParam("file") MultipartFile file,
                                                       HttpSession session,
                                                       Authentication authentication) {
-        if (resolveUserEmail(session, authentication) == null) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
             return ResponseEntity.status(401).build();
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(403).build();
         }
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(new EtlResultSummary(0, 0,
                             List.of("No file selected."), List.of()));
         }
-        EtlResultSummary result = testIngestionService.ingestFile(file);
+        EtlResultSummary result = testIngestionService.ingestFile(file, user.getTeamKey());
         return ResponseEntity.ok(result);
     }
 
@@ -169,11 +204,20 @@ public class TestCaseController {
         return prefix + "-" + date + ".xlsx";
     }
 
-    private String resolveUserEmail(HttpSession session, Authentication authentication) {
+    private Optional<AppUser> resolveCurrentUser(HttpSession session, Authentication authentication) {
         String sessionEmail = (String) session.getAttribute("session_user");
         if (sessionEmail != null && !sessionEmail.isBlank()) {
-            return sessionEmail;
+            return userRepository.findByEmailIgnoreCase(sessionEmail.trim());
         }
+
+        String principalName = resolveAuthenticatedPrincipalName(authentication);
+        if (principalName == null) {
+            return Optional.empty();
+        }
+        return userRepository.findByEmailIgnoreCase(principalName);
+    }
+
+    private String resolveAuthenticatedPrincipalName(Authentication authentication) {
         if (authentication != null && authentication.isAuthenticated()) {
             String principalName = authentication.getName();
             if (principalName != null && !principalName.isBlank() && !"anonymousUser".equals(principalName)) {

@@ -6,14 +6,22 @@ import java.util.List;
 
 // Represents one QMetry test case, mapping to a test case block in the export.
 @Entity
-@Table(name = "test_case")
+@Table(
+    name = "test_case",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_test_case_team_work_key", columnNames = { "team_key", "work_key" })
+    }
+)
 public class TestCase {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "work_key", nullable = false, unique = true, length = 100)
+    @Column(name = "team_key", length = 100)
+    private String teamKey;
+
+    @Column(name = "work_key", nullable = false, length = 100)
     private String workKey;
 
     @Column(columnDefinition = "TEXT")
@@ -89,7 +97,7 @@ public class TestCase {
     protected TestCase() {
     }
 
-    public TestCase(String workKey, String summary, String description,
+    public TestCase(String teamKey, String workKey, String summary, String description,
             String precondition, String status, String priority,
             String assignee, String reporter, String estimatedTime,
             String labels, String components, String sprint,
@@ -97,6 +105,7 @@ public class TestCase {
             String testCaseType, String createdBy, String createdOn,
             String updatedBy, String updatedOn, String storyLinkages,
             String isSharableStep, String flakyScore) {
+        this.teamKey = teamKey;
         this.workKey = workKey;
         this.summary = summary;
         this.description = description;
@@ -129,6 +138,10 @@ public class TestCase {
 
     public Long getId() {
         return id;
+    }
+
+    public String getTeamKey() {
+        return teamKey;
     }
 
     public String getWorkKey() {

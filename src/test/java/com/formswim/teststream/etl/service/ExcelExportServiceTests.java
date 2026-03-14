@@ -19,6 +19,7 @@ class ExcelExportServiceTests {
     @Test
     void exportWorkbookUsesCanonicalHeadersAndFlattensSelectedCases() throws IOException {
         TestCase first = new TestCase(
+                "TEAM1",
                 "TC-101",
                 "Login works",
                 "Login description",
@@ -47,6 +48,7 @@ class ExcelExportServiceTests {
         first.addStep(new TestStep(1, "Open login page", "", "Login form is visible"));
 
         TestCase second = new TestCase(
+            "TEAM1",
                 "TC-202",
                 "Reset password",
                 "Reset description",

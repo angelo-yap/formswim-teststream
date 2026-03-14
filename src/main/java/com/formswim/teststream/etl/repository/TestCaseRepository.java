@@ -12,14 +12,27 @@ import java.util.Optional;
 @Repository
 public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
 
-    @Query("select distinct testCase from TestCase testCase left join fetch testCase.steps")
-    List<TestCase> findAllWithSteps();
+    @Query("select distinct testCase from TestCase testCase left join fetch testCase.steps where testCase.teamKey = :teamKey")
+    List<TestCase> findAllWithStepsByTeamKey(String teamKey);
 
-    @Query("select distinct testCase from TestCase testCase left join fetch testCase.steps where testCase.workKey in :workKeys")
-    List<TestCase> findAllWithStepsByWorkKeyIn(Collection<String> workKeys);
+    @Query("""
+            select distinct testCase
+            from TestCase testCase
+            left join fetch testCase.steps
+            where testCase.teamKey = :teamKey and testCase.workKey in :workKeys
+            """)
+    List<TestCase> findAllWithStepsByTeamKeyAndWorkKeyIn(String teamKey, Collection<String> workKeys);
 
-    Optional<TestCase> findByWorkKey(String workKey);
-    boolean existsByWorkKey(String workKey);
-    List<TestCase> findByFolder(String folder);
-    List<TestCase> findByStatus(String status);
+    List<TestCase> findByTeamKey(String teamKey);
+
+    long countByTeamKey(String teamKey);
+
+    long countByTeamKeyAndWorkKeyIn(String teamKey, Collection<String> workKeys);
+
+    long countByWorkKeyIn(Collection<String> workKeys);
+
+    Optional<TestCase> findByTeamKeyAndWorkKey(String teamKey, String workKey);
+    boolean existsByTeamKeyAndWorkKey(String teamKey, String workKey);
+    List<TestCase> findByTeamKeyAndFolder(String teamKey, String folder);
+    List<TestCase> findByTeamKeyAndStatus(String teamKey, String status);
 }

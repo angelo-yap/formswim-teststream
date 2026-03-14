@@ -90,9 +90,14 @@ public class ExcelParserService {
         return CANONICAL_HEADERS;
     }
 
-    public EtlResultSummary parse(MultipartFile file) {
+    public EtlResultSummary parse(MultipartFile file, String teamKey) {
         List<String> errors = new ArrayList<>();
         List<TestCase> testCases = new ArrayList<>();
+
+        if (teamKey == null || teamKey.isBlank()) {
+            errors.add("A valid team is required.");
+            return new EtlResultSummary(0, 0, errors, testCases);
+        }
 
         String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
         if (!filename.endsWith(".xlsx")) {
@@ -160,6 +165,7 @@ public class ExcelParserService {
                 // A non-empty Work Key starts a new TestCase
                 if (!workKey.isEmpty()) {
                     current = new TestCase(
+                            teamKey,
                             workKey,
                             cell(row, summaryCol),
                             cell(row, descriptionCol),
