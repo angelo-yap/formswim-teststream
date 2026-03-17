@@ -50,3 +50,10 @@ jobs:
         DB_USERNAME: testuser
         DB_PASSWORD: testpassword
       run: ./mvnw clean test -B --no-transfer-progress -Dspring.profiles.active=test
+    - name: Upload Test Reports
+      # This ensures the reports upload even if the previous test step fails
+      if: always() 
+      uses: actions/upload-artifact@v4
+      with:
+        name: spring-boot-test-reports
+        path: target/surefire-reports/
