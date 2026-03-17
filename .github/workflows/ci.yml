@@ -47,6 +47,6 @@ jobs:
       env:
         # override application's env with local container's credentials
         DB_URL: jdbc:postgresql://localhost:5432/testdb
-        DB_USER: testuser
+        DB_USERNAME: testuser
         DB_PASSWORD: testpassword
       run: ./mvnw clean test -B --no-transfer-progress
