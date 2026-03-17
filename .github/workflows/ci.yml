@@ -49,4 +49,4 @@ jobs:
         DB_URL: jdbc:postgresql://localhost:5432/testdb
         DB_USERNAME: testuser
         DB_PASSWORD: testpassword
-      run: ./mvnw clean test -B --no-transfer-progress
+      run: ./mvnw clean test -B --no-transfer-progress -Dspring.profiles.active=test
