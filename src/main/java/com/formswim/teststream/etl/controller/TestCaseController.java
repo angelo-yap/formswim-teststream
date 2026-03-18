@@ -199,6 +199,34 @@ public class TestCaseController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * GET /api/folders
+     * Returns a JSON list of unique folder names 
+     * for populating the workspace folder filter dropdown.
+     * 
+     * @return a JSON string array of unique folder names from the test cases in the database.
+     */
+    @GetMapping("/api/folders")
+    @ResponseBody
+    public ResponseEntity<List<String>> getFoldersByTeamKey(HttpSession session, Authentication authentication) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(401).build();
+        }
+        AppUser user = currentUser.get();
+        // Currently we have this null team key check, if solo teams in the future this would need to be resolved
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(403).build();
+        }
+        List<String> folders = testCaseRepository.findDistinctFolderByTeamKey(user.getTeamKey());
+        return ResponseEntity.ok(folders);
+    }
+
+    /**
+     * Builds an export filename with a given prefix and current date.
+     * @param prefix
+     * @return
+     */
     private String buildExportFilename(String prefix) {
         String date = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         return prefix + "-" + date + ".xlsx";
