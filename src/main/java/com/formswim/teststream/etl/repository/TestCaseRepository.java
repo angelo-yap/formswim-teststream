@@ -22,7 +22,19 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
             where testCase.teamKey = :teamKey and testCase.workKey in :workKeys
             """)
     List<TestCase> findAllWithStepsByTeamKeyAndWorkKeyIn(String teamKey, Collection<String> workKeys);
-
+    
+    
+    
+    @Query("""
+            select distinct trim(testCase.folder)
+            from TestCase testCase
+            where testCase.teamKey = :teamKey
+              and testCase.folder is not null
+              and trim(testCase.folder) <> ''
+            order by trim(testCase.folder)
+            """)
+    List<String> findDistinctFolderByTeamKey(String teamKey);
+    
     List<TestCase> findByTeamKey(String teamKey);
 
     long countByTeamKey(String teamKey);
@@ -30,7 +42,6 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
     long countByTeamKeyAndWorkKeyIn(String teamKey, Collection<String> workKeys);
 
     long countByWorkKeyIn(Collection<String> workKeys);
-
     Optional<TestCase> findByTeamKeyAndWorkKey(String teamKey, String workKey);
     boolean existsByTeamKeyAndWorkKey(String teamKey, String workKey);
     List<TestCase> findByTeamKeyAndFolder(String teamKey, String folder);
