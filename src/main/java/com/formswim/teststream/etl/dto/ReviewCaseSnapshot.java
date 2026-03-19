@@ -1,175 +1,76 @@
-package com.formswim.teststream.etl.model;
-
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OrderBy;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+package com.formswim.teststream.etl.dto;
 
 import java.util.ArrayList;
 import java.util.List;
 
-// Represents one QMetry test case, mapping to a test case block in the export.
-@Entity
-@Table(
-    name = "test_case",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_test_case_team_work_key", columnNames = { "team_key", "work_key" })
-    }
-)
-public class TestCase {
+public class ReviewCaseSnapshot {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "team_key", length = 100)
-    private String teamKey;
-
-    @Column(name = "work_key", nullable = false, length = 100)
     private String workKey;
-
-    @Column(columnDefinition = "TEXT")
     private String summary;
-
-    @Column(columnDefinition = "TEXT")
     private String description;
-
-    @Column(columnDefinition = "TEXT")
     private String precondition;
-
-    @Column(length = 100)
     private String status;
-
-    @Column(length = 100)
     private String priority;
-
-    @Column(name = "assignee", length = 255)
     private String assignee;
-
-    @Column(name = "reporter", length = 255)
     private String reporter;
-
-    @Column(name = "estimated_time", length = 100)
     private String estimatedTime;
-
-    @Column(columnDefinition = "TEXT")
     private String labels;
-
-    @Column(name = "components", length = 255)
     private String components;
-
-    @Column(name = "sprint", length = 255)
     private String sprint;
-
-    @Column(name = "fix_versions", length = 255)
     private String fixVersions;
-
-    @Column(name = "version", length = 100)
     private String version;
-
-    @Column(columnDefinition = "TEXT")
     private String folder;
-
-    @Column(name = "test_case_type", length = 100)
     private String testCaseType;
-
-    @Column(name = "created_by", length = 255)
     private String createdBy;
-
-    @Column(name = "created_on", length = 100)
     private String createdOn;
-
-    @Column(name = "updated_by", length = 255)
     private String updatedBy;
-
-    @Column(name = "updated_on", length = 100)
     private String updatedOn;
-
-    @Column(columnDefinition = "TEXT")
     private String storyLinkages;
-
-    @Column(name = "is_sharable_step", length = 10)
     private String isSharableStep;
-
-    @Column(name = "flaky_score", length = 50)
     private String flakyScore;
+    private List<ReviewStepSnapshot> steps = new ArrayList<>();
 
-    @OneToMany(mappedBy = "testCase", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("stepNumber ASC")
-    private List<TestStep> steps = new ArrayList<>();
-
-    protected TestCase() {
+    public ReviewCaseSnapshot() {
     }
 
-    public TestCase(String teamKey, String workKey, String summary, String description,
-                    String precondition, String status, String priority,
-                    String assignee, String reporter, String estimatedTime,
-                    String labels, String components, String sprint,
-                    String fixVersions, String version, String folder,
-                    String testCaseType, String createdBy, String createdOn,
-                    String updatedBy, String updatedOn, String storyLinkages,
-                    String isSharableStep, String flakyScore) {
-        this.teamKey = teamKey;
-        this.workKey = workKey;
-        this.summary = summary;
-        this.description = description;
-        this.precondition = precondition;
-        this.status = status;
-        this.priority = priority;
-        this.assignee = assignee;
-        this.reporter = reporter;
-        this.estimatedTime = estimatedTime;
-        this.labels = labels;
-        this.components = components;
-        this.sprint = sprint;
-        this.fixVersions = fixVersions;
-        this.version = version;
-        this.folder = folder;
-        this.testCaseType = testCaseType;
-        this.createdBy = createdBy;
-        this.createdOn = createdOn;
-        this.updatedBy = updatedBy;
-        this.updatedOn = updatedOn;
-        this.storyLinkages = storyLinkages;
-        this.isSharableStep = isSharableStep;
-        this.flakyScore = flakyScore;
-    }
-
-    public void addStep(TestStep step) {
-        step.setTestCase(this);
-        steps.add(step);
-    }
-
-    public void replaceSteps(List<TestStep> replacement) {
-        this.steps.clear();
-        if (replacement == null) {
-            return;
+    public ReviewCaseSnapshot copy() {
+        ReviewCaseSnapshot copy = new ReviewCaseSnapshot();
+        copy.workKey = workKey;
+        copy.summary = summary;
+        copy.description = description;
+        copy.precondition = precondition;
+        copy.status = status;
+        copy.priority = priority;
+        copy.assignee = assignee;
+        copy.reporter = reporter;
+        copy.estimatedTime = estimatedTime;
+        copy.labels = labels;
+        copy.components = components;
+        copy.sprint = sprint;
+        copy.fixVersions = fixVersions;
+        copy.version = version;
+        copy.folder = folder;
+        copy.testCaseType = testCaseType;
+        copy.createdBy = createdBy;
+        copy.createdOn = createdOn;
+        copy.updatedBy = updatedBy;
+        copy.updatedOn = updatedOn;
+        copy.storyLinkages = storyLinkages;
+        copy.isSharableStep = isSharableStep;
+        copy.flakyScore = flakyScore;
+        copy.steps = new ArrayList<>();
+        for (ReviewStepSnapshot step : steps) {
+            copy.steps.add(new ReviewStepSnapshot(step.getStepNumber(), step.getStepSummary(), step.getTestData(), step.getExpectedResult()));
         }
-        for (TestStep step : replacement) {
-            addStep(step);
-        }
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getTeamKey() {
-        return teamKey;
-    }
-
-    public void setTeamKey(String teamKey) {
-        this.teamKey = teamKey;
+        return copy;
     }
 
     public String getWorkKey() {
         return workKey;
+    }
+
+    public void setWorkKey(String workKey) {
+        this.workKey = workKey;
     }
 
     public String getSummary() {
@@ -348,7 +249,14 @@ public class TestCase {
         this.flakyScore = flakyScore;
     }
 
-    public List<TestStep> getSteps() {
+    public List<ReviewStepSnapshot> getSteps() {
+        if (steps == null) {
+            steps = new ArrayList<>();
+        }
         return steps;
+    }
+
+    public void setSteps(List<ReviewStepSnapshot> steps) {
+        this.steps = steps == null ? new ArrayList<>() : new ArrayList<>(steps);
     }
 }
