@@ -1,8 +1,10 @@
 package com.formswim.teststream.etl.repository;
 
 import com.formswim.teststream.etl.model.TestCase;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -14,6 +16,32 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
 
     @Query("select distinct testCase from TestCase testCase left join fetch testCase.steps where testCase.teamKey = :teamKey")
     List<TestCase> findAllWithStepsByTeamKey(String teamKey);
+
+    @Query("""
+            select testCase.workKey
+            from TestCase testCase
+            where testCase.teamKey = :teamKey
+              and testCase.workKey in :workKeys
+            """)
+    List<String> findOwnedWorkKeysIn(@Param("teamKey") String teamKey, @Param("workKeys") Collection<String> workKeys);
+
+    @Query("""
+            select distinct testCase.workKey
+            from TestCase testCase
+            where testCase.workKey in :workKeys
+            """)
+    List<String> findExistingWorkKeysIn(@Param("workKeys") Collection<String> workKeys);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update TestCase testCase
+            set testCase.folder = :targetFolder
+            where testCase.teamKey = :teamKey
+              and testCase.workKey in :workKeys
+            """)
+    int bulkMoveToFolderByTeamKeyAndWorkKeys(@Param("teamKey") String teamKey,
+                                             @Param("workKeys") Collection<String> workKeys,
+                                             @Param("targetFolder") String targetFolder);
 
     @Query("""
             select distinct testCase

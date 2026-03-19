@@ -2,14 +2,15 @@ package com.formswim.teststream.etl.service;
 
 import com.formswim.teststream.etl.dto.BulkMoveRequest;
 import com.formswim.teststream.etl.dto.BulkMoveResult;
-import com.formswim.teststream.etl.model.TestCase;
 import com.formswim.teststream.etl.repository.TestCaseRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class TestCaseBulkMoveService {
@@ -52,16 +53,19 @@ public class TestCaseBulkMoveService {
             return result;
         }
 
+        List<String> normalizedWorkKeys = new ArrayList<>(normalizedUniqueWorkKeys);
+        Set<String> ownedWorkKeys = new HashSet<>(testCaseRepository.findOwnedWorkKeysIn(teamKey, normalizedWorkKeys));
+        Set<String> existingWorkKeys = new HashSet<>(testCaseRepository.findExistingWorkKeysIn(normalizedWorkKeys));
+
         List<String> allowedWorkKeys = new ArrayList<>();
-        for (String workKey : normalizedUniqueWorkKeys) {
-            if (testCaseRepository.existsByTeamKeyAndWorkKey(teamKey, workKey)) {
+        for (String workKey : normalizedWorkKeys) {
+            if (ownedWorkKeys.contains(workKey)) {
                 allowedWorkKeys.add(workKey);
                 continue;
             }
 
-            // Distinguish between cross-team keys and truly missing keys for frontend feedback.
-            boolean existsInAnotherTeam = testCaseRepository.countByWorkKeyIn(List.of(workKey)) > 0;
-            if (existsInAnotherTeam) {
+            // Classify each non-owned key for frontend feedback without per-key database calls.
+            if (existingWorkKeys.contains(workKey)) {
                 addFailure(result, workKey, FAILURE_FORBIDDEN);
                 result.setForbiddenCount(result.getForbiddenCount() + 1);
             } else {
@@ -75,12 +79,9 @@ public class TestCaseBulkMoveService {
         }
 
         String trimmedTargetFolder = request.getTargetFolder().trim();
-        List<TestCase> testCasesToMove = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn(teamKey, allowedWorkKeys);
-        for (TestCase testCase : testCasesToMove) {
-            testCase.setFolder(trimmedTargetFolder);
-        }
-        testCaseRepository.saveAll(testCasesToMove);
-        result.setMovedCount(testCasesToMove.size());
+        // Apply one scoped update statement for all eligible keys in this request.
+        int movedCount = testCaseRepository.bulkMoveToFolderByTeamKeyAndWorkKeys(teamKey, allowedWorkKeys, trimmedTargetFolder);
+        result.setMovedCount(movedCount);
         return result;
     }
 
