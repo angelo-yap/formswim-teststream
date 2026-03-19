@@ -11,6 +11,7 @@ import com.formswim.teststream.etl.model.TestCase;
 import com.formswim.teststream.etl.repository.TestCaseRepository;
 import jakarta.validation.Valid;
 import com.formswim.teststream.etl.service.ExcelExportService;
+import com.formswim.teststream.etl.service.TestCaseBulkMoveService;
 import com.formswim.teststream.etl.service.TestIngestionService;
 import com.formswim.teststream.etl.service.UploadReviewService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,17 +46,20 @@ public class TestCaseController {
 
     private final TestCaseRepository testCaseRepository;
     private final ExcelExportService excelExportService;
+    private final TestCaseBulkMoveService testCaseBulkMoveService;
     private final TestIngestionService testIngestionService;
     private final UploadReviewService uploadReviewService;
     private final UserRepository userRepository;
 
     public TestCaseController(TestCaseRepository testCaseRepository,
                               ExcelExportService excelExportService,
+                              TestCaseBulkMoveService testCaseBulkMoveService,
                               TestIngestionService testIngestionService,
                               UploadReviewService uploadReviewService,
                               UserRepository userRepository) {
         this.testCaseRepository = testCaseRepository;
         this.excelExportService = excelExportService;
+        this.testCaseBulkMoveService = testCaseBulkMoveService;
         this.testIngestionService = testIngestionService;
         this.uploadReviewService = uploadReviewService;
         this.userRepository = userRepository;
@@ -300,10 +304,8 @@ public class TestCaseController {
             return ResponseEntity.badRequest().build();
         }
 
-        // Currently not implemented
-        int requestedCount = request.getWorkKeys() == null ? 0 : request.getWorkKeys().size();
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
-            .body(BulkMoveResult.phaseOneNotImplemented(requestedCount));
+        BulkMoveResult result = testCaseBulkMoveService.bulkMoveByWorkKeys(user.getTeamKey(), request);
+        return ResponseEntity.ok(result);
     }
 
     /**
