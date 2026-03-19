@@ -25,7 +25,14 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
     
     
     
-    @Query("select distinct testCase.folder from TestCase testCase where testCase.teamKey = :teamKey")
+    @Query("""
+            select distinct trim(testCase.folder)
+            from TestCase testCase
+            where testCase.teamKey = :teamKey
+              and testCase.folder is not null
+              and trim(testCase.folder) <> ''
+            order by trim(testCase.folder)
+            """)
     List<String> findDistinctFolderByTeamKey(String teamKey);
     
     List<TestCase> findByTeamKey(String teamKey);

@@ -286,7 +286,10 @@ public class TestCaseController {
         if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
             return ResponseEntity.status(403).build();
         }
-        List<String> folders = testCaseRepository.findDistinctFolderByTeamKey(user.getTeamKey());
+        List<String> folders = testCaseRepository.findDistinctFolderByTeamKey(user.getTeamKey())
+            .stream()
+            .sorted()
+            .collect(Collectors.toList());
         return ResponseEntity.ok(folders);
     }
 

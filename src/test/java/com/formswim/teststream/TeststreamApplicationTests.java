@@ -68,6 +68,28 @@ class TeststreamApplicationTests {
 				.andExpect(jsonPath("$", containsInAnyOrder("Auth/Login", "Auth/Signup")));
 	}
 
+	@Test
+	void getFoldersReturnsCleanSortedCaseSensitiveWhitespaceNormalizedArray() throws Exception {
+		testCaseRepository.deleteAll();
+		testCaseRepository.saveAll(List.of(
+				testCase("TEAM1", "TC-301", " UI "),
+				testCase("TEAM1", "TC-302", "UI"),
+				testCase("TEAM1", "TC-303", "ui"),
+				testCase("TEAM1", "TC-304", "Billing"),
+				testCase("TEAM1", "TC-305", ""),
+				testCase("TEAM1", "TC-306", "   "),
+				testCase("TEAM1", "TC-307", null)
+		));
+
+		mockMvc.perform(get("/api/folders")
+					.with(user("team1.user@example.com").roles("USER")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(3)))
+				.andExpect(jsonPath("$[0]").value("Billing"))
+				.andExpect(jsonPath("$[1]").value("UI"))
+				.andExpect(jsonPath("$[2]").value("ui"));
+	}
+
 	private TestCase testCase(String teamKey, String workKey, String folder) {
 		return new TestCase(
 				teamKey,
