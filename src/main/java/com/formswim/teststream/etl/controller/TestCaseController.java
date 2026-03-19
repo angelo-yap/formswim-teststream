@@ -2,11 +2,14 @@ package com.formswim.teststream.etl.controller;
 
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
+import com.formswim.teststream.etl.dto.BulkMoveRequest;
+import com.formswim.teststream.etl.dto.BulkMoveResult;
 import com.formswim.teststream.etl.dto.EtlResultSummary;
 import com.formswim.teststream.etl.dto.ReviewApplyResult;
 import com.formswim.teststream.etl.dto.UploadReviewSessionView;
 import com.formswim.teststream.etl.model.TestCase;
 import com.formswim.teststream.etl.repository.TestCaseRepository;
+import jakarta.validation.Valid;
 import com.formswim.teststream.etl.service.ExcelExportService;
 import com.formswim.teststream.etl.service.TestIngestionService;
 import com.formswim.teststream.etl.service.UploadReviewService;
@@ -19,9 +22,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
@@ -265,6 +270,40 @@ public class TestCaseController {
         }
         EtlResultSummary result = testIngestionService.ingestFile(file, user.getTeamKey());
         return ResponseEntity.ok(result);
+    }
+    /**
+     * PATCH /api/testcases/bulk-move
+     * Endpoint accepts a list of test case work keys and a target folder
+     * and moves the specified test cases to the target folder, returning a summary of the results.
+     * @param request
+     * @param session
+     * @param authentication
+     * @return a summary of the bulk move results, including counts of moved, forbidden, not found, and any failures with reasons.
+     */
+    @PatchMapping("/api/testcases/bulk-move")
+    @ResponseBody
+    public ResponseEntity<BulkMoveResult> apiBulkMoveTestCases(@Valid @RequestBody BulkMoveRequest request,
+                                                               HttpSession session,
+                                                               Authentication authentication) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        String targetFolder = request.getTargetFolder() == null ? "" : request.getTargetFolder().trim();
+        if (targetFolder.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Currently not implemented
+        int requestedCount = request.getWorkKeys() == null ? 0 : request.getWorkKeys().size();
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+            .body(BulkMoveResult.phaseOneNotImplemented(requestedCount));
     }
 
     /**
