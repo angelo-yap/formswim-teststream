@@ -1,0 +1,484 @@
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Upload</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;700;900&display=swap" rel="stylesheet">
+</head>
+<body class="bg-black text-white" style="font-family: 'Work Sans', sans-serif;">
+<div class="min-h-screen">
+    <header class="border-b border-white/10">
+        <div class="w-full px-6 sm:px-8 py-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex-1 min-w-0">
+                <p class="text-xs uppercase tracking-wider text-white/45 font-bold">Upload review</p>
+                <h1 class="mt-2 text-2xl font-semibold text-white/90">Resolve Duplicate Test Cases Before Saving</h1>
+                <p class="mt-2 text-sm text-white/55">
+                    Review the staged upload, compare the changed <span class="text-white/80">workKey</span> records,
+                    and decide which ones to skip or merge.
+                </p>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:block text-right min-w-0">
+                    <p class="text-xs uppercase tracking-wider text-white/45 font-bold">Account</p>
+                    <p class="text-sm text-white/70 truncate" th:text="${userEmail != null ? userEmail : 'Signed in'}">Signed in</p>
+                </div>
+                <a th:href="@{/workspace}" class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
+                    Back to workspace
+                </a>
+                <form th:action="@{/logout}" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                    <button type="submit" class="px-4 py-2 text-black font-bold hover:opacity-80 transition-opacity text-sm" style="background-color: #E7FF02;">
+                        Logout
+                    </button>
+                </form>
+            </div>
+        </div>
+    </header>
+
+    <main class="px-6 sm:px-8 py-6 space-y-6">
+        <section class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div class="border border-white/10 bg-black/95 p-4">
+                <p class="text-xs uppercase tracking-wider text-white/45 font-bold">File</p>
+                <p class="mt-2 text-sm text-white/80 break-all" th:text="${reviewSession.originalFilename}">upload.xlsx</p>
+            </div>
+            <div class="border border-white/10 bg-black/95 p-4">
+                <p class="text-xs uppercase tracking-wider text-white/45 font-bold">Parsed</p>
+                <p class="mt-2 text-xl text-white/85"><span th:text="${reviewSession.parsedTestCaseCount}">0</span> cases</p>
+                <p class="text-sm text-white/45"><span th:text="${reviewSession.parsedStepCount}">0</span> steps</p>
+            </div>
+            <div class="border border-white/10 bg-black/95 p-4" style="border-color: rgba(231, 255, 2, 0.2);">
+                <p class="text-xs uppercase tracking-wider text-white/45 font-bold">Ready to import</p>
+                <p class="mt-2 text-xl text-white/85"><span th:text="${reviewSession.newItemCount}">0</span> new</p>
+                <p class="text-sm text-white/45" th:if="${reviewSession.newItemCount > 0}">These are staged and will be saved when you apply this review.</p>
+                <p class="text-sm text-white/45" th:if="${reviewSession.newItemCount == 0}">No brand-new cases in this file. This review only applies your duplicate merge/skip decisions.</p>
+            </div>
+            <div class="border border-white/10 bg-black/95 p-4">
+                <p class="text-xs uppercase tracking-wider text-white/45 font-bold">Duplicates</p>
+                <p class="mt-2 text-xl text-white/85"><span th:text="${reviewSession.changedItemCount}">0</span> changed</p>
+                <p class="text-sm text-white/45"><span th:text="${reviewSession.duplicateUnchangedCount}">0</span> unchanged duplicates will be skipped automatically.</p>
+            </div>
+        </section>
+
+        <section class="border border-white/10 bg-black/95 p-5" th:if="${#lists.isEmpty(reviewSession.conflictItems)}">
+            <p class="text-sm text-white/70">There are no changed duplicate items in this review session.</p>
+        </section>
+
+        <form th:if="${!#lists.isEmpty(reviewSession.conflictItems)}"
+              th:action="@{'/workspace/import/review/' + ${reviewSession.sessionId} + '/apply'}"
+              method="post"
+              class="space-y-6">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+
+            <section class="space-y-6">
+                <div th:each="item : ${reviewSession.conflictItems}"
+                     class="border border-white/10 bg-black/95 overflow-hidden"
+                     data-review-item="true"
+                     th:attr="data-item-id=${item.itemId}">
+                    <div class="px-5 py-4 border-b border-white/10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                            <p class="text-xs uppercase tracking-wider text-white/45 font-bold">Duplicate workKey</p>
+                            <h2 class="mt-1 text-lg text-white/85" th:text="${item.workKey}">TC-101</h2>
+                            <p class="mt-2 text-sm text-white/45">
+                                <span data-diff-count th:text="${#lists.size(item.changedFields)}">0</span> changed field(s) detected.
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-4">
+                            <label class="inline-flex items-center gap-2 text-sm text-white/75">
+                                <input type="radio"
+                                       class="accent-[#E7FF02]"
+                                       data-action-radio="SKIP"
+                                       th:name="${'action_' + item.itemId}"
+                                       value="SKIP"
+                                       th:checked="${item.chosenAction != 'MERGE'}" />
+                                Skip
+                            </label>
+                            <label class="inline-flex items-center gap-2 text-sm text-white/75">
+                                <input type="radio"
+                                       class="accent-[#E7FF02]"
+                                       data-action-radio="MERGE"
+                                       th:name="${'action_' + item.itemId}"
+                                       value="MERGE"
+                                       th:checked="${item.chosenAction == 'MERGE'}" />
+                                Merge edited upload version
+                            </label>
+                            <button type="button" data-toggle-details class="px-3 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs">
+                                Show details
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-0 hidden" data-review-body>
+                        <div class="border-r border-white/10 p-5 space-y-4">
+                            <div>
+                                <p class="text-xs uppercase tracking-wider text-white/45 font-bold">Detected differences</p>
+                                <div class="mt-3 space-y-3">
+                                    <div th:each="diff : ${item.changedFields}"
+                                         th:if="${diff.fieldKey == 'summary' or diff.fieldKey == 'description' or diff.fieldKey == 'status' or #strings.startsWith(diff.fieldKey, 'step_')}"
+                                         class="border border-white/10 p-3 bg-white/5"
+                                         data-diff-row
+                                         th:attr="data-field-key=${diff.fieldKey}">
+                                        <p class="text-xs uppercase tracking-wider text-white/45 font-bold"
+                                           th:text="${diff.fieldKey == 'summary' ? 'Title' : (diff.fieldKey == 'description' ? 'Summary' : diff.displayName)}">Summary</p>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
+                                            <div>
+                                                <p class="text-xs text-white/45">Current</p>
+                                                <div class="mt-1 whitespace-pre-wrap text-white/75 border border-white/10 p-3" data-current-value th:text="${#strings.isEmpty(diff.existingValue) ? '—' : diff.existingValue}">Current value</div>
+                                                <textarea class="hidden" data-current-raw th:text="${diff.existingValue}"></textarea>
+                                            </div>
+                                            <div>
+                                                <p class="text-xs text-white/45">Updated</p>
+                                                <div class="mt-1 whitespace-pre-wrap text-white/85 border border-white/10 p-3" data-updated-value th:text="${#strings.isEmpty(diff.incomingValue) ? '—' : diff.incomingValue}">Updated value</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p class="hidden text-xs text-white/45" data-diff-empty>No remaining differences. Merge will keep the current values.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-5 space-y-5" data-editable-section>
+                            <div>
+                                <p class="text-xs uppercase tracking-wider text-white/45 font-bold">Editable uploaded version</p>
+                                <p class="mt-2 text-sm text-white/45">Select Merge to edit these values before applying them to the existing test case.</p>
+                                <div class="mt-3 flex flex-wrap items-center gap-2">
+                                    <button type="button" data-set-action="SKIP" class="px-3 py-2 border border-white/20 hover:border-white/60 transition-colors text-xs text-white/75">
+                                        Skip This Case
+                                    </button>
+                                    <button type="button" data-set-action="MERGE" class="px-3 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs text-white/75">
+                                        Merge And Edit
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="space-y-5">
+                                <div>
+                                    <label class="block text-xs uppercase tracking-wider text-white/45 font-bold">Title</label>
+                                    <input type="text"
+                                           class="mt-2 w-full bg-black border border-white/15 px-4 py-3 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]"
+                                           th:name="${'summary_' + item.itemId}"
+                                           th:value="${item.editableSnapshot.summary}" />
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs uppercase tracking-wider text-white/45 font-bold">Summary</label>
+                                    <textarea rows="3"
+                                              class="mt-2 w-full bg-black border border-white/15 px-4 py-3 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]"
+                                              th:name="${'description_' + item.itemId}"
+                                              th:text="${item.editableSnapshot.description}"></textarea>
+                                </div>
+
+                                <div>
+                                    <div class="flex items-center justify-between gap-4">
+                                        <label class="block text-xs uppercase tracking-wider text-white/45 font-bold">Steps</label>
+                                        <span class="text-xs text-white/45">Action • Data • Expected</span>
+                                    </div>
+
+                                    <input type="hidden"
+                                           th:name="${'stepCount_' + item.itemId}"
+                                           th:value="${#lists.size(item.editableSnapshot.steps)}" />
+
+                                    <div class="mt-3 space-y-3">
+                                        <div th:each="step, stepStat : ${item.editableSnapshot.steps}"
+                                             class="border border-white/10 p-4"
+                                             th:attr="data-step-index=${stepStat.index}">
+                                            <input type="hidden"
+                                                   th:name="${'stepNumber_' + item.itemId + '_' + stepStat.index}"
+                                                   th:value="${step.stepNumber}" />
+
+                                            <p class="text-xs text-white/45">Step <span th:text="${step.stepNumber}">1</span></p>
+
+                                            <div class="mt-3 grid grid-cols-1 gap-3">
+                                                <input type="text"
+                                                       class="bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]"
+                                                       placeholder="Action"
+                                                       th:name="${'stepSummary_' + item.itemId + '_' + stepStat.index}"
+                                                       th:value="${step.stepSummary}" />
+
+                                                <input type="text"
+                                                       class="bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]"
+                                                       placeholder="Data"
+                                                       th:name="${'testData_' + item.itemId + '_' + stepStat.index}"
+                                                       th:value="${step.testData}" />
+
+                                                <input type="text"
+                                                       class="bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]"
+                                                       placeholder="Expected"
+                                                       th:name="${'expectedResult_' + item.itemId + '_' + stepStat.index}"
+                                                       th:value="${step.expectedResult}" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="border border-white/10 bg-white/5 p-4">
+                                    <p class="text-xs uppercase tracking-wider text-white/45 font-bold">Context</p>
+
+                                    <div class="mt-2 grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <p class="text-xs text-white/45">Status</p>
+                                            <select th:name="${'status_' + item.itemId}"
+                                                    class="mt-1 w-full bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]">
+                                                <option value="Draft" th:selected="${item.editableSnapshot.status == 'Draft'}">Draft</option>
+                                                <option value="Pass" th:selected="${item.editableSnapshot.status == 'Pass'}">Pass</option>
+                                                <option value="Fail" th:selected="${item.editableSnapshot.status == 'Fail'}">Fail</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <p class="text-xs text-white/45">Last updated</p>
+                                            <p class="text-white/75" th:text="${#strings.isEmpty(item.editableSnapshot.updatedOn) ? '—' : item.editableSnapshot.updatedOn}">—</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3 grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <p class="text-xs text-white/45">Assignee</p>
+                                            <p class="text-white/75" th:text="${#strings.isEmpty(item.editableSnapshot.assignee) ? '—' : item.editableSnapshot.assignee}">—</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs text-white/45">Reporter</p>
+                                            <p class="text-white/75" th:text="${#strings.isEmpty(item.editableSnapshot.reporter) ? '—' : item.editableSnapshot.reporter}">—</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3">
+                                        <p class="text-xs text-white/45">Created on</p>
+                                        <p class="text-white/75" th:text="${#strings.isEmpty(item.editableSnapshot.createdOn) ? '—' : item.editableSnapshot.createdOn}">—</p>
+                                    </div>
+
+                                    <div class="mt-3">
+                                        <p class="text-xs text-white/45">Tags</p>
+                                        <p class="text-white/75"
+                                           th:text="${#strings.isEmpty(item.editableSnapshot.components) and #strings.isEmpty(item.editableSnapshot.testCaseType)
+                                                        ? '—'
+                                                        : (#strings.isEmpty(item.editableSnapshot.components)
+                                                            ? item.editableSnapshot.testCaseType
+                                                            : (#strings.isEmpty(item.editableSnapshot.testCaseType)
+                                                                ? item.editableSnapshot.components
+                                                                : item.editableSnapshot.components + ', ' + item.editableSnapshot.testCaseType))}">
+                                            —
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="sticky bottom-0 z-40">
+                <div class="border border-white/10 bg-black/95 backdrop-blur p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" style="border-color: rgba(231, 255, 2, 0.25);">
+                    <p class="text-sm text-white/70">Apply this review to import the staged new cases and any duplicate cases you marked for merge.</p>
+                    <div class="flex items-center gap-3">
+                        <button type="submit" class="px-5 py-2 text-black font-bold hover:opacity-80 transition-opacity text-sm" style="background-color: #E7FF02;">
+                            Apply review
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <form th:action="@{'/workspace/import/review/' + ${reviewSession.sessionId} + '/cancel'}" method="post" class="pt-2">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+            <button type="submit" class="px-4 py-2 border border-white/20 hover:border-white/60 transition-colors text-sm text-white/70">
+                Discard this review session
+            </button>
+        </form>
+    </main>
+
+    <script>
+        (function () {
+            function normalize(value) {
+                return value == null ? '' : String(value).trim();
+            }
+
+            function displayValue(value) {
+                return normalize(value) === '' ? '-' : String(value);
+            }
+
+            function selectedAction(itemCard, itemId) {
+                const selected = itemCard.querySelector('input[type="radio"][name="action_' + itemId + '"]:checked');
+                return selected ? selected.value : 'SKIP';
+            }
+
+            function setReviewBodyOpen(itemCard, isOpen) {
+                const body = itemCard.querySelector('[data-review-body]');
+                const toggle = itemCard.querySelector('[data-toggle-details]');
+                if (!body || !toggle) {
+                    return;
+                }
+
+                body.classList.toggle('hidden', !isOpen);
+                toggle.textContent = isOpen ? 'Hide details' : 'Show details';
+                toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            }
+
+            function setChosenAction(itemCard, itemId, action) {
+                const radio = itemCard.querySelector('input[type="radio"][name="action_' + itemId + '"][value="' + action + '"]');
+                if (!radio) {
+                    return;
+                }
+
+                if (!radio.checked) {
+                    radio.checked = true;
+                }
+                radio.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            function syncActionButtons(itemCard, itemId) {
+                const action = selectedAction(itemCard, itemId);
+                itemCard.querySelectorAll('[data-set-action]').forEach(function (button) {
+                    const active = button.getAttribute('data-set-action') === action;
+                    button.classList.toggle('text-[#E7FF02]', active);
+                    button.classList.toggle('border-[#E7FF02]', active);
+                });
+            }
+
+            function buildStepPreview(itemCard, itemId, stepNumber) {
+                const stepIndex = stepNumber - 1;
+                if (stepIndex < 0) {
+                    return '';
+                }
+
+                const action = itemCard.querySelector('[name="stepSummary_' + itemId + '_' + stepIndex + '"]');
+                const testData = itemCard.querySelector('[name="testData_' + itemId + '_' + stepIndex + '"]');
+                const expected = itemCard.querySelector('[name="expectedResult_' + itemId + '_' + stepIndex + '"]');
+
+                const actionValue = action ? action.value : '';
+                const dataValue = testData ? testData.value : '';
+                const expectedValue = expected ? expected.value : '';
+
+                if (normalize(actionValue) === '' && normalize(dataValue) === '' && normalize(expectedValue) === '') {
+                    return '';
+                }
+
+                return 'Action: ' + actionValue + '\nData: ' + dataValue + '\nExpected: ' + expectedValue;
+            }
+
+            function editedValue(itemCard, itemId, fieldKey) {
+                if (fieldKey.indexOf('step_') === 0) {
+                    const stepNumber = Number(fieldKey.substring(5));
+                    if (!Number.isFinite(stepNumber)) {
+                        return '';
+                    }
+                    return buildStepPreview(itemCard, itemId, stepNumber);
+                }
+
+                const fieldInput = itemCard.querySelector('[name="' + fieldKey + '_' + itemId + '"]');
+                return fieldInput ? fieldInput.value : '';
+            }
+
+            function refreshDifferences(itemCard) {
+                const itemId = itemCard.getAttribute('data-item-id');
+                if (!itemId) {
+                    return;
+                }
+
+                const rows = itemCard.querySelectorAll('[data-diff-row]');
+                let visibleCount = 0;
+
+                rows.forEach(function (row) {
+                    const fieldKey = row.getAttribute('data-field-key') || '';
+                    const currentRaw = row.querySelector('[data-current-raw]') ? row.querySelector('[data-current-raw]').value : '';
+                    const updatedRaw = editedValue(itemCard, itemId, fieldKey);
+                    const updatedValue = row.querySelector('[data-updated-value]');
+                    if (updatedValue) {
+                        updatedValue.textContent = displayValue(updatedRaw);
+                    }
+
+                    const changed = normalize(currentRaw) !== normalize(updatedRaw);
+                    row.classList.toggle('hidden', !changed);
+                    if (changed) {
+                        visibleCount++;
+                    }
+                });
+
+                const count = itemCard.querySelector('[data-diff-count]');
+                if (count) {
+                    count.textContent = String(visibleCount);
+                }
+
+                const emptyState = itemCard.querySelector('[data-diff-empty]');
+                if (emptyState) {
+                    emptyState.classList.toggle('hidden', visibleCount !== 0);
+                }
+            }
+
+            function syncEditableState(itemCard) {
+                const itemId = itemCard.getAttribute('data-item-id');
+                if (!itemId) {
+                    return;
+                }
+
+                const mergeRadio = itemCard.querySelector('input[type="radio"][name="action_' + itemId + '"][value="MERGE"]');
+                const isMergeSelected = !!(mergeRadio && mergeRadio.checked);
+                const editableSection = itemCard.querySelector('[data-editable-section]');
+                if (!editableSection) {
+                    return;
+                }
+
+                editableSection.classList.toggle('opacity-60', !isMergeSelected);
+                editableSection.querySelectorAll('input[type="text"], textarea, select').forEach(function (field) {
+                    field.disabled = !isMergeSelected;
+                });
+                syncActionButtons(itemCard, itemId);
+            }
+
+            document.querySelectorAll('[data-review-item="true"]').forEach(function (itemCard) {
+                const itemId = itemCard.getAttribute('data-item-id');
+                if (!itemId) {
+                    return;
+                }
+
+                itemCard.querySelectorAll('input[type="radio"][name="action_' + itemId + '"]').forEach(function (radio) {
+                    radio.addEventListener('change', function () {
+                        syncEditableState(itemCard);
+                        refreshDifferences(itemCard);
+                        if (selectedAction(itemCard, itemId) === 'MERGE') {
+                            setReviewBodyOpen(itemCard, true);
+                        }
+                    });
+                });
+
+                const toggleDetails = itemCard.querySelector('[data-toggle-details]');
+                if (toggleDetails) {
+                    toggleDetails.addEventListener('click', function () {
+                        const body = itemCard.querySelector('[data-review-body]');
+                        if (!body) {
+                            return;
+                        }
+                        setReviewBodyOpen(itemCard, body.classList.contains('hidden'));
+                    });
+                }
+
+                itemCard.querySelectorAll('[data-set-action]').forEach(function (button) {
+                    button.addEventListener('click', function () {
+                        const action = button.getAttribute('data-set-action');
+                        if (!action) {
+                            return;
+                        }
+                        setChosenAction(itemCard, itemId, action);
+                    });
+                });
+
+                itemCard.querySelectorAll('[data-editable-section] input[type="text"], [data-editable-section] textarea, [data-editable-section] select').forEach(function (field) {
+                    field.addEventListener('input', function () {
+                        refreshDifferences(itemCard);
+                    });
+                    field.addEventListener('change', function () {
+                        refreshDifferences(itemCard);
+                    });
+                });
+
+                syncEditableState(itemCard);
+                refreshDifferences(itemCard);
+                setReviewBodyOpen(itemCard, selectedAction(itemCard, itemId) === 'MERGE');
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>
