@@ -3,23 +3,31 @@ package com.formswim.teststream.etl.controller;
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
 import com.formswim.teststream.etl.dto.EtlResultSummary;
+import com.formswim.teststream.etl.dto.ReviewApplyResult;
+import com.formswim.teststream.etl.dto.UploadReviewSessionView;
 import com.formswim.teststream.etl.model.TestCase;
 import com.formswim.teststream.etl.repository.TestCaseRepository;
+import com.formswim.teststream.etl.service.ExcelExportService;
 import com.formswim.teststream.etl.service.TestIngestionService;
-
+import com.formswim.teststream.etl.service.UploadReviewService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
-
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.formswim.teststream.etl.service.ExcelExportService;
-
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -27,53 +35,55 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Controller
+@RequestMapping
 public class TestCaseController {
 
-    private final TestIngestionService testIngestionService;
     private final TestCaseRepository testCaseRepository;
     private final ExcelExportService excelExportService;
+    private final TestIngestionService testIngestionService;
+    private final UploadReviewService uploadReviewService;
     private final UserRepository userRepository;
 
-    public TestCaseController(TestIngestionService testIngestionService,
-                              TestCaseRepository testCaseRepository,
+    public TestCaseController(TestCaseRepository testCaseRepository,
                               ExcelExportService excelExportService,
+                              TestIngestionService testIngestionService,
+                              UploadReviewService uploadReviewService,
                               UserRepository userRepository) {
-        this.testIngestionService = testIngestionService;
         this.testCaseRepository = testCaseRepository;
         this.excelExportService = excelExportService;
+        this.testIngestionService = testIngestionService;
+        this.uploadReviewService = uploadReviewService;
         this.userRepository = userRepository;
     }
 
-    /**
-     * GET /workspace
-     * Loads all test cases from DB, applies optional search/filter params, renders workspace view.
-     */
     @GetMapping("/workspace")
     public String workspace(HttpSession session,
                             Authentication authentication,
-                            Model model,
                             @RequestParam(required = false) String search,
                             @RequestParam(required = false) String status,
-                            @RequestParam(required = false) String component) {
+                            @RequestParam(required = false) String component,
+                            @RequestParam(required = false) String importError,
+                            @RequestParam(required = false) String importSuccess,
+                            Model model) {
 
         Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
-            return "redirect:/login?error=Please log in first";
+            return "redirect:/login?error=Please+log+in+first";
         }
         AppUser user = currentUser.get();
         if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return "redirect:/login?error=User+is+missing+team+assignment";
+            return "redirect:/login?error=No+team+assigned";
         }
 
         String teamKey = user.getTeamKey();
-        List<TestCase> cases = testCaseRepository.findByTeamKey(teamKey);
+        List<TestCase> cases = testCaseRepository.findAllWithStepsByTeamKey(teamKey);
 
         if (search != null && !search.isBlank()) {
             String q = search.trim().toLowerCase();
             cases = cases.stream()
-                .filter(tc -> (tc.getWorkKey()   != null && tc.getWorkKey().toLowerCase().contains(q))
-                           || (tc.getSummary()   != null && tc.getSummary().toLowerCase().contains(q))
-                           || (tc.getComponents()!= null && tc.getComponents().toLowerCase().contains(q)))
+                .filter(tc -> (tc.getWorkKey() != null && tc.getWorkKey().toLowerCase().contains(q))
+                    || (tc.getSummary() != null && tc.getSummary().toLowerCase().contains(q))
+                    || (tc.getComponents() != null && tc.getComponents().toLowerCase().contains(q)))
                 .collect(Collectors.toList());
         }
         if (status != null && !status.isBlank()) {
@@ -93,14 +103,12 @@ public class TestCaseController {
         model.addAttribute("search", search != null ? search : "");
         model.addAttribute("filterStatus", status != null ? status : "");
         model.addAttribute("filterComponent", component != null ? component : "");
+        model.addAttribute("importErrorMessage", importError);
+        model.addAttribute("importSuccessMessage", importSuccess);
 
         return "workspace";
     }
 
-    /**
-     * POST /workspace/import
-     * Accepts a multipart .xlsx file, parses and saves to DB, then redirects back to /workspace.
-     */
     @PostMapping("/workspace/import")
     public String importFile(@RequestParam("file") MultipartFile file,
                              HttpSession session,
@@ -108,31 +116,97 @@ public class TestCaseController {
 
         Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
-            return "redirect:/login?error=Please log in first";
+            return "redirect:/login?error=Please+log+in+first";
         }
         AppUser user = currentUser.get();
         if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return "redirect:/workspace?importError=User+is+missing+team+assignment";
+            return "redirect:/workspace?importError=" + encodeMessage("User is missing team assignment");
         }
-
         if (file == null || file.isEmpty()) {
-            return "redirect:/workspace?importError=No+file+selected";
+            return "redirect:/workspace?importError=" + encodeMessage("No file selected");
         }
 
         EtlResultSummary result = testIngestionService.ingestFile(file, user.getTeamKey());
-
-        if (!result.getErrors().isEmpty()) {
-            String msg = result.getErrors().get(0).replace(" ", "+");
-            return "redirect:/workspace?importError=" + msg;
+        if (result.isReviewRequired() && result.getReviewUrl() != null) {
+            return "redirect:" + result.getReviewUrl();
         }
-
-        return "redirect:/workspace?importSuccess=" + result.getTestCasesParsed();
+        if (result.isExactDuplicateFile()) {
+            return "redirect:/workspace?importError=" + encodeMessage(result.getMessage());
+        }
+        if (!result.getErrors().isEmpty()) {
+            return "redirect:/workspace?importError=" + encodeMessage(result.getErrors().get(0));
+        }
+        return "redirect:/workspace?importSuccess=" + encodeMessage(result.getMessage());
     }
 
-    /**
-     * GET /api/testcases
-     * Returns all test cases as JSON for the front-end to load on page init.
-     */
+    @GetMapping("/workspace/import/review/{sessionId}")
+    public String reviewUpload(@PathVariable String sessionId,
+                               HttpSession session,
+                               Authentication authentication,
+                               Model model) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return "redirect:/login?error=Please+log+in+first";
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return "redirect:/workspace?importError=" + encodeMessage("User is missing team assignment");
+        }
+
+        Optional<UploadReviewSessionView> reviewSession = uploadReviewService.getReviewSessionView(sessionId, user.getTeamKey());
+        if (reviewSession.isEmpty()) {
+            return "redirect:/workspace?importError=" + encodeMessage("Upload review session not found or already closed");
+        }
+
+        model.addAttribute("userEmail", user.getEmail());
+        model.addAttribute("reviewSession", reviewSession.get());
+        return "upload-review";
+    }
+
+    @PostMapping("/workspace/import/review/{sessionId}/apply")
+    public String applyReview(@PathVariable String sessionId,
+                              HttpServletRequest request,
+                              HttpSession session,
+                              Authentication authentication) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return "redirect:/login?error=Please+log+in+first";
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return "redirect:/workspace?importError=" + encodeMessage("User is missing team assignment");
+        }
+
+        try {
+            ReviewApplyResult result = uploadReviewService.applyReview(sessionId, user.getTeamKey(), request.getParameterMap());
+            String message = "Upload applied. Imported " + result.getImportedNewCount() + " new, merged " + result.getMergedCount() + ", skipped " + result.getSkippedCount() + ".";
+            return "redirect:/workspace?importSuccess=" + encodeMessage(message);
+        } catch (IllegalArgumentException exception) {
+            return "redirect:/workspace?importError=" + encodeMessage(exception.getMessage());
+        }
+    }
+
+    @PostMapping("/workspace/import/review/{sessionId}/cancel")
+    public String cancelReview(@PathVariable String sessionId,
+                               HttpSession session,
+                               Authentication authentication) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return "redirect:/login?error=Please+log+in+first";
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return "redirect:/workspace?importError=" + encodeMessage("User is missing team assignment");
+        }
+
+        try {
+            uploadReviewService.cancelReview(sessionId, user.getTeamKey());
+            return "redirect:/workspace?importSuccess=" + encodeMessage("Upload review discarded.");
+        } catch (IllegalArgumentException exception) {
+            return "redirect:/workspace?importError=" + encodeMessage(exception.getMessage());
+        }
+    }
+
     @GetMapping("/api/testcases")
     @ResponseBody
     public ResponseEntity<List<TestCase>> apiGetTestCases(HttpSession session,
@@ -172,11 +246,6 @@ public class TestCaseController {
         return excelExportService.buildDownloadResponse(testCases, filename);
     }
 
-    /**
-     * POST /api/upload
-     * Accepts a multipart CSV or XLSX file, parses and saves to DB, returns JSON summary.
-     * Used by the workspace import button via fetch().
-     */
     @PostMapping("/api/upload")
     @ResponseBody
     public ResponseEntity<EtlResultSummary> apiUpload(@RequestParam("file") MultipartFile file,
@@ -192,8 +261,7 @@ public class TestCaseController {
         }
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest()
-                    .body(new EtlResultSummary(0, 0,
-                            List.of("No file selected."), List.of()));
+                .body(new EtlResultSummary(0, 0, List.of("No file selected."), List.of()));
         }
         EtlResultSummary result = testIngestionService.ingestFile(file, user.getTeamKey());
         return ResponseEntity.ok(result);
@@ -255,4 +323,8 @@ public class TestCaseController {
         return null;
     }
 
+    private String encodeMessage(String message) {
+        String value = message == null ? "" : message;
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
 }

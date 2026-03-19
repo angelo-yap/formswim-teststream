@@ -16,6 +16,11 @@ const filterTag = document.getElementById('wsFilterTag');
 const bulkBar = document.getElementById('bulkBar');
 const bulkCount = document.getElementById('bulkCount');
 const bulkExportSelected = document.getElementById('bulkExportSelected');
+const importNoticeContainer = document.getElementById('importNoticeContainer');
+const importNotice = document.getElementById('importNotice');
+const importNoticeBadge = document.getElementById('importNoticeBadge');
+const importNoticeMessage = document.getElementById('importNoticeMessage');
+const importNoticeClose = document.getElementById('importNoticeClose');
 
 const apiBaseUrl = document.querySelector('meta[name="workspace-api-base"]')?.content || '/api/testcases';
 const exportBaseUrl = document.querySelector('meta[name="workspace-export-base"]')?.content || '/workspace/export';
@@ -50,6 +55,10 @@ selection.setSelectionChangeHandler((selectedIds) => {
 
 drawer.bind(tbody);
 
+if (importNoticeClose) {
+    importNoticeClose.addEventListener('click', clearImportNotice);
+}
+
 if (tbody) {
     tbody.addEventListener('change', (event) => {
         const target = event.target;
@@ -59,6 +68,39 @@ if (tbody) {
 
         selection.toggleSelection(target.dataset.workKey || '', target.checked);
     });
+}
+
+function clearImportNotice() {
+    if (!importNoticeContainer) {
+        return;
+    }
+
+    importNoticeContainer.classList.add('hidden');
+    if (importNoticeMessage) {
+        importNoticeMessage.textContent = '';
+    }
+}
+
+function showImportNotice(type, message) {
+    if (!importNoticeContainer || !importNotice || !importNoticeBadge || !importNoticeMessage || !message) {
+        return;
+    }
+
+    const isSuccess = type === 'success';
+    importNoticeContainer.classList.remove('hidden');
+    importNoticeMessage.textContent = message;
+
+    if (isSuccess) {
+        importNotice.style.borderColor = 'rgba(231, 255, 2, 0.35)';
+        importNoticeBadge.textContent = 'OK';
+        importNoticeBadge.classList.remove('bg-white/70');
+        importNoticeBadge.style.backgroundColor = '#E7FF02';
+    } else {
+        importNotice.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        importNoticeBadge.textContent = 'Error';
+        importNoticeBadge.classList.add('bg-white/70');
+        importNoticeBadge.style.backgroundColor = '';
+    }
 }
 
 function applyFilters() {
@@ -126,6 +168,8 @@ if (importBtn && importFile) {
             return;
         }
 
+        clearImportNotice();
+
         const formData = new FormData();
         formData.append('file', importFile.files[0]);
 
@@ -149,15 +193,27 @@ if (importBtn && importFile) {
                 importBtn.disabled = false;
                 importFile.value = '';
 
-                if (json.errors && json.errors.length > 0) {
-                    window.alert('Import warnings:\n' + json.errors.join('\n'));
+                if (json.reviewRequired && json.reviewUrl) {
+                    window.location.href = json.reviewUrl;
+                    return;
+                }
+
+                if (json.exactDuplicateFile) {
+                    showImportNotice('error', json.message || 'This exact file was already uploaded.');
+                    return;
+                }
+
+                if (json.message) {
+                    showImportNotice('success', json.message);
+                } else if (json.errors && json.errors.length > 0) {
+                    showImportNotice('error', 'Import warnings\n' + json.errors.join('\n'));
                 }
 
                 loadAllTestCases();
             })
             .catch((error) => {
                 console.error('Upload failed', error);
-                window.alert('Import failed. Please try again.');
+                showImportNotice('error', 'Import failed. Please try again.');
                 importBtn.textContent = 'Import';
                 importBtn.disabled = false;
             });

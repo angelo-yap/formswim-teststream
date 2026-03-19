@@ -90,6 +90,51 @@
 			</div>
 		</header>
 
+		<div id="workspaceFlashContainer" class="px-6 sm:px-8 pt-5 space-y-3" th:if="${importSuccessMessage != null or importErrorMessage != null}">
+			<div data-flash-item th:if="${importSuccessMessage != null}" class="border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80" style="border-color: rgba(231, 255, 2, 0.35);">
+				<div class="flex items-start justify-between gap-3">
+					<div class="min-w-0">
+						<span class="font-bold text-black px-2 py-1 mr-3" style="background-color: #E7FF02;">OK</span>
+						<span th:text="${importSuccessMessage}">Upload applied.</span>
+					</div>
+					<button type="button"
+						aria-label="Dismiss notification"
+						class="shrink-0 px-2 py-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs leading-none"
+						onclick="dismissWorkspaceFlash(this)">
+						x
+					</button>
+				</div>
+			</div>
+			<div data-flash-item th:if="${importErrorMessage != null}" class="border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80">
+				<div class="flex items-start justify-between gap-3">
+					<div class="min-w-0">
+						<span class="font-bold text-black px-2 py-1 mr-3 bg-white/70">Error</span>
+						<span th:text="${importErrorMessage}">Import failed.</span>
+					</div>
+					<button type="button"
+						aria-label="Dismiss notification"
+						class="shrink-0 px-2 py-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs leading-none"
+						onclick="dismissWorkspaceFlash(this)">
+						x
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<div id="importNoticeContainer" class="px-6 sm:px-8 pt-5 hidden" aria-live="polite">
+			<div id="importNotice" class="border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80">
+				<div class="flex items-start justify-between gap-3">
+					<div class="min-w-0">
+						<span id="importNoticeBadge" class="font-bold text-black px-2 py-1 mr-3 bg-white/70">Error</span>
+						<span id="importNoticeMessage" class="whitespace-pre-line">Import status.</span>
+					</div>
+					<button id="importNoticeClose" type="button" aria-label="Dismiss notification" class="shrink-0 px-2 py-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs leading-none">
+						x
+					</button>
+				</div>
+			</div>
+		</div>
+
 		<!-- Main view: high-density data grid -->
 		<main class="w-full px-0 sm:px-0">
 			<div class="px-6 sm:px-8 py-6 border-b border-white/10">
@@ -242,6 +287,25 @@
 			</div>
 		</aside>
 	</div>
+
+	<script>
+		function dismissWorkspaceFlash(button) {
+			const item = button.closest('[data-flash-item]');
+			if (item) {
+				item.classList.add('hidden');
+			}
+
+			const container = document.getElementById('workspaceFlashContainer');
+			if (!container) {
+				return;
+			}
+
+			const visibleItems = container.querySelectorAll('[data-flash-item]:not(.hidden)');
+			if (visibleItems.length === 0) {
+				container.classList.add('hidden');
+			}
+		}
+	</script>
 
 	<script type="module" th:src="@{/js/workspace/page.js}"></script>
 </body>
