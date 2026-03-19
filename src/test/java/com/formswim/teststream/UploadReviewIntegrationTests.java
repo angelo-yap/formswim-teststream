@@ -12,6 +12,7 @@ import com.formswim.teststream.etl.repository.TestCaseRepository;
 import com.formswim.teststream.etl.repository.UploadHistoryRepository;
 import com.formswim.teststream.etl.repository.UploadReviewSessionRepository;
 import com.formswim.teststream.etl.service.ExcelParserService;
+import com.formswim.teststream.support.TestCaseFixtures;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
@@ -126,7 +127,15 @@ class UploadReviewIntegrationTests {
 
     @Test
     void changedDuplicateCreatesReviewSessionAndApplyMergesIt() throws Exception {
-        TestCase existing = existingCase("TC-101", "Original summary", "Original description", "Original precondition");
+        TestCase existing = TestCaseFixtures.detailedCase(
+            "TEAM1",
+            "TC-101",
+            "Original summary",
+            "Original description",
+            "Original precondition",
+            "Auth/Login"
+        );
+        existing.addStep(new TestStep(1, "Open login page", "", "Login form shows"));
         testCaseRepository.save(existing);
 
         MockMultipartFile upload = new MockMultipartFile(
@@ -337,37 +346,6 @@ class UploadReviewIntegrationTests {
         assertThat(thirdResult.getDuplicateChangedCount()).isEqualTo(0);
         assertThat(thirdResult.getDuplicateUnchangedCount()).isEqualTo(1);
         assertThat(testCaseRepository.countByTeamKey("TEAM1")).isEqualTo(1);
-    }
-
-    private TestCase existingCase(String workKey, String summary, String description, String precondition) {
-        TestCase testCase = new TestCase(
-            "TEAM1",
-            workKey,
-            summary,
-            description,
-            precondition,
-            "Draft",
-            "High",
-            "Alice",
-            "Bob",
-            "5m",
-            "auth",
-            "UI",
-            "Sprint 1",
-            "1.0",
-            "V1",
-            "Auth/Login",
-            "Regression",
-            "creator@example.com",
-            "2026-03-01",
-            "editor@example.com",
-            "2026-03-02",
-            "ST-1",
-            "No",
-            "1"
-        );
-        testCase.addStep(new TestStep(1, "Open login page", "", "Login form shows"));
-        return testCase;
     }
 
     private byte[] workbookBytes(String[]... rows) throws Exception {
