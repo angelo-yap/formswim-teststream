@@ -1,32 +1,35 @@
 package com.formswim.teststream;
 
-import com.formswim.teststream.auth.model.AppUser;
-import com.formswim.teststream.auth.repository.UserRepository;
-import com.formswim.teststream.auth.service.LoginThrottleService;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasEntry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
-
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
+
+import com.formswim.teststream.auth.model.AppUser;
+import com.formswim.teststream.auth.repository.UserRepository;
+import com.formswim.teststream.auth.service.LoginThrottleService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class AuthSecurityIntegrationTests {
 
     @Autowired
@@ -169,5 +172,55 @@ class AuthSecurityIntegrationTests {
             .andExpect(status().isOk())
             .andExpect(view().name("register"))
             .andExpect(content().string(org.hamcrest.Matchers.containsString("Create your account")));
+    }
+
+    @Test
+    void registerBlankTeamCodeGeneratesNewTeamKey() throws Exception {
+        mockMvc.perform(post("/register")
+                .with(csrf())
+                .param("email", "newuser@example.com")
+                .param("password", "Password123")
+                .param("confirmPassword", "Password123")
+                .param("teamCode", ""))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/login"))
+            .andExpect(flash().attributeExists("successMessage"))
+            .andExpect(flash().attributeExists("generatedTeamCode"));
+
+        AppUser created = userRepository.findByEmailIgnoreCase("newuser@example.com").orElseThrow();
+        assertThat(created.getTeamKey()).isNotBlank();
+        assertThat(created.getTeamKey()).hasSizeGreaterThanOrEqualTo(16);
+
+        mockMvc.perform(get("/workspace").with(user("newuser@example.com").roles("USER")))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void registerUnknownTeamCodeShowsFieldError() throws Exception {
+        mockMvc.perform(post("/register")
+                .with(csrf())
+                .param("email", "unknownteam@example.com")
+                .param("password", "Password123")
+                .param("confirmPassword", "Password123")
+                .param("teamCode", "NOT_A_REAL_TEAM"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/register"))
+            .andExpect(flash().attribute("errorMessage", "Please correct the highlighted fields."))
+            .andExpect(flash().attribute("fieldErrors", hasEntry("teamCode", "Team code not found. Leave blank to create a new team.")));
+    }
+
+    @Test
+    void registerWithExistingTeamCodeJoinsThatTeam() throws Exception {
+        mockMvc.perform(post("/register")
+                .with(csrf())
+                .param("email", "joiner@example.com")
+                .param("password", "Password123")
+                .param("confirmPassword", "Password123")
+                .param("teamCode", "team1"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/login"));
+
+        AppUser created = userRepository.findByEmailIgnoreCase("joiner@example.com").orElseThrow();
+        assertThat(created.getTeamKey()).isEqualTo("TEAM1");
     }
 }
