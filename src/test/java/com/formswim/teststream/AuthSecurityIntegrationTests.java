@@ -1,8 +1,8 @@
 package com.formswim.teststream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasEntry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

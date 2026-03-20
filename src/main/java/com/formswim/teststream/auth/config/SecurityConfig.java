@@ -1,7 +1,5 @@
 package com.formswim.teststream.auth.config;
 
-import com.formswim.teststream.auth.service.AppUserDetailsService;
-import com.formswim.teststream.auth.service.LoginThrottleService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -11,6 +9,9 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
+
+import com.formswim.teststream.auth.service.AppUserDetailsService;
+import com.formswim.teststream.auth.service.LoginThrottleService;
 
 import jakarta.servlet.http.HttpServletRequest;
 

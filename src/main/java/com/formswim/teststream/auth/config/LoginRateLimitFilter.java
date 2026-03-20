@@ -1,14 +1,16 @@
 package com.formswim.teststream.auth.config;
 
+import java.io.IOException;
+import java.time.Duration;
+
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import com.formswim.teststream.auth.service.LoginThrottleService;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.time.Duration;
 
 final class LoginRateLimitFilter extends OncePerRequestFilter {
 
