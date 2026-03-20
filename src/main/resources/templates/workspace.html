@@ -9,6 +9,9 @@
 	<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;700;900&display=swap" rel="stylesheet">
 	<meta name="workspace-api-base" content="/api/testcases">
 	<meta name="workspace-export-base" content="/workspace/export">
+	<style>
+		summary::-webkit-details-marker { display: none; }
+	</style>
 </head>
 
 <body class="bg-black text-white">
@@ -78,6 +81,27 @@
 						<div class="hidden sm:block text-right min-w-0">
 							<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Account</p>
 							<p class="text-sm text-white/70 truncate" th:text="${userEmail != null ? userEmail : 'Signed in'}">Signed in</p>
+						</div>
+						<div class="hidden sm:block text-right min-w-0" th:if="${teamKey != null}">
+							<div class="flex items-center justify-end gap-2">
+								<details>
+									<summary class="cursor-pointer select-none text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">
+										Team code <span aria-hidden="true" class="text-white/45">▾</span>
+									</summary>
+									<div class="mt-2 border border-white/20 bg-white/5 px-3 py-2 text-left">
+										<div id="workspaceTeamCodeValue" class="font-mono text-sm text-white/80 tracking-widest" th:text="${teamKey}">TEAMCODE</div>
+									</div>
+								</details>
+								<button
+									type="button"
+									class="px-3 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs"
+									onclick="copyWorkspaceTeamCode()"
+									id="workspaceCopyTeamCodeButton"
+								>
+									Copy
+								</button>
+							</div>
+							<div class="text-xs text-white/45" id="workspaceCopyTeamCodeStatus" aria-live="polite"></div>
 						</div>
 						<form th:action="@{/logout}" method="post">
 							<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
@@ -303,6 +327,39 @@
 			const visibleItems = container.querySelectorAll('[data-flash-item]:not(.hidden)');
 			if (visibleItems.length === 0) {
 				container.classList.add('hidden');
+			}
+		}
+
+		async function copyWorkspaceTeamCode() {
+			const valueEl = document.getElementById('workspaceTeamCodeValue');
+			const statusEl = document.getElementById('workspaceCopyTeamCodeStatus');
+			const buttonEl = document.getElementById('workspaceCopyTeamCodeButton');
+			const teamCode = valueEl ? valueEl.textContent.trim() : '';
+
+			if (!teamCode) {
+				if (statusEl) statusEl.textContent = 'No team code found.';
+				return;
+			}
+
+			try {
+				if (navigator.clipboard && navigator.clipboard.writeText) {
+					await navigator.clipboard.writeText(teamCode);
+				} else {
+					const input = document.createElement('input');
+					input.value = teamCode;
+					document.body.appendChild(input);
+					input.select();
+					document.execCommand('copy');
+					document.body.removeChild(input);
+				}
+
+				if (statusEl) statusEl.textContent = 'Copied team code.';
+				if (buttonEl) buttonEl.textContent = 'Copied';
+				setTimeout(() => {
+					if (buttonEl) buttonEl.textContent = 'Copy';
+				}, 1200);
+			} catch (e) {
+				if (statusEl) statusEl.textContent = 'Copy failed. Please copy manually.';
 			}
 		}
 	</script>

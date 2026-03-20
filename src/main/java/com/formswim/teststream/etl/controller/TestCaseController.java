@@ -1,21 +1,13 @@
 package com.formswim.teststream.etl.controller;
 
-import com.formswim.teststream.auth.model.AppUser;
-import com.formswim.teststream.auth.repository.UserRepository;
-import com.formswim.teststream.etl.dto.BulkMoveRequest;
-import com.formswim.teststream.etl.dto.BulkMoveResult;
-import com.formswim.teststream.etl.dto.EtlResultSummary;
-import com.formswim.teststream.etl.dto.ReviewApplyResult;
-import com.formswim.teststream.etl.dto.UploadReviewSessionView;
-import com.formswim.teststream.etl.model.TestCase;
-import com.formswim.teststream.etl.repository.TestCaseRepository;
-import jakarta.validation.Valid;
-import com.formswim.teststream.etl.service.ExcelExportService;
-import com.formswim.teststream.etl.service.TestCaseBulkMoveService;
-import com.formswim.teststream.etl.service.TestIngestionService;
-import com.formswim.teststream.etl.service.UploadReviewService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,19 +18,29 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import com.formswim.teststream.auth.model.AppUser;
+import com.formswim.teststream.auth.repository.UserRepository;
+import com.formswim.teststream.etl.dto.BulkMoveRequest;
+import com.formswim.teststream.etl.dto.BulkMoveResult;
+import com.formswim.teststream.etl.dto.EtlResultSummary;
+import com.formswim.teststream.etl.dto.ReviewApplyResult;
+import com.formswim.teststream.etl.dto.UploadReviewSessionView;
+import com.formswim.teststream.etl.model.TestCase;
+import com.formswim.teststream.etl.repository.TestCaseRepository;
+import com.formswim.teststream.etl.service.ExcelExportService;
+import com.formswim.teststream.etl.service.TestCaseBulkMoveService;
+import com.formswim.teststream.etl.service.TestIngestionService;
+import com.formswim.teststream.etl.service.UploadReviewService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 
 @Controller
 @RequestMapping
@@ -107,6 +109,7 @@ public class TestCaseController {
         }
 
         model.addAttribute("userEmail", user.getEmail());
+        model.addAttribute("teamKey", teamKey);
         model.addAttribute("testCases", cases);
         model.addAttribute("testCaseCount", testCaseRepository.countByTeamKey(teamKey));
         model.addAttribute("search", search != null ? search : "");

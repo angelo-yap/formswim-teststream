@@ -85,7 +85,8 @@ class AuthSecurityIntegrationTests {
 
         mockMvc.perform(get("/workspace").with(user("user@example.com").roles("USER")))
             .andExpect(status().isOk())
-            .andExpect(model().attribute("userEmail", "user@example.com"));
+            .andExpect(model().attribute("userEmail", "user@example.com"))
+            .andExpect(model().attribute("teamKey", "TEAM1"));
     }
 
     @Test
