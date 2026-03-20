@@ -26,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
 import com.formswim.teststream.auth.service.LoginThrottleService;
+import com.formswim.teststream.auth.service.TeamCodeThrottleService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -44,12 +45,17 @@ class AuthSecurityIntegrationTests {
     @Autowired
     private LoginThrottleService loginThrottleService;
 
+    @Autowired
+    private TeamCodeThrottleService teamCodeThrottleService;
+
     @BeforeEach
     void setUp() {
         userRepository.deleteAll();
         loginThrottleService.resetFailures("user@example.com");
         loginThrottleService.resetFailures("disabled@example.com");
         loginThrottleService.resetFailures("missing@example.com");
+        teamCodeThrottleService.resetFailures("127.0.0.1");
+        teamCodeThrottleService.resetFailures("203.0.113.10");
 
         userRepository.save(new AppUser("user@example.com", passwordEncoder.encode("Password123"), "TEAM1"));
 
@@ -223,5 +229,38 @@ class AuthSecurityIntegrationTests {
 
         AppUser created = userRepository.findByEmailIgnoreCase("joiner@example.com").orElseThrow();
         assertThat(created.getTeamKey()).isEqualTo("TEAM1");
+    }
+
+    @Test
+    void repeatedUnknownTeamCodeAttemptsBlockRegistrationFromSameIp() throws Exception {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            mockMvc.perform(post("/register")
+                    .with(csrf())
+                    .with(request -> {
+                        request.setRemoteAddr("203.0.113.10");
+                        return request;
+                    })
+                    .param("email", "ipblock" + attempt + "@example.com")
+                    .param("password", "Password123")
+                    .param("confirmPassword", "Password123")
+                    .param("teamCode", "NOT_A_REAL_TEAM"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/register"))
+                .andExpect(flash().attribute("errorMessage", "Please correct the highlighted fields."));
+        }
+
+        mockMvc.perform(post("/register")
+                .with(csrf())
+                .with(request -> {
+                    request.setRemoteAddr("203.0.113.10");
+                    return request;
+                })
+                .param("email", "blocked@example.com")
+                .param("password", "Password123")
+                .param("confirmPassword", "Password123")
+                .param("teamCode", "NOT_A_REAL_TEAM"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/register"))
+            .andExpect(flash().attribute("errorMessage", "Too many attempts. Please try again later."));
     }
 }

@@ -18,7 +18,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.formswim.teststream.auth.dto.RegistrationForm;
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
+import com.formswim.teststream.auth.service.TeamCodeThrottleService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 
@@ -31,10 +33,12 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TeamCodeThrottleService teamCodeThrottleService;
 
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, TeamCodeThrottleService teamCodeThrottleService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.teamCodeThrottleService = teamCodeThrottleService;
     }
 
     // Shows landing page
@@ -68,7 +72,8 @@ public class AuthController {
     @PostMapping("/register")
     public String register(@Valid @ModelAttribute RegistrationForm registrationForm,
                            BindingResult bindingResult,
-                           RedirectAttributes redirectAttributes) {
+                           RedirectAttributes redirectAttributes,
+                           HttpServletRequest request) {
         String normalizedEmail = AppUser.normalizeEmail(registrationForm.getEmail());
         Map<String, String> fieldErrors = new LinkedHashMap<>();
 
@@ -93,9 +98,18 @@ public class AuthController {
             normalizedTeamCode = generateUniqueTeamCode();
             generatedTeam = true;
         } else {
+            String clientIp = getClientIp(request);
+            if (teamCodeThrottleService.isBlocked(clientIp)) {
+                redirectAttributes.addFlashAttribute("errorMessage", "Too many attempts. Please try again later.");
+                redirectAttributes.addFlashAttribute("email", registrationForm.getEmail());
+                redirectAttributes.addFlashAttribute("teamCode", registrationForm.getTeamCode());
+                return "redirect:/register";
+            }
+
             // A team "exists" if any user is already assigned that team key.
             if (!userRepository.existsByTeamKeyIgnoreCase(normalizedTeamCode)) {
                 fieldErrors.putIfAbsent("teamCode", "Team code not found. Leave blank to create a new team.");
+                teamCodeThrottleService.recordFailure(clientIp);
             }
         }
 
@@ -129,6 +143,17 @@ public class AuthController {
             return "";
         }
         return trimmed.toUpperCase();
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        if (request == null) {
+            return "";
+        }
+
+        // With server.forward-headers-strategy=framework, Spring will translate proxy headers
+        // (Forwarded / X-Forwarded-For) so getRemoteAddr() reflects the real client when behind a proxy.
+        String remote = request.getRemoteAddr();
+        return remote == null ? "" : remote;
     }
 
     private String generateUniqueTeamCode() {
