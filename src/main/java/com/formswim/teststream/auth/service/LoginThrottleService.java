@@ -21,7 +21,7 @@ public class LoginThrottleService {
 
     private final Cache<String, AttemptRecord> attempts = Caffeine.newBuilder()
         .maximumSize(10_000)
-        .expireAfterWrite(WINDOW_DURATION)
+        .expireAfterAccess(MAX_BLOCK_DURATION)
         .build();
     private final Clock clock;
 

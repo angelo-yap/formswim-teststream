@@ -18,7 +18,7 @@ public class TeamCodeThrottleService {
 
     private final Cache<String, AttemptRecord> attempts = Caffeine.newBuilder()
         .maximumSize(10_000)
-        .expireAfterWrite(Duration.ofMinutes(30))
+        .expireAfterAccess(INACTIVITY_RESET_AFTER)
         .build();
     private final Clock clock;
 

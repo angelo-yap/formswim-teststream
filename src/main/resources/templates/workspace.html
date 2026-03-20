@@ -85,6 +85,7 @@
 									onclick="toggleWorkspaceHeaderDropdown('account')"
 									aria-haspopup="true"
 									aria-controls="workspaceAccountDropdown"
+									aria-expanded="false"
 									id="workspaceAccountToggle"
 								>
 									Account <span aria-hidden="true" class="text-white/45">▾</span>
@@ -109,6 +110,7 @@
 									onclick="toggleWorkspaceHeaderDropdown('team')"
 									aria-haspopup="true"
 									aria-controls="workspaceTeamCodeDropdown"
+									aria-expanded="false"
 									id="workspaceTeamCodeToggle"
 								>
 									Team code <span aria-hidden="true" class="text-white/45">▾</span>
@@ -363,6 +365,8 @@
 		function toggleWorkspaceHeaderDropdown(which) {
 			const account = document.getElementById('workspaceAccountDropdown');
 			const team = document.getElementById('workspaceTeamCodeDropdown');
+			const accountToggle = document.getElementById('workspaceAccountToggle');
+			const teamToggle = document.getElementById('workspaceTeamCodeToggle');
 
 			const isAccountOpen = account && !account.classList.contains('hidden');
 			const isTeamOpen = team && !team.classList.contains('hidden');
@@ -372,6 +376,8 @@
 
 			if (account) account.classList.toggle('hidden', !nextAccountOpen);
 			if (team) team.classList.toggle('hidden', !nextTeamOpen);
+			if (accountToggle) accountToggle.setAttribute('aria-expanded', nextAccountOpen ? 'true' : 'false');
+			if (teamToggle) teamToggle.setAttribute('aria-expanded', nextTeamOpen ? 'true' : 'false');
 		}
 
 		function onWorkspaceTeamCodeKeydown(event) {

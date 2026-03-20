@@ -2,6 +2,7 @@ package com.formswim.teststream.auth.controller;
 
 import java.security.SecureRandom;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -142,7 +143,7 @@ public class AuthController {
         if (trimmed.isBlank()) {
             return "";
         }
-        return trimmed.toUpperCase();
+        return trimmed.toUpperCase(Locale.ROOT);
     }
 
     private String getClientIp(HttpServletRequest request) {
