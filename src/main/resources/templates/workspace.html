@@ -87,7 +87,7 @@
 									aria-controls="workspaceAccountDropdown"
 									id="workspaceAccountToggle"
 								>
-									Account
+									Account <span aria-hidden="true" class="text-white/45">▾</span>
 								</button>
 								<div
 									id="workspaceAccountDropdown"
@@ -120,17 +120,31 @@
 									aria-label="Team code"
 								>
 									<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Team code</p>
-									<div
-										id="workspaceTeamCodeValue"
-										class="mt-2 font-mono text-sm text-white/80 tracking-widest cursor-pointer select-text"
-										th:text="${teamKey}"
-										title="Copy to clipboard"
-										role="button"
-										tabindex="0"
-										onclick="copyWorkspaceTeamCode()"
-										onkeydown="onWorkspaceTeamCodeKeydown(event)"
-									>
-										TEAMCODE
+									<div class="mt-2 flex items-center justify-between gap-2">
+										<div
+											id="workspaceTeamCodeValue"
+											class="font-mono text-sm text-white/80 tracking-widest cursor-pointer select-text transition-colors hover:text-white"
+											th:text="${teamKey}"
+											title="Copy to clipboard"
+											role="button"
+											tabindex="0"
+											onclick="copyWorkspaceTeamCode()"
+											onkeydown="onWorkspaceTeamCodeKeydown(event)"
+										>
+											TEAMCODE
+										</div>
+										<button
+											type="button"
+											class="shrink-0 p-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors"
+											aria-label="Copy team code"
+											title="Copy to clipboard"
+											onclick="copyWorkspaceTeamCode()"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4">
+												<rect x="9" y="9" width="10" height="10" rx="1"></rect>
+												<rect x="5" y="5" width="10" height="10" rx="1"></rect>
+											</svg>
+										</button>
 									</div>
 									<div class="text-xs text-white/45 mt-2" id="workspaceCopyTeamCodeStatus" aria-live="polite"></div>
 								</div>
