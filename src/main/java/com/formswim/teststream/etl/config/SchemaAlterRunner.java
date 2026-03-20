@@ -1,5 +1,7 @@
 package com.formswim.teststream.etl.config;
 
+import java.sql.Connection;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -35,6 +37,57 @@ public class SchemaAlterRunner implements ApplicationRunner {
         alterColumnToText("test_case", "labels");
         alterColumnToText("test_case", "folder");
         alterColumnToText("test_case", "story_linkages");
+
+        // Older schemas enforced work_key uniqueness globally. The application model is
+        // (team_key, work_key) unique, so migrate the constraint for Postgres.
+        ensureTestCaseWorkKeyUniquePerTeam();
+    }
+
+    private void ensureTestCaseWorkKeyUniquePerTeam() {
+        if (!isPostgres()) {
+            return;
+        }
+
+        try {
+            // Remove the old global uniqueness constraint if it exists.
+            // Safe to run repeatedly.
+            jdbc.execute("ALTER TABLE test_case DROP CONSTRAINT IF EXISTS test_case_work_key_key");
+
+            // Ensure the team-scoped unique constraint exists.
+            if (!constraintExists("test_case", "uk_test_case_team_work_key")) {
+                jdbc.execute("ALTER TABLE test_case ADD CONSTRAINT uk_test_case_team_work_key UNIQUE (team_key, work_key)");
+                log.info("Added constraint uk_test_case_team_work_key on test_case(team_key, work_key)");
+            }
+        } catch (Exception e) {
+            log.warn("Could not migrate test_case work_key uniqueness constraint: {}", e.getMessage());
+        }
+    }
+
+    private boolean constraintExists(String tableName, String constraintName) {
+        try {
+            String sql = """
+                    SELECT 1 FROM information_schema.table_constraints
+                    WHERE table_name = ? AND constraint_name = ?
+                    LIMIT 1
+                    """;
+            return !jdbc.queryForList(sql, tableName, constraintName).isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean isPostgres() {
+        try {
+            if (jdbc.getDataSource() == null) {
+                return false;
+            }
+            try (Connection connection = jdbc.getDataSource().getConnection()) {
+                String product = connection.getMetaData().getDatabaseProductName();
+                return product != null && product.toLowerCase().contains("postgres");
+            }
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**

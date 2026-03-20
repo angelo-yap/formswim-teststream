@@ -253,6 +253,36 @@ function renderFolderTree() {
 
     folderTree.innerHTML = '';
 
+    const selectedRowClasses = 'bg-[#E7FF02]/10 border-[#E7FF02] text-white';
+    const unselectedRowClasses = 'border-transparent text-white/80 hover:bg-white/5 hover:border-white/10';
+    const rowOuterClasses = 'cursor-pointer select-none';
+    const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pr-2 text-sm rounded-md border transition-colors w-full';
+
+    // Always offer a way to clear the folder filter.
+    const showAllOuter = document.createElement('div');
+    showAllOuter.className = rowOuterClasses;
+    showAllOuter.style.paddingLeft = '12px';
+    showAllOuter.dataset.folder = '';
+
+    const showAllInner = document.createElement('div');
+    showAllInner.className = rowInnerBaseClasses + ' ' + (selectedFolder ? unselectedRowClasses : selectedRowClasses);
+    showAllInner.innerHTML =
+        '<span class="shrink-0 text-white/60">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></svg>' +
+        '</span>' +
+        '<span class="min-w-0 truncate">Show all files</span>';
+    showAllOuter.appendChild(showAllInner);
+
+    showAllOuter.addEventListener('click', () => {
+        if (!selectedFolder) {
+            return;
+        }
+        selectedFolder = '';
+        renderFolderTree();
+        applyFilters();
+    });
+    folderTree.appendChild(showAllOuter);
+
     if (!folderTreeModel || !folderTreeModel.children || folderTreeModel.children.size === 0) {
         return;
     }
@@ -262,12 +292,14 @@ function renderFolderTree() {
     const renderNode = (node, depth) => {
         const hasChildren = node.children && node.children.size > 0;
         const isOpen = Boolean(hasChildren && node.expanded);
-        const row = document.createElement('div');
-        row.className =
-            'flex items-center gap-2 py-2 pr-2 text-sm cursor-pointer select-none ' +
-            (selectedFolder === node.path ? 'bg-white/5 text-white' : 'text-white/80 hover:bg-white/5');
-        row.style.paddingLeft = String(12 + depth * 16) + 'px';
-        row.dataset.folder = node.path;
+        const rowOuter = document.createElement('div');
+        rowOuter.className = rowOuterClasses;
+        rowOuter.style.paddingLeft = String(12 + depth * 16) + 'px';
+        rowOuter.dataset.folder = node.path;
+
+        const rowInner = document.createElement('div');
+        const isSelected = selectedFolder === node.path;
+        rowInner.className = rowInnerBaseClasses + ' ' + (isSelected ? selectedRowClasses : unselectedRowClasses);
 
         const toggle = document.createElement('button');
         toggle.type = 'button';
@@ -300,18 +332,19 @@ function renderFolderTree() {
         label.className = 'min-w-0 truncate';
         label.textContent = node.name;
 
-        row.appendChild(toggle);
-        row.appendChild(icon);
-        row.appendChild(label);
+        rowInner.appendChild(toggle);
+        rowInner.appendChild(icon);
+        rowInner.appendChild(label);
+        rowOuter.appendChild(rowInner);
 
-        row.addEventListener('click', () => {
+        rowOuter.addEventListener('click', () => {
             const next = selectedFolder === node.path ? '' : node.path;
             selectedFolder = next;
             renderFolderTree();
             applyFilters();
         });
 
-        folderTree.appendChild(row);
+        folderTree.appendChild(rowOuter);
 
         if (hasChildren && node.expanded) {
             for (const child of sortedChildren(node)) {
@@ -423,11 +456,27 @@ if (importBtn && importFile) {
         importBtn.disabled = true;
 
         fetch('/api/upload', { method: 'POST', body: formData })
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error('Upload failed with status ' + response.status);
+            .then(async (response) => {
+                if (response.ok) {
+                    return response.json();
                 }
-                return response.json();
+
+                // Try to surface the backend's message (Spring may return JSON or plain text).
+                let detail = '';
+                try {
+                    const contentType = response.headers.get('content-type') || '';
+                    if (contentType.includes('application/json')) {
+                        const json = await response.json();
+                        detail = json?.message || (Array.isArray(json?.errors) ? json.errors.join('\n') : '');
+                    } else {
+                        detail = await response.text();
+                    }
+                } catch (e) {
+                    // ignore parsing failure
+                }
+
+                const suffix = detail ? ': ' + String(detail).trim() : '';
+                throw new Error('Upload failed with status ' + response.status + suffix);
             })
             .then((json) => {
                 importBtn.textContent = 'Import';
@@ -444,17 +493,20 @@ if (importBtn && importFile) {
                     return;
                 }
 
-                if (json.message) {
+                if (json.errors && json.errors.length > 0) {
+                    const header = json.message ? String(json.message).trim() : 'Import failed.';
+                    showImportNotice('error', header + '\n' + json.errors.join('\n'));
+                } else if (json.message) {
                     showImportNotice('success', json.message);
-                } else if (json.errors && json.errors.length > 0) {
-                    showImportNotice('error', 'Import warnings\n' + json.errors.join('\n'));
                 }
 
                 loadAllTestCases();
+                loadFolders();
             })
             .catch((error) => {
                 console.error('Upload failed', error);
-                showImportNotice('error', 'Import failed. Please try again.');
+                const message = error && error.message ? String(error.message) : 'Import failed. Please try again.';
+                showImportNotice('error', message);
                 importBtn.textContent = 'Import';
                 importBtn.disabled = false;
             });

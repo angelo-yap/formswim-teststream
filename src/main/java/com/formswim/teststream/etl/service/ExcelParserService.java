@@ -1,15 +1,25 @@
 package com.formswim.teststream.etl.service;
 
-import com.formswim.teststream.etl.dto.EtlResultSummary;
-import com.formswim.teststream.etl.model.TestCase;
-import com.formswim.teststream.etl.model.TestStep;
-import org.apache.poi.ss.usermodel.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.util.*;
+import com.formswim.teststream.etl.dto.EtlResultSummary;
+import com.formswim.teststream.etl.model.TestCase;
+import com.formswim.teststream.etl.model.TestStep;
 
 /**
  * Extract & Transform – QMetry .xlsx export format.
@@ -163,7 +173,11 @@ public class ExcelParserService {
                 String workKey = cell(row, workKeyCol).trim();
 
                 // A non-empty Work Key starts a new TestCase
-                if (!workKey.isEmpty()) {
+                // Some QMetry exports repeat Work Key on every step row.
+                // Treat a repeated Work Key matching the current test case as a continuation row.
+                boolean startsNewCase = !workKey.isEmpty() && (current == null || !workKey.equalsIgnoreCase(current.getWorkKey()));
+
+                if (startsNewCase) {
                     current = new TestCase(
                             teamKey,
                             workKey,
