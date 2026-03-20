@@ -1,13 +1,13 @@
 package com.formswim.teststream.auth.service;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
 import org.springframework.stereotype.Service;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 @Service
 public class TeamCodeThrottleService {
