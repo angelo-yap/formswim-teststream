@@ -2,6 +2,7 @@ package com.formswim.teststream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.containsString;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,9 +52,8 @@ class AuthSecurityIntegrationTests {
     @BeforeEach
     void setUp() {
         userRepository.deleteAll();
-        loginThrottleService.resetFailures("user@example.com");
-        loginThrottleService.resetFailures("disabled@example.com");
-        loginThrottleService.resetFailures("missing@example.com");
+        loginThrottleService.resetFailures("127.0.0.1");
+        loginThrottleService.resetFailures("203.0.113.10");
         teamCodeThrottleService.resetFailures("127.0.0.1");
         teamCodeThrottleService.resetFailures("203.0.113.10");
 
@@ -143,22 +143,32 @@ class AuthSecurityIntegrationTests {
     }
     @Test
     void repeatedFailuresTemporarilyBlockSubsequentLogins() throws Exception {
+        String attackerIp = "203.0.113.10";
         for (int attempt = 0; attempt < 5; attempt++) {
             mockMvc.perform(post("/login")
                     .with(csrf())
+                    .with(request -> {
+                        request.setRemoteAddr(attackerIp);
+                        return request;
+                    })
                     .param("email", "user@example.com")
                     .param("password", "WrongPassword"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/login"));
         }
 
-        assertThat(loginThrottleService.isBlocked("user@example.com")).isTrue();
+        assertThat(loginThrottleService.isBlocked(attackerIp)).isTrue();
         mockMvc.perform(post("/login")
                 .with(csrf())
+                .with(request -> {
+                    request.setRemoteAddr(attackerIp);
+                    return request;
+                })
                 .param("email", "user@example.com")
                 .param("password", "Password123"))
             .andExpect(status().is3xxRedirection())
-            .andExpect(redirectedUrl("/login"));
+            .andExpect(redirectedUrl("/login"))
+            .andExpect(flash().attribute("errorMessage", containsString("Too many attempts")));
     }
 
 

@@ -2,8 +2,6 @@ package com.formswim.teststream.auth.config;
 
 import com.formswim.teststream.auth.service.AppUserDetailsService;
 import com.formswim.teststream.auth.service.LoginThrottleService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -13,8 +11,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
-import org.springframework.web.servlet.FlashMap;
-import org.springframework.web.servlet.support.RequestContextUtils;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 
 @Configuration
@@ -81,13 +79,20 @@ public class SecurityConfig {
                 .referrerPolicy(referrerPolicy -> referrerPolicy.policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
             );
 
+        http.addFilterAfter(loginRateLimitFilter(), org.springframework.security.web.csrf.CsrfFilter.class);
+
         return http.build();
+    }
+
+    @Bean
+    LoginRateLimitFilter loginRateLimitFilter() {
+        return new LoginRateLimitFilter(loginThrottleService);
     }
 
     @Bean
     public AuthenticationSuccessHandler authenticationSuccessHandler() {
         return (request, response, authentication) -> {
-            loginThrottleService.resetFailures(authentication.getName());
+            loginThrottleService.resetFailures(getClientIp(request));
             response.sendRedirect(request.getContextPath() + "/workspace");
         };
     }
@@ -97,10 +102,10 @@ public class SecurityConfig {
         return (request, response, exception) -> {
             if (!(exception instanceof org.springframework.security.authentication.LockedException)
                 && !(exception instanceof org.springframework.security.authentication.DisabledException)) {
-                loginThrottleService.recordFailure(request.getParameter("email"));
+                loginThrottleService.recordFailure(getClientIp(request));
             }
 
-            addFlashMessage(request, response, "errorMessage", GENERIC_LOGIN_ERROR);
+            FlashMessageSupport.addFlashMessage(request, response, "errorMessage", GENERIC_LOGIN_ERROR, "/login");
             response.sendRedirect(request.getContextPath() + "/login");
         };
     }
@@ -108,24 +113,17 @@ public class SecurityConfig {
     @Bean
     public LogoutSuccessHandler logoutSuccessHandler() {
         return (request, response, authentication) -> {
-            addFlashMessage(request, response, "logoutMessage", "You have been logged out");
+            FlashMessageSupport.addFlashMessage(request, response, "logoutMessage", "You have been logged out", "/login");
             response.sendRedirect(request.getContextPath() + "/login");
         };
     }
 
-    private void addFlashMessage(HttpServletRequest request,
-                                 HttpServletResponse response,
-                                 String attributeName,
-                                 String attributeValue) {
-        FlashMap flashMap = RequestContextUtils.getOutputFlashMap(request);
-        var flashMapManager = RequestContextUtils.getFlashMapManager(request);
-
-        if (flashMap != null && flashMapManager != null) {
-            flashMap.put(attributeName, attributeValue);
-            flashMapManager.saveOutputFlashMap(flashMap, request, response);
-            return;
+    private String getClientIp(HttpServletRequest request) {
+        if (request == null) {
+            return "";
         }
-
-        request.getSession(true).setAttribute(attributeName, attributeValue);
+        // With server.forward-headers-strategy=framework, getRemoteAddr() reflects the real client when behind a proxy.
+        String remote = request.getRemoteAddr();
+        return remote == null ? "" : remote;
     }
 }

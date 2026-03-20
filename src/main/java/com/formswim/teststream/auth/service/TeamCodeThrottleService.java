@@ -13,6 +13,7 @@ public class TeamCodeThrottleService {
 
     static final int MAX_FAILURES = 5;
     static final Duration BLOCK_DURATION = Duration.ofMinutes(15);
+    static final Duration INACTIVITY_RESET_AFTER = Duration.ofHours(1);
 
     private final Map<String, AttemptRecord> attempts = new ConcurrentHashMap<>();
     private final Clock clock;
@@ -35,11 +36,18 @@ public class TeamCodeThrottleService {
             Instant now = Instant.now(clock);
             AttemptRecord record = existing;
 
-            if (record == null || record.blockExpiresAt != null && now.isAfter(record.blockExpiresAt)) {
+            boolean blockExpired = record != null && record.blockExpiresAt != null && now.isAfter(record.blockExpiresAt);
+            boolean inactiveTooLong = record != null
+                && record.lastFailureAt != null
+                && record.blockExpiresAt == null
+                && Duration.between(record.lastFailureAt, now).compareTo(INACTIVITY_RESET_AFTER) > 0;
+
+            if (record == null || blockExpired || inactiveTooLong) {
                 record = new AttemptRecord();
             }
 
             record.failureCount++;
+            record.lastFailureAt = now;
             if (record.failureCount >= MAX_FAILURES) {
                 record.blockExpiresAt = now.plus(BLOCK_DURATION);
             }
@@ -69,12 +77,21 @@ public class TeamCodeThrottleService {
         }
 
         Instant now = Instant.now(clock);
-        if (record.blockExpiresAt != null && now.isAfter(record.blockExpiresAt)) {
-            attempts.remove(key);
-            return false;
+
+        if (record.blockExpiresAt != null) {
+            if (now.isAfter(record.blockExpiresAt)) {
+                attempts.remove(key);
+                return false;
+            }
+            return true;
         }
 
-        return record.blockExpiresAt != null && !now.isAfter(record.blockExpiresAt);
+        if (record.lastFailureAt != null
+            && Duration.between(record.lastFailureAt, now).compareTo(INACTIVITY_RESET_AFTER) > 0) {
+            attempts.remove(key);
+        }
+
+        return false;
     }
 
     private String normalizeClientIp(String clientIp) {
@@ -93,5 +110,6 @@ public class TeamCodeThrottleService {
     private static final class AttemptRecord {
         private int failureCount;
         private Instant blockExpiresAt;
+        private Instant lastFailureAt;
     }
 }
