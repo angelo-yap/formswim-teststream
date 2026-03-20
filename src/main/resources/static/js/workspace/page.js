@@ -31,6 +31,8 @@ const sidebarContent = document.getElementById('wsSidebarContent');
 const sidebarTitle = document.getElementById('wsSidebarTitle');
 const sidebarInner = document.getElementById('wsSidebarInner');
 const sidebarHeader = document.getElementById('wsSidebarHeader');
+const sidebarToggleExpandedHost = document.getElementById('wsSidebarToggleExpandedHost');
+const sidebarToggleCollapsedHost = document.getElementById('wsSidebarToggleCollapsedHost');
 
 const apiBaseUrl = document.querySelector('meta[name="workspace-api-base"]')?.content || '/api/testcases';
 const exportBaseUrl = document.querySelector('meta[name="workspace-export-base"]')?.content || '/workspace/export';
@@ -71,10 +73,14 @@ function setSidebarExpanded(expanded) {
         if (isSidebarExpanded) {
             sidebar.style.width = '';
             sidebar.style.minWidth = '';
+            sidebar.style.borderRight = '';
+            sidebar.style.overflow = '';
         } else {
-            // Slim rail so the grid can sit flush left.
-            sidebar.style.width = '2.25rem';
-            sidebar.style.minWidth = '2.25rem';
+            // Fully collapse so the grid can be flush-left.
+            sidebar.style.width = '0px';
+            sidebar.style.minWidth = '0px';
+            sidebar.style.borderRight = '0';
+            sidebar.style.overflow = 'hidden';
         }
     }
 
@@ -98,12 +104,23 @@ function setSidebarExpanded(expanded) {
     if (sidebarToggle) {
         sidebarToggle.setAttribute('aria-expanded', String(isSidebarExpanded));
         sidebarToggle.setAttribute('aria-label', isSidebarExpanded ? 'Collapse repository sidebar' : 'Expand repository sidebar');
-        // Maintain height (via h-10); only slim width when collapsed.
-        sidebarToggle.style.width = isSidebarExpanded ? '' : '100%';
+        // Keep a consistent square button in both locations.
+        sidebarToggle.style.width = '';
         sidebarToggle.style.padding = '';
         sidebarToggle.innerHTML = isSidebarExpanded
             ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M15 6l-6 6 6 6" /></svg>'
             : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 6l6 6-6 6" /></svg>';
+    }
+
+    // Move the toggle button so it's still accessible when the sidebar is fully collapsed.
+    if (sidebarToggleExpandedHost && sidebarToggleCollapsedHost && sidebarToggle) {
+        if (isSidebarExpanded) {
+            sidebarToggleExpandedHost.appendChild(sidebarToggle);
+            sidebarToggleCollapsedHost.classList.add('hidden');
+        } else {
+            sidebarToggleCollapsedHost.appendChild(sidebarToggle);
+            sidebarToggleCollapsedHost.classList.remove('hidden');
+        }
     }
 }
 
@@ -256,7 +273,7 @@ function renderFolderTree() {
     const selectedRowClasses = 'bg-[#E7FF02]/10 border-[#E7FF02] text-white';
     const unselectedRowClasses = 'border-transparent text-white/80 hover:bg-white/5 hover:border-white/10';
     const rowOuterClasses = 'cursor-pointer select-none';
-    const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pr-2 text-sm rounded-md border transition-colors w-full';
+    const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pl-2 pr-2 text-sm rounded-md border transition-colors w-full';
 
     // Always offer a way to clear the folder filter.
     const showAllOuter = document.createElement('div');

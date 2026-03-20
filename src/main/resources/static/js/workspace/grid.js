@@ -52,25 +52,25 @@ export function createGrid(tbody) {
 
             let tagsCell = '';
             if (tags) {
-                tagsCell += '<span class="px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(tags) + '</span>';
+                tagsCell += '<span class="max-w-full truncate px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(tags) + '</span>';
             }
             if (testCaseType) {
-                tagsCell += '<span class="px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(testCaseType) + '</span>';
+                tagsCell += '<span class="max-w-full truncate px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(testCaseType) + '</span>';
             }
             if (!tagsCell) {
                 tagsCell = '<span class="text-white/45">—</span>';
             }
 
             row.innerHTML =
-                '<td class="px-6 sm:px-8 py-2.5" onclick="event.stopPropagation();">' +
+                '<td class="px-3 sm:px-8 py-2.5" onclick="event.stopPropagation();">' +
                     '<input type="checkbox" class="ws-row-check h-4 w-4 accent-[#E7FF02]" aria-label="Select row" data-work-key="' + escHtml(workKey) + '"' +
                     (selectedIds.has(workKey) ? ' checked' : '') + ' />' +
                 '</td>' +
-                '<td class="px-6 py-2.5 sm:px-0 sm:pr-8 text-white/55">' + escHtml(workKey) + '</td>' +
-                '<td class="px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
-                '<td class="px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
-                '<td class="px-6 py-2.5"><div class="flex flex-wrap gap-2">' + tagsCell + '</div></td>' +
-                '<td class="px-6 py-2.5 text-white/55">' + escHtml(updated) + '</td>';
+                '<td class="px-3 sm:px-0 sm:pr-6 py-2.5 text-white/55"><div class="min-w-0 truncate">' + escHtml(workKey) + '</div></td>' +
+                '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
+                '<td class="px-3 sm:px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
+                '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 flex flex-wrap gap-2">' + tagsCell + '</div></td>' +
+                '<td class="pl-3 pr-6 sm:pl-6 sm:pr-10 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>';
 
             tbody.appendChild(row);
         }
