@@ -22,6 +22,16 @@ const importNoticeBadge = document.getElementById('importNoticeBadge');
 const importNoticeMessage = document.getElementById('importNoticeMessage');
 const importNoticeClose = document.getElementById('importNoticeClose');
 
+const folderTree = document.getElementById('wsFolderTree');
+const folderLoading = document.getElementById('wsFolderLoading');
+const folderEmpty = document.getElementById('wsFolderEmpty');
+const sidebar = document.getElementById('wsSidebar');
+const sidebarToggle = document.getElementById('wsSidebarToggle');
+const sidebarContent = document.getElementById('wsSidebarContent');
+const sidebarTitle = document.getElementById('wsSidebarTitle');
+const sidebarInner = document.getElementById('wsSidebarInner');
+const sidebarHeader = document.getElementById('wsSidebarHeader');
+
 const apiBaseUrl = document.querySelector('meta[name="workspace-api-base"]')?.content || '/api/testcases';
 const exportBaseUrl = document.querySelector('meta[name="workspace-export-base"]')?.content || '/workspace/export';
 
@@ -48,6 +58,60 @@ const drawer = createDrawer({
 });
 
 let allTestCases = [];
+let selectedFolder = '';
+
+let folderTreeModel = null;
+let isSidebarExpanded = true;
+
+function setSidebarExpanded(expanded) {
+    isSidebarExpanded = Boolean(expanded);
+
+    if (sidebar) {
+        // Use inline sizing so Tailwind CDN doesn't miss dynamically-toggled width classes.
+        if (isSidebarExpanded) {
+            sidebar.style.width = '';
+            sidebar.style.minWidth = '';
+        } else {
+            // Slim rail so the grid can sit flush left.
+            sidebar.style.width = '2.25rem';
+            sidebar.style.minWidth = '2.25rem';
+        }
+    }
+
+    if (sidebarContent) {
+        sidebarContent.classList.toggle('hidden', !isSidebarExpanded);
+    }
+
+    if (sidebarTitle) {
+        sidebarTitle.classList.toggle('hidden', !isSidebarExpanded);
+    }
+
+    if (sidebarInner) {
+        // Keep button height; only reduce horizontal padding when collapsed.
+        sidebarInner.style.padding = isSidebarExpanded ? '' : '0.25rem';
+    }
+
+    if (sidebarHeader) {
+        sidebarHeader.style.justifyContent = isSidebarExpanded ? '' : 'center';
+    }
+
+    if (sidebarToggle) {
+        sidebarToggle.setAttribute('aria-expanded', String(isSidebarExpanded));
+        sidebarToggle.setAttribute('aria-label', isSidebarExpanded ? 'Collapse repository sidebar' : 'Expand repository sidebar');
+        // Maintain height (via h-10); only slim width when collapsed.
+        sidebarToggle.style.width = isSidebarExpanded ? '' : '100%';
+        sidebarToggle.style.padding = '';
+        sidebarToggle.innerHTML = isSidebarExpanded
+            ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M15 6l-6 6 6 6" /></svg>'
+            : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 6l6 6-6 6" /></svg>';
+    }
+}
+
+if (sidebarToggle) {
+    sidebarToggle.addEventListener('click', () => {
+        setSidebarExpanded(!isSidebarExpanded);
+    });
+}
 
 selection.setSelectionChangeHandler((selectedIds) => {
     exportSelected.updateButtonState(selectedIds);
@@ -108,6 +172,7 @@ function applyFilters() {
     const component = filterComponent ? filterComponent.value.trim().toLowerCase() : '';
     const status = filterStatus ? filterStatus.value.trim().toLowerCase() : '';
     const tag = filterTag ? filterTag.value.trim().toLowerCase() : '';
+    const selectedFolderLower = selectedFolder ? selectedFolder.toLowerCase() : '';
 
     const filtered = allTestCases.filter((testCase) => {
         const workKey = (testCase.workKey || '').toLowerCase();
@@ -115,17 +180,193 @@ function applyFilters() {
         const components = (testCase.components || '').toLowerCase();
         const testCaseType = (testCase.testCaseType || '').toLowerCase();
         const testCaseStatus = (testCase.status || '').toLowerCase();
+        const folder = normalizeFolder(testCase.folder || '').toLowerCase();
 
         const matchesQuery = !query || workKey.includes(query) || summary.includes(query) || components.includes(query);
         const matchesComponent = !component || components.includes(component);
         const matchesStatus = !status || testCaseStatus === status;
         const matchesTag = !tag || components.includes(tag) || testCaseType.includes(tag);
-        return matchesQuery && matchesComponent && matchesStatus && matchesTag;
+
+        const matchesFolder = !selectedFolderLower || folder === selectedFolderLower || folder.startsWith(selectedFolderLower + '/');
+        return matchesQuery && matchesComponent && matchesStatus && matchesTag && matchesFolder;
     });
+
+    if (totalCount) {
+        totalCount.textContent = String(filtered.length);
+    }
 
     grid.renderRows(filtered, new Set(selection.getSelectedIds()));
     selection.setVisibleIds(filtered.map((testCase) => testCase.workKey).filter(Boolean));
     selection.bindRowCheckboxes(tbody);
+}
+
+function normalizeFolder(value) {
+    const raw = String(value || '').trim();
+    if (!raw) {
+        return '';
+    }
+
+    // Accept both Windows and URL separators, then normalize to forward slashes.
+    const asSlash = raw.replace(/\\/g, '/');
+    return asSlash.replace(/^\/+/, '').replace(/\/+$/, '');
+}
+
+function createFolderTreeModel(folderNames) {
+    const root = {
+        name: '',
+        path: '',
+        children: new Map(),
+        expanded: true
+    };
+
+    for (const folderName of folderNames || []) {
+        const normalized = normalizeFolder(folderName);
+        if (!normalized) {
+            continue;
+        }
+
+        const parts = normalized.split('/').filter(Boolean);
+        let current = root;
+        let currentPath = '';
+
+        for (const part of parts) {
+            currentPath = currentPath ? currentPath + '/' + part : part;
+            if (!current.children.has(part)) {
+                current.children.set(part, {
+                    name: part,
+                    path: currentPath,
+                    children: new Map(),
+                    expanded: true
+                });
+            }
+            current = current.children.get(part);
+        }
+    }
+
+    return root;
+}
+
+function renderFolderTree() {
+    if (!folderTree) {
+        return;
+    }
+
+    folderTree.innerHTML = '';
+
+    if (!folderTreeModel || !folderTreeModel.children || folderTreeModel.children.size === 0) {
+        return;
+    }
+
+    const sortedChildren = (node) => Array.from(node.children.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    const renderNode = (node, depth) => {
+        const hasChildren = node.children && node.children.size > 0;
+        const isOpen = Boolean(hasChildren && node.expanded);
+        const row = document.createElement('div');
+        row.className =
+            'flex items-center gap-2 py-2 pr-2 text-sm cursor-pointer select-none ' +
+            (selectedFolder === node.path ? 'bg-white/5 text-white' : 'text-white/80 hover:bg-white/5');
+        row.style.paddingLeft = String(12 + depth * 16) + 'px';
+        row.dataset.folder = node.path;
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'shrink-0 w-5 h-5 flex items-center justify-center text-white/45 hover:text-white/80 transition-colors';
+        toggle.setAttribute('aria-label', hasChildren ? (node.expanded ? 'Collapse folder' : 'Expand folder') : '');
+        toggle.disabled = !hasChildren;
+        toggle.innerHTML = hasChildren
+            ? (node.expanded
+                ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M6 9l6 6 6-6" /></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 6l6 6-6 6" /></svg>')
+            : '<span class="block w-4 h-4"></span>';
+
+        toggle.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!hasChildren) {
+                return;
+            }
+            node.expanded = !node.expanded;
+            renderFolderTree();
+        });
+
+        const icon = document.createElement('span');
+        icon.className = 'shrink-0 text-white/60';
+        icon.innerHTML = isOpen
+            ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M3 8a2 2 0 0 1 2-2h4l2 2h9a2 2 0 0 1 2 2v1" /><path d="M3 11h18l-1.5 8.5a2 2 0 0 1-2 1.5H6.5a2 2 0 0 1-2-1.5L3 11z" /></svg>'
+            : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" /></svg>';
+
+        const label = document.createElement('span');
+        label.className = 'min-w-0 truncate';
+        label.textContent = node.name;
+
+        row.appendChild(toggle);
+        row.appendChild(icon);
+        row.appendChild(label);
+
+        row.addEventListener('click', () => {
+            const next = selectedFolder === node.path ? '' : node.path;
+            selectedFolder = next;
+            renderFolderTree();
+            applyFilters();
+        });
+
+        folderTree.appendChild(row);
+
+        if (hasChildren && node.expanded) {
+            for (const child of sortedChildren(node)) {
+                renderNode(child, depth + 1);
+            }
+        }
+    };
+
+    for (const child of sortedChildren(folderTreeModel)) {
+        renderNode(child, 0);
+    }
+}
+
+function loadFolders() {
+    if (folderLoading) {
+        folderLoading.classList.remove('hidden');
+    }
+    if (folderEmpty) {
+        folderEmpty.classList.add('hidden');
+    }
+
+    fetch('/api/folders')
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Folders failed with status ' + response.status);
+            }
+            return response.json();
+        })
+        .then((data) => {
+            const folders = Array.isArray(data) ? data : [];
+            folderTreeModel = createFolderTreeModel(folders);
+
+            if (folderLoading) {
+                folderLoading.classList.add('hidden');
+            }
+
+            const hasAny = folderTreeModel && folderTreeModel.children && folderTreeModel.children.size > 0;
+            if (folderEmpty) {
+                folderEmpty.classList.toggle('hidden', hasAny);
+            }
+
+            renderFolderTree();
+        })
+        .catch((error) => {
+            console.error('Failed to load folders', error);
+            folderTreeModel = createFolderTreeModel([]);
+            if (folderLoading) {
+                folderLoading.classList.add('hidden');
+            }
+            if (folderEmpty) {
+                folderEmpty.classList.remove('hidden');
+                folderEmpty.textContent = 'Folders unavailable.';
+            }
+            renderFolderTree();
+        });
 }
 
 function loadAllTestCases() {
@@ -221,3 +462,4 @@ if (importBtn && importFile) {
 }
 
 loadAllTestCases();
+loadFolders();
