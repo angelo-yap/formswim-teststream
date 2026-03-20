@@ -39,12 +39,21 @@ public class TeamCodeThrottleService {
         Instant now = Instant.now(clock);
         AttemptRecord record = attempts.get(key, ip -> new AttemptRecord());
         synchronized (record) {
-            boolean blockExpired = record.blockExpiresAt != null && now.isAfter(record.blockExpiresAt);
+            if (record.blockExpiresAt != null) {
+                if (now.isAfter(record.blockExpiresAt)) {
+                    record.failureCount = 0;
+                    record.blockExpiresAt = null;
+                    record.lastFailureAt = null;
+                } else {
+                    return;
+                }
+            }
+
             boolean inactiveTooLong = record.lastFailureAt != null
                 && record.blockExpiresAt == null
                 && Duration.between(record.lastFailureAt, now).compareTo(INACTIVITY_RESET_AFTER) > 0;
 
-            if (blockExpired || inactiveTooLong) {
+            if (inactiveTooLong) {
                 record.failureCount = 0;
                 record.blockExpiresAt = null;
                 record.lastFailureAt = null;

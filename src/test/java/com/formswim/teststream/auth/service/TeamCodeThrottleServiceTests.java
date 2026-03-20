@@ -56,6 +56,27 @@ class TeamCodeThrottleServiceTests {
         assertThat(throttle.isBlocked(ip)).isFalse();
     }
 
+    @Test
+    void blockedRequestsDoNotExtendBlockDuration() {
+        Instant start = Instant.parse("2026-03-19T00:00:00Z");
+        MutableClock clock = new MutableClock(start);
+        TeamCodeThrottleService throttle = new TeamCodeThrottleService(clock);
+
+        String ip = "203.0.113.99";
+        for (int i = 0; i < TeamCodeThrottleService.MAX_FAILURES; i++) {
+            throttle.recordFailure(ip);
+        }
+
+        assertThat(throttle.isBlocked(ip)).isTrue();
+
+        Instant expiry = start.plus(TeamCodeThrottleService.BLOCK_DURATION);
+        clock.setInstant(expiry.minusSeconds(1));
+        throttle.recordFailure(ip);
+
+        clock.setInstant(expiry.plusSeconds(1));
+        assertThat(throttle.isBlocked(ip)).isFalse();
+    }
+
     private static final class MutableClock extends Clock {
         private Instant instant;
 
