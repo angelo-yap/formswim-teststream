@@ -396,6 +396,8 @@ public class TestCaseController {
         if (findText.isBlank()) {
             return ResponseEntity.badRequest().build();
         }
+        // Use the normalized token for mutation so validation and execution are consistent.
+        request.setFindText(findText);
 
         try {
             BulkEditResult result = testCaseBulkEditService.bulkEditByWorkKeys(user.getTeamKey(), request);

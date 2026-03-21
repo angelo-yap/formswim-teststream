@@ -7,8 +7,10 @@ import com.formswim.teststream.etl.model.TestCase;
 import com.formswim.teststream.etl.model.TestStep;
 import com.formswim.teststream.etl.repository.TestCaseRepository;
 import com.formswim.teststream.support.TestCaseFixtures;
+import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -232,8 +234,8 @@ class BulkEditIntegrationTests {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(payload)))
             .andReturn())
-            .isInstanceOf(Exception.class)
-            .hasMessageContaining("Request processing failed");
+            .isInstanceOf(ServletException.class)
+            .hasCauseInstanceOf(DataIntegrityViolationException.class);
 
         TestCase first = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-101").orElseThrow();
         TestCase second = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-102").orElseThrow();
