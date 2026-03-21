@@ -275,6 +275,26 @@ function renderFolderTree() {
     const rowOuterClasses = 'cursor-pointer select-none';
     const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pl-2 pr-2 text-sm rounded-md border transition-colors w-full';
 
+    const bindKeyboardActivation = (element, handler) => {
+        if (!element) {
+            return;
+        }
+
+        element.setAttribute('role', 'button');
+        element.setAttribute('tabindex', '0');
+        element.addEventListener('keydown', (event) => {
+            if (!event) {
+                return;
+            }
+
+            const key = event.key;
+            if (key === 'Enter' || key === ' ') {
+                event.preventDefault();
+                handler();
+            }
+        });
+    };
+
     // Always offer a way to clear the folder filter.
     const showAllOuter = document.createElement('div');
     showAllOuter.className = rowOuterClasses;
@@ -290,14 +310,17 @@ function renderFolderTree() {
         '<span class="min-w-0 truncate">Show all files</span>';
     showAllOuter.appendChild(showAllInner);
 
-    showAllOuter.addEventListener('click', () => {
+    const activateShowAll = () => {
         if (!selectedFolder) {
             return;
         }
         selectedFolder = '';
         renderFolderTree();
         applyFilters();
-    });
+    };
+
+    showAllOuter.addEventListener('click', activateShowAll);
+    bindKeyboardActivation(showAllOuter, activateShowAll);
     folderTree.appendChild(showAllOuter);
 
     if (!folderTreeModel || !folderTreeModel.children || folderTreeModel.children.size === 0) {
@@ -354,12 +377,15 @@ function renderFolderTree() {
         rowInner.appendChild(label);
         rowOuter.appendChild(rowInner);
 
-        rowOuter.addEventListener('click', () => {
+        const activateFolder = () => {
             const next = selectedFolder === node.path ? '' : node.path;
             selectedFolder = next;
             renderFolderTree();
             applyFilters();
-        });
+        };
+
+        rowOuter.addEventListener('click', activateFolder);
+        bindKeyboardActivation(rowOuter, activateFolder);
 
         folderTree.appendChild(rowOuter);
 
@@ -381,6 +407,7 @@ function loadFolders() {
     }
     if (folderEmpty) {
         folderEmpty.classList.add('hidden');
+        folderEmpty.textContent = 'No folders found.';
     }
 
     fetch('/api/folders')
