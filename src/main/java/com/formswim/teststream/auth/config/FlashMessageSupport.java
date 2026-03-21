@@ -1,5 +1,7 @@
 package com.formswim.teststream.auth.config;
 
+import java.util.Objects;
+
 import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.FlashMap;
 import org.springframework.web.servlet.FlashMapManager;
@@ -18,7 +20,9 @@ final class FlashMessageSupport {
                                 HttpServletResponse response,
                                 String attributeName,
                                 String attributeValue) {
-        String targetPath = request == null ? null : request.getRequestURI();
+        Objects.requireNonNull(request, "HttpServletRequest must not be null");
+
+        String targetPath = request.getRequestURI();
         addFlashMessage(request, response, attributeName, attributeValue, targetPath);
     }
 
@@ -27,12 +31,12 @@ final class FlashMessageSupport {
                                 String attributeName,
                                 String attributeValue,
                                 String targetPath) {
+        Objects.requireNonNull(request, "HttpServletRequest must not be null");
+
         FlashMap flashMap = RequestContextUtils.getOutputFlashMap(request);
         if (flashMap == null) {
             flashMap = new FlashMap();
-            if (request != null) {
-                request.setAttribute(DispatcherServlet.OUTPUT_FLASH_MAP_ATTRIBUTE, flashMap);
-            }
+            request.setAttribute(DispatcherServlet.OUTPUT_FLASH_MAP_ATTRIBUTE, flashMap);
         }
 
         if (targetPath != null && !targetPath.isBlank()) {
@@ -44,9 +48,7 @@ final class FlashMessageSupport {
         FlashMapManager flashMapManager = RequestContextUtils.getFlashMapManager(request);
         if (flashMapManager == null) {
             flashMapManager = new SessionFlashMapManager();
-            if (request != null) {
-                request.setAttribute(DispatcherServlet.FLASH_MAP_MANAGER_ATTRIBUTE, flashMapManager);
-            }
+            request.setAttribute(DispatcherServlet.FLASH_MAP_MANAGER_ATTRIBUTE, flashMapManager);
         }
 
         flashMapManager.saveOutputFlashMap(flashMap, request, response);
