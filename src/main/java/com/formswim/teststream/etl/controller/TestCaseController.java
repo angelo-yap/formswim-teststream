@@ -4,10 +4,19 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -87,26 +96,13 @@ public class TestCaseController {
         }
 
         String teamKey = user.getTeamKey();
-        List<TestCase> cases = testCaseRepository.findAllWithStepsByTeamKey(teamKey);
-
-        if (search != null && !search.isBlank()) {
-            String q = search.trim().toLowerCase();
-            cases = cases.stream()
-                .filter(tc -> (tc.getWorkKey() != null && tc.getWorkKey().toLowerCase().contains(q))
-                    || (tc.getSummary() != null && tc.getSummary().toLowerCase().contains(q))
-                    || (tc.getComponents() != null && tc.getComponents().toLowerCase().contains(q)))
-                .collect(Collectors.toList());
-        }
-        if (status != null && !status.isBlank()) {
-            cases = cases.stream()
-                .filter(tc -> status.equalsIgnoreCase(tc.getStatus()))
-                .collect(Collectors.toList());
-        }
-        if (component != null && !component.isBlank()) {
-            cases = cases.stream()
-                .filter(tc -> tc.getComponents() != null && tc.getComponents().toLowerCase().contains(component.toLowerCase()))
-                .collect(Collectors.toList());
-        }
+        List<TestCase> cases = testCaseRepository.findWorkspaceCasesByFilters(
+            teamKey,
+            normalizeQueryParam(search),
+            normalizeQueryParam(status),
+            normalizeQueryParam(component),
+            null
+        );
 
         model.addAttribute("userEmail", user.getEmail());
         model.addAttribute("teamKey", teamKey);
@@ -222,6 +218,12 @@ public class TestCaseController {
     @GetMapping("/api/testcases")
     @ResponseBody
     public ResponseEntity<List<TestCase>> apiGetTestCases(HttpSession session,
+                                                          @RequestParam(required = false) String search,
+                                                          @RequestParam(required = false) String status,
+                                                          @RequestParam(required = false) String component,
+                                                          @RequestParam(required = false) String tag,
+                                                          @RequestParam(defaultValue = "0") int page,
+                                                          @RequestParam(defaultValue = "50") int size,
                                                           Authentication authentication) {
         Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
@@ -231,7 +233,36 @@ public class TestCaseController {
         if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
             return ResponseEntity.status(403).build();
         }
-        return ResponseEntity.ok(testCaseRepository.findAllWithStepsByTeamKey(user.getTeamKey()));
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 200);
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+
+        Page<Long> idPage = testCaseRepository.findWorkspaceCaseIdsByFilters(
+            user.getTeamKey(),
+            normalizeQueryParam(search),
+            normalizeQueryParam(status),
+            normalizeQueryParam(component),
+            normalizeQueryParam(tag),
+            pageable
+        );
+
+        List<Long> ids = idPage.getContent();
+        List<TestCase> cases = ids.isEmpty() ? List.of() : testCaseRepository.findAllWithStepsByIdIn(ids);
+
+        Map<Long, Integer> positionById = new HashMap<>();
+        for (int index = 0; index < ids.size(); index++) {
+            positionById.put(ids.get(index), index);
+        }
+        cases.sort(Comparator.comparingInt(testCase -> positionById.getOrDefault(testCase.getId(), Integer.MAX_VALUE)));
+
+        return ResponseEntity.ok()
+            .header("X-Total-Count", String.valueOf(idPage.getTotalElements()))
+            .header("X-Total-Pages", String.valueOf(idPage.getTotalPages()))
+            .header("X-Page", String.valueOf(idPage.getNumber()))
+            .header("X-Page-Size", String.valueOf(idPage.getSize()))
+            .header("X-Has-Next", String.valueOf(idPage.hasNext()))
+            .body(cases);
     }
 
     @GetMapping("/workspace/export")
@@ -337,6 +368,68 @@ public class TestCaseController {
         return ResponseEntity.ok(folders);
     }
 
+    @GetMapping("/api/tags")
+    @ResponseBody
+    public ResponseEntity<List<String>> getTagsByTeamKey(HttpSession session, Authentication authentication) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(401).build();
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(403).build();
+        }
+
+        Set<String> tags = new LinkedHashSet<>();
+        testCaseRepository.findDistinctComponentsByTeamKey(user.getTeamKey()).forEach(value -> addDelimitedTags(tags, value));
+        testCaseRepository.findDistinctTestCaseTypeByTeamKey(user.getTeamKey()).forEach(value -> addDelimitedTags(tags, value));
+
+        List<String> sortedTags = tags.stream()
+            .sorted(String.CASE_INSENSITIVE_ORDER)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(sortedTags);
+    }
+
+    @GetMapping("/api/components")
+    @ResponseBody
+    public ResponseEntity<List<String>> getComponentsByTeamKey(HttpSession session, Authentication authentication) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(401).build();
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(403).build();
+        }
+
+        Set<String> components = new LinkedHashSet<>();
+        testCaseRepository.findDistinctComponentsByTeamKey(user.getTeamKey()).forEach(value -> addDelimitedTags(components, value));
+
+        List<String> sortedComponents = components.stream()
+            .sorted(String.CASE_INSENSITIVE_ORDER)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(sortedComponents);
+    }
+
+    @GetMapping("/api/statuses")
+    @ResponseBody
+    public ResponseEntity<List<String>> getStatusesByTeamKey(HttpSession session, Authentication authentication) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(401).build();
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(403).build();
+        }
+
+        List<String> statuses = testCaseRepository.findDistinctStatusByTeamKey(user.getTeamKey())
+            .stream()
+            .sorted(String.CASE_INSENSITIVE_ORDER)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(statuses);
+    }
+
     /**
      * Builds an export filename with a given prefix and current date.
      * @param prefix
@@ -373,5 +466,23 @@ public class TestCaseController {
     private String encodeMessage(String message) {
         String value = message == null ? "" : message;
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private String normalizeQueryParam(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private void addDelimitedTags(Set<String> tags, String rawValue) {
+        if (rawValue == null) {
+            return;
+        }
+        Arrays.stream(rawValue.split(","))
+            .map(String::trim)
+            .filter(value -> !value.isEmpty())
+            .forEach(tags::add);
     }
 }

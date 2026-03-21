@@ -47,8 +47,10 @@ export function createGrid(tbody) {
             row.dataset.status = status;
             row.dataset.updated = updated;
 
-            const titleCell = '<span class="font-semibold text-white/85">' + escHtml(title) + '</span>' +
-                (folder ? '<span class="text-white/45"> - </span><span class="text-white/45">' + escHtml(folder) + '</span>' : '');
+            const titleCell = '<div class="min-w-0">' +
+                '<div class="font-semibold text-white/85 truncate">' + escHtml(title) + '</div>' +
+                (folder ? '<div class="text-white/45 text-xs mt-1 truncate">' + escHtml(folder) + '</div>' : '') +
+                '</div>';
 
             let tagsCell = '';
             if (tags) {
@@ -66,11 +68,11 @@ export function createGrid(tbody) {
                     '<input type="checkbox" class="ws-row-check h-4 w-4 accent-[#E7FF02]" aria-label="Select row" data-work-key="' + escHtml(workKey) + '"' +
                     (selectedIds.has(workKey) ? ' checked' : '') + ' />' +
                 '</td>' +
-                '<td class="px-6 py-2.5 sm:px-0 sm:pr-8 text-white/55">' + escHtml(workKey) + '</td>' +
-                '<td class="px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
+                '<td class="px-6 py-2.5 sm:px-0 sm:pr-8 text-white/55 whitespace-nowrap">' + escHtml(workKey) + '</td>' +
+                '<td class="px-6 py-2.5">' + titleCell + '</td>' +
                 '<td class="px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
                 '<td class="px-6 py-2.5"><div class="flex flex-wrap gap-2">' + tagsCell + '</div></td>' +
-                '<td class="px-6 py-2.5 text-white/55">' + escHtml(updated) + '</td>';
+                '<td class="px-6 py-2.5 text-white/55 whitespace-nowrap">' + escHtml(updated) + '</td>';
 
             tbody.appendChild(row);
         }

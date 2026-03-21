@@ -21,9 +21,15 @@ const importNotice = document.getElementById('importNotice');
 const importNoticeBadge = document.getElementById('importNoticeBadge');
 const importNoticeMessage = document.getElementById('importNoticeMessage');
 const importNoticeClose = document.getElementById('importNoticeClose');
+const prevPageBtn = document.getElementById('wsPrevPage');
+const nextPageBtn = document.getElementById('wsNextPage');
+const pageInfo = document.getElementById('wsPageInfo');
 
 const apiBaseUrl = document.querySelector('meta[name="workspace-api-base"]')?.content || '/api/testcases';
 const exportBaseUrl = document.querySelector('meta[name="workspace-export-base"]')?.content || '/workspace/export';
+const componentsBaseUrl = document.querySelector('meta[name="workspace-components-base"]')?.content || '/api/components';
+const statusesBaseUrl = document.querySelector('meta[name="workspace-statuses-base"]')?.content || '/api/statuses';
+const tagsBaseUrl = document.querySelector('meta[name="workspace-tags-base"]')?.content || '/api/tags';
 
 const grid = createGrid(tbody);
 const selection = createSelection(selectAll, bulkBar, bulkCount);
@@ -47,7 +53,12 @@ const drawer = createDrawer({
     getTestCaseById: grid.getTestCaseById
 });
 
-let allTestCases = [];
+let searchDebounceHandle = null;
+let latestRequestId = 0;
+let currentPage = 0;
+const pageSize = 50;
+let totalPages = 1;
+let totalCountValue = 0;
 
 selection.setSelectionChangeHandler((selectedIds) => {
     exportSelected.updateButtonState(selectedIds);
@@ -103,50 +114,189 @@ function showImportNotice(type, message) {
     }
 }
 
-function applyFilters() {
-    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
-    const component = filterComponent ? filterComponent.value.trim().toLowerCase() : '';
-    const status = filterStatus ? filterStatus.value.trim().toLowerCase() : '';
-    const tag = filterTag ? filterTag.value.trim().toLowerCase() : '';
-
-    const filtered = allTestCases.filter((testCase) => {
-        const workKey = (testCase.workKey || '').toLowerCase();
-        const summary = (testCase.summary || '').toLowerCase();
-        const components = (testCase.components || '').toLowerCase();
-        const testCaseType = (testCase.testCaseType || '').toLowerCase();
-        const testCaseStatus = (testCase.status || '').toLowerCase();
-
-        const matchesQuery = !query || workKey.includes(query) || summary.includes(query) || components.includes(query);
-        const matchesComponent = !component || components.includes(component);
-        const matchesStatus = !status || testCaseStatus === status;
-        const matchesTag = !tag || components.includes(tag) || testCaseType.includes(tag);
-        return matchesQuery && matchesComponent && matchesStatus && matchesTag;
-    });
-
-    grid.renderRows(filtered, new Set(selection.getSelectedIds()));
-    selection.setVisibleIds(filtered.map((testCase) => testCase.workKey).filter(Boolean));
+function renderCases(cases) {
+    const rows = Array.isArray(cases) ? cases : [];
+    grid.renderRows(rows, new Set(selection.getSelectedIds()));
+    selection.setVisibleIds(rows.map((testCase) => testCase.workKey).filter(Boolean));
     selection.bindRowCheckboxes(tbody);
+    renderTotalCount();
 }
 
-function loadAllTestCases() {
-    fetch(apiBaseUrl)
-        .then((response) => response.json())
-        .then((data) => {
-            allTestCases = Array.isArray(data) ? data : [];
-            if (totalCount) {
-                totalCount.textContent = String(allTestCases.length);
+function renderTotalCount() {
+    if (totalCount) {
+        totalCount.textContent = String(totalCountValue);
+    }
+}
+
+function renderPaginationState() {
+    if (pageInfo) {
+        const safeTotalPages = Math.max(totalPages, 1);
+        pageInfo.textContent = 'Page ' + (currentPage + 1) + ' of ' + safeTotalPages;
+    }
+    if (prevPageBtn) {
+        prevPageBtn.disabled = currentPage <= 0;
+    }
+    if (nextPageBtn) {
+        nextPageBtn.disabled = currentPage + 1 >= Math.max(totalPages, 1);
+    }
+}
+
+function populateSelectOptions(selectElement, values) {
+    if (!selectElement) {
+        return;
+    }
+
+    const selectedValue = selectElement.value;
+    selectElement.innerHTML = '';
+
+    const allOption = document.createElement('option');
+    allOption.value = '';
+    allOption.textContent = 'All';
+    selectElement.appendChild(allOption);
+
+    (Array.isArray(values) ? values : []).forEach((value) => {
+        if (!value) {
+            return;
+        }
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        selectElement.appendChild(option);
+    });
+
+    const canKeepSelection = selectedValue && Array.from(selectElement.options).some((option) => option.value === selectedValue);
+    selectElement.value = canKeepSelection ? selectedValue : '';
+}
+
+function populateTagOptions(tags) {
+    populateSelectOptions(filterTag, tags);
+}
+
+function loadTagOptions() {
+    fetch(tagsBaseUrl)
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Failed to load tags with status ' + response.status);
             }
-            applyFilters();
+            return response.json();
+        })
+        .then((tags) => {
+            populateTagOptions(tags);
         })
         .catch((error) => {
-            console.error('Failed to load test cases', error);
-            allTestCases = [];
-            applyFilters();
+            console.error('Failed to load tag options', error);
         });
 }
 
+function loadComponentOptions() {
+    fetch(componentsBaseUrl)
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Failed to load components with status ' + response.status);
+            }
+            return response.json();
+        })
+        .then((components) => {
+            populateSelectOptions(filterComponent, components);
+        })
+        .catch((error) => {
+            console.error('Failed to load component options', error);
+        });
+}
+
+function loadStatusOptions() {
+    fetch(statusesBaseUrl)
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Failed to load statuses with status ' + response.status);
+            }
+            return response.json();
+        })
+        .then((statuses) => {
+            populateSelectOptions(filterStatus, statuses);
+        })
+        .catch((error) => {
+            console.error('Failed to load status options', error);
+        });
+}
+
+function buildFilterParams() {
+    const params = new URLSearchParams();
+    const search = searchInput ? searchInput.value.trim() : '';
+    const component = filterComponent ? filterComponent.value.trim() : '';
+    const status = filterStatus ? filterStatus.value.trim() : '';
+    const tag = filterTag ? filterTag.value.trim() : '';
+
+    if (search) {
+        params.set('search', search);
+    }
+    if (component) {
+        params.set('component', component);
+    }
+    if (status) {
+        params.set('status', status);
+    }
+    if (tag) {
+        params.set('tag', tag);
+    }
+    params.set('page', String(currentPage));
+    params.set('size', String(pageSize));
+
+    return params;
+}
+
+function loadFilteredTestCases() {
+    const requestId = ++latestRequestId;
+    const params = buildFilterParams();
+    const url = params.toString() ? apiBaseUrl + '?' + params.toString() : apiBaseUrl;
+
+    fetch(url)
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Failed to load test cases with status ' + response.status);
+            }
+            const parsedTotalCount = Number.parseInt(response.headers.get('X-Total-Count') || '0', 10);
+            totalCountValue = Number.isFinite(parsedTotalCount) && parsedTotalCount >= 0 ? parsedTotalCount : 0;
+            const parsedTotalPages = Number.parseInt(response.headers.get('X-Total-Pages') || '1', 10);
+            totalPages = Number.isFinite(parsedTotalPages) && parsedTotalPages > 0 ? parsedTotalPages : 1;
+            renderTotalCount();
+            renderPaginationState();
+            return response.json();
+        })
+        .then((data) => {
+            // Avoid stale responses overwriting newer filter results.
+            if (requestId !== latestRequestId) {
+                return;
+            }
+            renderCases(data);
+        })
+        .catch((error) => {
+            console.error('Failed to load test cases', error);
+            if (requestId !== latestRequestId) {
+                return;
+            }
+            totalCountValue = 0;
+            renderTotalCount();
+            renderCases([]);
+        });
+}
+
+function applyFilters() {
+    currentPage = 0;
+    totalPages = 1;
+    renderPaginationState();
+    loadFilteredTestCases();
+}
+
 if (searchInput) {
-    searchInput.addEventListener('input', applyFilters);
+    searchInput.addEventListener('input', () => {
+        if (searchDebounceHandle) {
+            window.clearTimeout(searchDebounceHandle);
+        }
+        searchDebounceHandle = window.setTimeout(() => {
+            applyFilters();
+        }, 250);
+    });
 }
 if (filterComponent) {
     filterComponent.addEventListener('change', applyFilters);
@@ -156,6 +306,24 @@ if (filterStatus) {
 }
 if (filterTag) {
     filterTag.addEventListener('change', applyFilters);
+}
+if (prevPageBtn) {
+    prevPageBtn.addEventListener('click', () => {
+        if (currentPage <= 0) {
+            return;
+        }
+        currentPage -= 1;
+        loadFilteredTestCases();
+    });
+}
+if (nextPageBtn) {
+    nextPageBtn.addEventListener('click', () => {
+        if (currentPage + 1 >= Math.max(totalPages, 1)) {
+            return;
+        }
+        currentPage += 1;
+        loadFilteredTestCases();
+    });
 }
 
 if (importBtn && importFile) {
@@ -209,7 +377,10 @@ if (importBtn && importFile) {
                     showImportNotice('error', 'Import warnings\n' + json.errors.join('\n'));
                 }
 
-                loadAllTestCases();
+                loadComponentOptions();
+                loadStatusOptions();
+                loadTagOptions();
+                loadFilteredTestCases();
             })
             .catch((error) => {
                 console.error('Upload failed', error);
@@ -220,4 +391,7 @@ if (importBtn && importFile) {
     });
 }
 
-loadAllTestCases();
+loadComponentOptions();
+loadStatusOptions();
+loadTagOptions();
+loadFilteredTestCases();
