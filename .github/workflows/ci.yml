@@ -46,9 +46,10 @@ jobs:
     - name: Run Tests
       env:
         # override application's env with local container's credentials
-        DB_URL: jdbc:postgresql://localhost:5432/testdb
-        DB_USERNAME: testuser
-        DB_PASSWORD: testpassword
+        TEST_DB_URL: jdbc:postgresql://localhost:5432/testdb
+        TEST_DB_USERNAME: testuser
+        TEST_DB_PASSWORD: testpassword
+        TEST_DB_DRIVER: org.postgresql.Driver
       run: ./mvnw clean test -B --no-transfer-progress -Dspring.profiles.active=test
     - name: Upload Test Reports
       # This ensures the reports upload even if the previous test step fails

@@ -85,6 +85,7 @@
 									onclick="toggleWorkspaceHeaderDropdown('account')"
 									aria-haspopup="true"
 									aria-controls="workspaceAccountDropdown"
+									aria-expanded="false"
 									id="workspaceAccountToggle"
 								>
 									Account <span aria-hidden="true" class="text-white/45">▾</span>
@@ -94,6 +95,7 @@
 									class="hidden absolute right-0 mt-2 z-50 w-64 border border-white/20 bg-black px-4 py-3 text-left"
 									role="dialog"
 									aria-label="Account details"
+									aria-hidden="true"
 								>
 									<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Signed in as</p>
 									<p class="mt-1 text-sm text-white/80 break-words" th:text="${userEmail != null ? userEmail : 'Signed in'}">Signed in</p>
@@ -109,6 +111,7 @@
 									onclick="toggleWorkspaceHeaderDropdown('team')"
 									aria-haspopup="true"
 									aria-controls="workspaceTeamCodeDropdown"
+									aria-expanded="false"
 									id="workspaceTeamCodeToggle"
 								>
 									Team code <span aria-hidden="true" class="text-white/45">▾</span>
@@ -118,6 +121,7 @@
 									class="hidden absolute right-0 mt-2 z-50 w-64 border border-white/20 bg-black px-4 py-3 text-left"
 									role="dialog"
 									aria-label="Team code"
+									aria-hidden="true"
 								>
 									<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Team code</p>
 									<div class="mt-2 flex items-center justify-between gap-2">
@@ -397,7 +401,9 @@
 
 	<script>
 		function toggleWorkspaceHeaderDropdown(which) {
+			const accountToggle = document.getElementById('workspaceAccountToggle');
 			const account = document.getElementById('workspaceAccountDropdown');
+			const teamToggle = document.getElementById('workspaceTeamCodeToggle');
 			const team = document.getElementById('workspaceTeamCodeDropdown');
 
 			const isAccountOpen = account && !account.classList.contains('hidden');
@@ -406,8 +412,21 @@
 			const nextAccountOpen = which === 'account' ? !isAccountOpen : false;
 			const nextTeamOpen = which === 'team' ? !isTeamOpen : false;
 
-			if (account) account.classList.toggle('hidden', !nextAccountOpen);
-			if (team) team.classList.toggle('hidden', !nextTeamOpen);
+			if (account) {
+				account.classList.toggle('hidden', !nextAccountOpen);
+				account.setAttribute('aria-hidden', String(!nextAccountOpen));
+			}
+			if (team) {
+				team.classList.toggle('hidden', !nextTeamOpen);
+				team.setAttribute('aria-hidden', String(!nextTeamOpen));
+			}
+
+			if (accountToggle) {
+				accountToggle.setAttribute('aria-expanded', String(nextAccountOpen));
+			}
+			if (teamToggle) {
+				teamToggle.setAttribute('aria-expanded', String(nextTeamOpen));
+			}
 		}
 
 		function onWorkspaceTeamCodeKeydown(event) {
