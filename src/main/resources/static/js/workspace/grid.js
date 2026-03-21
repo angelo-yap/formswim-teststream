@@ -191,6 +191,7 @@ export function createGrid(tbody) {
             const status = testCase.status || '—';
             const tagModel = buildTagBadges(testCase, 3);
             const updated = testCase.updatedOn || '—';
+            const idFontSize = workKey.length > 14 ? '10px' : (workKey.length > 10 ? '11px' : '12px');
 
             testCaseMap[workKey] = testCase;
 
@@ -203,8 +204,11 @@ export function createGrid(tbody) {
             row.dataset.status = status;
             row.dataset.updated = updated;
 
-            const titleCell = '<span class="font-semibold text-white/85">' + escHtml(title) + '</span>' +
-                (folder ? '<span class="text-white/45"> - </span><span class="text-white/45">' + escHtml(folder) + '</span>' : '');
+            const titleCell =
+                '<div class="min-w-0">' +
+                    '<div class="font-semibold text-white/85 truncate">' + escHtml(title) + '</div>' +
+                    (folder ? '<div class="text-white/45 text-xs mt-0.5 truncate">' + escHtml(folder) + '</div>' : '') +
+                '</div>';
 
             const tagsCell = tagModel.html || '<span class="text-white/45">—</span>';
             const encodedTags = tagModel.tags && tagModel.tags.length > 0

@@ -22,6 +22,9 @@ const importNotice = document.getElementById('importNotice');
 const importNoticeBadge = document.getElementById('importNoticeBadge');
 const importNoticeMessage = document.getElementById('importNoticeMessage');
 const importNoticeClose = document.getElementById('importNoticeClose');
+const prevPageBtn = document.getElementById('wsPrevPage');
+const nextPageBtn = document.getElementById('wsNextPage');
+const pageInfo = document.getElementById('wsPageInfo');
 
 const folderTree = document.getElementById('wsFolderTree');
 const folderLoading = document.getElementById('wsFolderLoading');
@@ -47,6 +50,10 @@ const organizeError = document.getElementById('organizeError');
 
 const apiBaseUrl = document.querySelector('meta[name="workspace-api-base"]')?.content || '/api/testcases';
 const exportBaseUrl = document.querySelector('meta[name="workspace-export-base"]')?.content || '/workspace/export';
+const componentsBaseUrl = document.querySelector('meta[name="workspace-components-base"]')?.content || '/api/components';
+const statusesBaseUrl = document.querySelector('meta[name="workspace-statuses-base"]')?.content || '/api/statuses';
+const tagsBaseUrl = document.querySelector('meta[name="workspace-tags-base"]')?.content || '/api/tags';
+const foldersBaseUrl = document.querySelector('meta[name="workspace-folders-base"]')?.content || '/api/folders';
 
 const grid = createGrid(tbody);
 const selection = createSelection(selectAll, bulkBar, bulkCount);
@@ -72,8 +79,12 @@ const drawer = createDrawer({
     getTestCaseById: grid.getTestCaseById
 });
 
-let allTestCases = [];
 let selectedFolder = '';
+let currentPage = 0;
+let pageSize = 50;
+let totalPages = 0;
+let hasNextPage = false;
+let allTestCases = [];
 let folderTreeModel = null;
 let isSidebarExpanded = true;
 let activeDragPayload = null;
@@ -310,37 +321,118 @@ function createDragImage(workKeys) {
     return { holder, chip };
 }
 
-function applyFilters() {
-    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
-    const component = filterComponent ? filterComponent.value.trim().toLowerCase() : '';
-    const status = filterStatus ? filterStatus.value.trim().toLowerCase() : '';
-    const tag = filterTag ? filterTag.value.trim().toLowerCase() : '';
-    const selectedFolderLower = selectedFolder ? selectedFolder.toLowerCase() : '';
-
-    const filtered = allTestCases.filter((testCase) => {
-        const workKey = (testCase.workKey || '').toLowerCase();
-        const summary = (testCase.summary || '').toLowerCase();
-        const components = (testCase.components || '').toLowerCase();
-        const testCaseType = (testCase.testCaseType || '').toLowerCase();
-        const testCaseStatus = (testCase.status || '').toLowerCase();
-        const folder = normalizeFolder(testCase.folder || '').toLowerCase();
-
-        const matchesQuery = !query || workKey.includes(query) || summary.includes(query) || components.includes(query);
-        const matchesComponent = !component || components.includes(component);
-        const matchesStatus = !status || testCaseStatus === status;
-        const matchesTag = !tag || components.includes(tag) || testCaseType.includes(tag);
-        const matchesFolder = !selectedFolderLower || folder === selectedFolderLower || folder.startsWith(selectedFolderLower + '/');
-
-        return matchesQuery && matchesComponent && matchesStatus && matchesTag && matchesFolder;
-    });
-
-    if (totalCount) {
-        totalCount.textContent = String(filtered.length);
+function updatePaginationUi() {
+    if (pageInfo) {
+        const safeTotalPages = Math.max(totalPages, 1);
+        pageInfo.textContent = 'Page ' + (currentPage + 1) + ' of ' + safeTotalPages;
     }
+    if (prevPageBtn) prevPageBtn.disabled = currentPage <= 0;
+    if (nextPageBtn) nextPageBtn.disabled = !hasNextPage;
+}
 
-    grid.renderRows(filtered, new Set(selection.getSelectedIds()));
-    selection.setVisibleIds(filtered.map((testCase) => testCase.workKey).filter(Boolean));
-    syncRowSelectionUI();
+function debounce(fn, waitMs) {
+    let timeoutId = null;
+    return (...args) => {
+        if (timeoutId !== null) window.clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => {
+            timeoutId = null;
+            fn(...args);
+        }, waitMs);
+    };
+}
+
+function buildFilterParams() {
+    const params = new URLSearchParams();
+    if (searchInput && searchInput.value.trim()) params.set('search', searchInput.value.trim());
+    if (filterComponent && filterComponent.value.trim()) params.set('component', filterComponent.value.trim());
+    if (filterStatus && filterStatus.value.trim()) params.set('status', filterStatus.value.trim());
+    if (filterTag && filterTag.value.trim()) params.set('tag', filterTag.value.trim());
+    if (selectedFolder) params.set('folder', selectedFolder);
+    params.set('page', String(currentPage));
+    params.set('size', String(pageSize));
+    return params;
+}
+
+function renderPage(testCases) {
+    const list = Array.isArray(testCases) ? testCases : [];
+    allTestCases = list; // Update our local cache for the drag/drop mock submit
+    
+    if (totalCount) {
+        totalCount.textContent = String(totalCount.dataset.serverTotal || list.length);
+    }
+    grid.renderRows(list, new Set(selection.getSelectedIds()));
+    selection.setVisibleIds(list.map((testCase) => testCase.workKey).filter(Boolean));
+    syncRowSelectionUI(); // Kept from your drag/drop branch!
+}
+
+function loadTestCases(resetPage = false) {
+    if (resetPage) currentPage = 0;
+    const queryString = buildFilterParams().toString();
+    const url = queryString ? apiBaseUrl + '?' + queryString : apiBaseUrl;
+
+    fetch(url)
+        .then((response) => {
+            if (!response.ok) throw new Error('Test cases failed with status ' + response.status);
+            
+            const totalCountHeader = Number(response.headers.get('X-Total-Count'));
+            const totalPagesHeader = Number(response.headers.get('X-Total-Pages'));
+            const pageHeader = Number(response.headers.get('X-Page'));
+            const pageSizeHeader = Number(response.headers.get('X-Page-Size'));
+            const hasNextHeader = String(response.headers.get('X-Has-Next')).toLowerCase() === 'true';
+
+            if (!Number.isNaN(totalCountHeader) && totalCount) totalCount.dataset.serverTotal = String(totalCountHeader);
+            if (!Number.isNaN(totalPagesHeader)) totalPages = totalPagesHeader;
+            if (!Number.isNaN(pageHeader)) currentPage = pageHeader;
+            if (!Number.isNaN(pageSizeHeader) && pageSizeHeader > 0) pageSize = pageSizeHeader;
+            hasNextPage = hasNextHeader;
+            updatePaginationUi();
+
+            return response.json();
+        })
+        .then((data) => renderPage(data))
+        .catch((error) => {
+            console.error('Failed to load test cases', error);
+            if (totalCount) totalCount.dataset.serverTotal = '0';
+            totalPages = 0;
+            hasNextPage = false;
+            updatePaginationUi();
+            renderPage([]);
+        });
+}
+
+function applyFilters() {
+    loadTestCases(true);
+}
+
+const debouncedApplyFilters = debounce(applyFilters, 300);
+
+function fetchOptionValues(url) {
+    return fetch(url).then(r => r.ok ? r.json() : []).then(data => Array.isArray(data) ? data.map(v => String(v || '').trim()).filter(Boolean).sort((a,b) => a.localeCompare(b, undefined, {sensitivity: 'base'})) : []).catch(() => []);
+}
+
+function populateSelect(selectEl, values) {
+    if (!selectEl) return;
+    const previous = selectEl.value || '';
+    selectEl.innerHTML = '<option value="">All</option>';
+    for (const value of values) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        selectEl.appendChild(option);
+    }
+    if (previous && values.includes(previous)) selectEl.value = previous;
+}
+
+function loadFilterOptions() {
+    Promise.all([
+        fetchOptionValues(componentsBaseUrl),
+        fetchOptionValues(statusesBaseUrl),
+        fetchOptionValues(tagsBaseUrl)
+    ]).then(([components, statuses, tags]) => {
+        populateSelect(filterComponent, components);
+        populateSelect(filterStatus, statuses);
+        populateSelect(filterTag, tags);
+    });
 }
 
 function renderFolderTree() {
@@ -595,7 +687,7 @@ function loadFolders() {
         folderEmpty.textContent = 'No folders found.';
     }
 
-    fetch('/api/folders')
+    fetch(foldersBaseUrl)
         .then((response) => {
             if (!response.ok) {
                 throw new Error('Folders failed with status ' + response.status);
@@ -633,23 +725,6 @@ function loadFolders() {
                 folderEmpty.textContent = hasAny ? 'No folders found.' : 'Folders unavailable.';
             }
             renderFolderTree();
-        });
-}
-
-function loadAllTestCases() {
-    fetch(apiBaseUrl)
-        .then((response) => response.json())
-        .then((data) => {
-            allTestCases = Array.isArray(data) ? data : [];
-            if (totalCount) {
-                totalCount.textContent = String(allTestCases.length);
-            }
-            applyFilters();
-        })
-        .catch((error) => {
-            console.error('Failed to load test cases', error);
-            allTestCases = [];
-            applyFilters();
         });
 }
 
@@ -867,7 +942,7 @@ if (folderTree) {
 }
 
 if (searchInput) {
-    searchInput.addEventListener('input', applyFilters);
+    searchInput.addEventListener('input', debouncedApplyFilters);
 }
 if (filterComponent) {
     filterComponent.addEventListener('change', applyFilters);
@@ -942,6 +1017,26 @@ if (organizeSave) {
     });
 }
 
+if (prevPageBtn) {
+    prevPageBtn.addEventListener('click', () => {
+        if (currentPage <= 0) {
+            return;
+        }
+        currentPage -= 1;
+        loadTestCases(false);
+    });
+}
+
+if (nextPageBtn) {
+    nextPageBtn.addEventListener('click', () => {
+        if (!hasNextPage) {
+            return;
+        }
+        currentPage += 1;
+        loadTestCases(false);
+    });
+}
+
 if (importBtn && importFile) {
     importBtn.addEventListener('click', () => {
         importFile.click();
@@ -1009,7 +1104,8 @@ if (importBtn && importFile) {
                     showImportNotice('success', json.message);
                 }
 
-                loadAllTestCases();
+                loadTestCases(true);
+                loadFilterOptions();
                 loadFolders();
             })
             .catch((error) => {
@@ -1022,5 +1118,7 @@ if (importBtn && importFile) {
     });
 }
 
-loadAllTestCases();
+updatePaginationUi();
+loadFilterOptions();
+loadTestCases(true);
 loadFolders();

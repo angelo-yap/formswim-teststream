@@ -92,4 +92,94 @@ class TeststreamApplicationTests {
 				.andExpect(jsonPath("$[2]").value("ui"));
 	}
 
+	@Test
+	void getTagsReturnsCombinedSortedDistinctValuesForTeam() throws Exception {
+		testCaseRepository.deleteAll();
+
+		var caseOne = TestCaseFixtures.basicCase("TEAM1", "TC-401", "Folder/A");
+		caseOne.setComponents("UI, API");
+		caseOne.setTestCaseType("Manual");
+
+		var caseTwo = TestCaseFixtures.basicCase("TEAM1", "TC-402", "Folder/B");
+		caseTwo.setComponents(" Firmware ");
+		caseTwo.setTestCaseType("Regression");
+
+		var caseThree = TestCaseFixtures.basicCase("TEAM2", "TC-501", "Folder/C");
+		caseThree.setComponents("Security");
+		caseThree.setTestCaseType("Exploratory");
+
+		testCaseRepository.saveAll(List.of(caseOne, caseTwo, caseThree));
+
+		mockMvc.perform(get("/api/tags")
+					.with(user("team1.user@example.com").roles("USER")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(5)))
+				.andExpect(jsonPath("$", containsInAnyOrder("API", "Firmware", "Manual", "Regression", "UI")));
+	}
+
+	@Test
+	void getTagsReturnsOnlyAuthenticatedUsersTeamTags() throws Exception {
+		testCaseRepository.deleteAll();
+
+		var teamOneCase = TestCaseFixtures.basicCase("TEAM1", "TC-601", "Folder/A");
+		teamOneCase.setComponents("UI");
+		teamOneCase.setTestCaseType("Manual");
+
+		var teamTwoCase = TestCaseFixtures.basicCase("TEAM2", "TC-701", "Folder/B");
+		teamTwoCase.setComponents("Backend");
+		teamTwoCase.setTestCaseType("Regression");
+
+		testCaseRepository.saveAll(List.of(teamOneCase, teamTwoCase));
+
+		mockMvc.perform(get("/api/tags")
+					.with(user("team2.user@example.com").roles("USER")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(2)))
+				.andExpect(jsonPath("$", containsInAnyOrder("Backend", "Regression")));
+	}
+
+	@Test
+	void getComponentsReturnsSplitDistinctTeamValues() throws Exception {
+		testCaseRepository.deleteAll();
+
+		var teamOneCase = TestCaseFixtures.basicCase("TEAM1", "TC-801", "Folder/A");
+		teamOneCase.setComponents("UI, API,  Firmware ");
+
+		var teamOneCaseTwo = TestCaseFixtures.basicCase("TEAM1", "TC-802", "Folder/B");
+		teamOneCaseTwo.setComponents("API");
+
+		var teamTwoCase = TestCaseFixtures.basicCase("TEAM2", "TC-901", "Folder/C");
+		teamTwoCase.setComponents("Security");
+
+		testCaseRepository.saveAll(List.of(teamOneCase, teamOneCaseTwo, teamTwoCase));
+
+		mockMvc.perform(get("/api/components")
+					.with(user("team1.user@example.com").roles("USER")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(3)))
+				.andExpect(jsonPath("$", containsInAnyOrder("API", "Firmware", "UI")));
+	}
+
+	@Test
+	void getStatusesReturnsDistinctValuesForAuthenticatedUsersTeam() throws Exception {
+		testCaseRepository.deleteAll();
+
+		var teamOneCase = TestCaseFixtures.basicCase("TEAM1", "TC-1001", "Folder/A");
+		teamOneCase.setStatus("Draft");
+
+		var teamOneCaseTwo = TestCaseFixtures.basicCase("TEAM1", "TC-1002", "Folder/B");
+		teamOneCaseTwo.setStatus("Pass");
+
+		var teamTwoCase = TestCaseFixtures.basicCase("TEAM2", "TC-1003", "Folder/C");
+		teamTwoCase.setStatus("Blocked");
+
+		testCaseRepository.saveAll(List.of(teamOneCase, teamOneCaseTwo, teamTwoCase));
+
+		mockMvc.perform(get("/api/statuses")
+					.with(user("team1.user@example.com").roles("USER")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(2)))
+				.andExpect(jsonPath("$", containsInAnyOrder("Draft", "Pass")));
+	}
+
 }
