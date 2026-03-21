@@ -111,26 +111,29 @@ public class LoginThrottleService {
         Instant now = Instant.now(clock);
         final boolean[] blockedHolder = new boolean[] { false };
 
-        attempts.compute(key, (ip, existing) -> {
-            AttemptRecord record = existing;
+        attempts.asMap().compute(key, (ip, record) -> {
             if (record == null) {
                 blockedHolder[0] = false;
                 return null;
             }
 
-            if (record.blockExpiresAt != null && now.isAfter(record.blockExpiresAt)) {
-                record.blockExpiresAt = null;
-            }
+            synchronized (record) {
+                if (record.blockExpiresAt != null && now.isAfter(record.blockExpiresAt)) {
+                    record.blockExpiresAt = null;
+                }
 
-            pruneOldFailures(record, now);
-            boolean blocked = isCurrentlyBlocked(record, now);
-            if (!blocked && record.failures.isEmpty() && shouldReset(record, now)) {
-                blockedHolder[0] = false;
-                return null;
-            }
+                pruneOldFailures(record, now);
+                boolean blocked = isCurrentlyBlocked(record, now);
 
-            blockedHolder[0] = blocked;
-            return record;
+                // Cleanup: if fully reset, remove the cache entry.
+                if (!blocked && record.failures.isEmpty() && shouldReset(record, now)) {
+                    blockedHolder[0] = false;
+                    return null;
+                }
+
+                blockedHolder[0] = blocked;
+                return record;
+            }
         });
 
         return blockedHolder[0];
@@ -145,35 +148,36 @@ public class LoginThrottleService {
         Instant now = Instant.now(clock);
         final Duration[] remainingHolder = new Duration[] { Duration.ZERO };
 
-        attempts.compute(key, (ip, existing) -> {
-            AttemptRecord record = existing;
+        attempts.asMap().compute(key, (ip, record) -> {
             if (record == null) {
                 remainingHolder[0] = Duration.ZERO;
                 return null;
             }
 
-            if (record.blockExpiresAt == null) {
-                remainingHolder[0] = Duration.ZERO;
-                if (record.failures.isEmpty() && shouldReset(record, now)) {
-                    return null;
-                }
-                return record;
-            }
-
-            if (now.isAfter(record.blockExpiresAt)) {
-                record.blockExpiresAt = null;
-                pruneOldFailures(record, now);
-                remainingHolder[0] = Duration.ZERO;
-
-                if (!isCurrentlyBlocked(record, now) && record.failures.isEmpty() && shouldReset(record, now)) {
-                    return null;
+            synchronized (record) {
+                if (record.blockExpiresAt == null) {
+                    remainingHolder[0] = Duration.ZERO;
+                    if (record.failures.isEmpty() && shouldReset(record, now)) {
+                        return null;
+                    }
+                    return record;
                 }
 
+                if (now.isAfter(record.blockExpiresAt)) {
+                    record.blockExpiresAt = null;
+                    pruneOldFailures(record, now);
+                    remainingHolder[0] = Duration.ZERO;
+
+                    if (!isCurrentlyBlocked(record, now) && record.failures.isEmpty() && shouldReset(record, now)) {
+                        return null;
+                    }
+
+                    return record;
+                }
+
+                remainingHolder[0] = Duration.between(now, record.blockExpiresAt);
                 return record;
             }
-
-            remainingHolder[0] = Duration.between(now, record.blockExpiresAt);
-            return record;
         });
 
         return remainingHolder[0];

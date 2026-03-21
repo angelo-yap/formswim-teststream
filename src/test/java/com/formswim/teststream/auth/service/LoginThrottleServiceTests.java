@@ -1,7 +1,5 @@
 package com.formswim.teststream.auth.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -13,6 +11,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 class LoginThrottleServiceTests {
