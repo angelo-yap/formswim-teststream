@@ -272,49 +272,30 @@ function renderFolderTree() {
 
     const selectedRowClasses = 'bg-[#E7FF02]/10 border-[#E7FF02] text-white';
     const unselectedRowClasses = 'border-transparent text-white/80 hover:bg-white/5 hover:border-white/10';
-    const rowOuterClasses = 'cursor-pointer select-none';
+    const rowWrapClasses = 'select-none';
     const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pl-2 pr-2 text-sm rounded-md border transition-colors w-full';
-
-    const bindKeyboardActivation = (element, handler) => {
-        if (!element) {
-            return;
-        }
-
-        element.setAttribute('role', 'button');
-        element.setAttribute('tabindex', '0');
-        element.addEventListener('keydown', (event) => {
-            if (!event) {
-                return;
-            }
-
-            // If a nested control (like the expand/collapse button) has focus,
-            // ignore bubbled key events so we don't accidentally activate the row.
-            if (event.target !== element) {
-                return;
-            }
-
-            const key = event.key;
-            if (key === 'Enter' || key === ' ') {
-                event.preventDefault();
-                handler();
-            }
-        });
-    };
+    const rowSelectButtonClasses = 'min-w-0 flex-1 flex items-center gap-2 text-left';
 
     // Always offer a way to clear the folder filter.
-    const showAllOuter = document.createElement('div');
-    showAllOuter.className = rowOuterClasses;
-    showAllOuter.style.paddingLeft = '12px';
-    showAllOuter.dataset.folder = '';
+    const showAllWrap = document.createElement('div');
+    showAllWrap.className = rowWrapClasses;
+    showAllWrap.style.paddingLeft = '12px';
 
     const showAllInner = document.createElement('div');
     showAllInner.className = rowInnerBaseClasses + ' ' + (selectedFolder ? unselectedRowClasses : selectedRowClasses);
-    showAllInner.innerHTML =
+
+    const showAllButton = document.createElement('button');
+    showAllButton.type = 'button';
+    showAllButton.className = rowSelectButtonClasses;
+    showAllButton.setAttribute('aria-label', 'Show all files');
+    if (!selectedFolder) {
+        showAllButton.setAttribute('aria-current', 'true');
+    }
+    showAllButton.innerHTML =
         '<span class="shrink-0 text-white/60">' +
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></svg>' +
         '</span>' +
         '<span class="min-w-0 truncate">Show all files</span>';
-    showAllOuter.appendChild(showAllInner);
 
     const activateShowAll = () => {
         if (!selectedFolder) {
@@ -325,9 +306,10 @@ function renderFolderTree() {
         applyFilters();
     };
 
-    showAllOuter.addEventListener('click', activateShowAll);
-    bindKeyboardActivation(showAllOuter, activateShowAll);
-    folderTree.appendChild(showAllOuter);
+    showAllButton.addEventListener('click', activateShowAll);
+    showAllInner.appendChild(showAllButton);
+    showAllWrap.appendChild(showAllInner);
+    folderTree.appendChild(showAllWrap);
 
     if (!folderTreeModel || !folderTreeModel.children || folderTreeModel.children.size === 0) {
         return;
@@ -338,50 +320,60 @@ function renderFolderTree() {
     const renderNode = (node, depth) => {
         const hasChildren = node.children && node.children.size > 0;
         const isOpen = Boolean(hasChildren && node.expanded);
-        const rowOuter = document.createElement('div');
-        rowOuter.className = rowOuterClasses;
-        rowOuter.style.paddingLeft = String(12 + depth * 16) + 'px';
-        rowOuter.dataset.folder = node.path;
+        const rowWrap = document.createElement('div');
+        rowWrap.className = rowWrapClasses;
+        rowWrap.style.paddingLeft = String(12 + depth * 16) + 'px';
 
         const rowInner = document.createElement('div');
         const isSelected = selectedFolder === node.path;
         rowInner.className = rowInnerBaseClasses + ' ' + (isSelected ? selectedRowClasses : unselectedRowClasses);
 
-        const toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = 'shrink-0 w-5 h-5 flex items-center justify-center text-white/45 hover:text-white/80 transition-colors';
-        toggle.setAttribute('aria-label', hasChildren ? (node.expanded ? 'Collapse folder' : 'Expand folder') : '');
-        toggle.disabled = !hasChildren;
-        toggle.innerHTML = hasChildren
-            ? (node.expanded
+        let toggle;
+        if (hasChildren) {
+            toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'shrink-0 w-5 h-5 flex items-center justify-center text-white/45 hover:text-white/80 transition-colors';
+            toggle.setAttribute('aria-label', node.expanded ? 'Collapse folder' : 'Expand folder');
+            toggle.setAttribute('aria-expanded', String(Boolean(node.expanded)));
+            toggle.innerHTML = node.expanded
                 ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M6 9l6 6 6-6" /></svg>'
-                : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 6l6 6-6 6" /></svg>')
-            : '<span class="block w-4 h-4"></span>';
+                : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 6l6 6-6 6" /></svg>';
 
-        toggle.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (!hasChildren) {
-                return;
-            }
-            node.expanded = !node.expanded;
-            renderFolderTree();
-        });
+            toggle.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                node.expanded = !node.expanded;
+                renderFolderTree();
+            });
+        } else {
+            // Avoid creating a disabled/unlabeled button for leaf nodes.
+            toggle = document.createElement('span');
+            toggle.className = 'shrink-0 w-5 h-5 flex items-center justify-center';
+            toggle.innerHTML = '<span class="block w-4 h-4"></span>';
+        }
 
-        const icon = document.createElement('span');
-        icon.className = 'shrink-0 text-white/60';
-        icon.innerHTML = isOpen
+        const selectButton = document.createElement('button');
+        selectButton.type = 'button';
+        selectButton.className = rowSelectButtonClasses;
+        selectButton.setAttribute('aria-label', 'Filter by folder ' + node.path);
+        if (isSelected) {
+            selectButton.setAttribute('aria-current', 'true');
+        }
+
+        const iconHtml = isOpen
             ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M3 8a2 2 0 0 1 2-2h4l2 2h9a2 2 0 0 1 2 2v1" /><path d="M3 11h18l-1.5 8.5a2 2 0 0 1-2 1.5H6.5a2 2 0 0 1-2-1.5L3 11z" /></svg>'
             : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" /></svg>';
 
-        const label = document.createElement('span');
-        label.className = 'min-w-0 truncate';
-        label.textContent = node.name;
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'shrink-0 text-white/60';
+        iconSpan.innerHTML = iconHtml;
 
-        rowInner.appendChild(toggle);
-        rowInner.appendChild(icon);
-        rowInner.appendChild(label);
-        rowOuter.appendChild(rowInner);
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'min-w-0 truncate';
+        labelSpan.textContent = node.name;
+
+        selectButton.appendChild(iconSpan);
+        selectButton.appendChild(labelSpan);
 
         const activateFolder = () => {
             const next = selectedFolder === node.path ? '' : node.path;
@@ -390,10 +382,12 @@ function renderFolderTree() {
             applyFilters();
         };
 
-        rowOuter.addEventListener('click', activateFolder);
-        bindKeyboardActivation(rowOuter, activateFolder);
+        selectButton.addEventListener('click', activateFolder);
 
-        folderTree.appendChild(rowOuter);
+        rowInner.appendChild(toggle);
+        rowInner.appendChild(selectButton);
+        rowWrap.appendChild(rowInner);
+        folderTree.appendChild(rowWrap);
 
         if (hasChildren && node.expanded) {
             for (const child of sortedChildren(node)) {
