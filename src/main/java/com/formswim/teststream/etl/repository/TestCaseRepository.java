@@ -16,37 +16,6 @@ import java.util.Optional;
 @Repository
 public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
 
-    @Query("""
-            select distinct testCase
-            from TestCase testCase
-            left join fetch testCase.steps
-            where testCase.teamKey = :teamKey
-              and (:status is null or :status = '' or lower(coalesce(testCase.status, '')) = lower(:status))
-              and (:component is null or :component = '' or lower(coalesce(testCase.components, '')) like lower(concat('%', :component, '%')))
-              and (:tag is null or :tag = ''
-                   or lower(coalesce(testCase.components, '')) like lower(concat('%', :tag, '%'))
-                   or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :tag, '%')))
-              and (
-                    :search is null or :search = ''
-                    or lower(coalesce(testCase.workKey, '')) like lower(concat('%', :search, '%'))
-                    or lower(coalesce(testCase.summary, '')) like lower(concat('%', :search, '%'))
-                    or lower(coalesce(testCase.components, '')) like lower(concat('%', :search, '%'))
-                    or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :search, '%'))
-                    or lower(coalesce(testCase.folder, '')) like lower(concat('%', :search, '%'))
-                    or exists (
-                        select 1
-                        from TestStep testStep
-                        where testStep.testCase = testCase
-                          and lower(coalesce(testStep.stepSummary, '')) like lower(concat('%', :search, '%'))
-                    )
-                )
-            """)
-    List<TestCase> findWorkspaceCasesByFilters(@Param("teamKey") String teamKey,
-                                               @Param("search") String search,
-                                               @Param("status") String status,
-                                               @Param("component") String component,
-                                               @Param("tag") String tag);
-
     @Query(
         value = """
                 select distinct testCase.id

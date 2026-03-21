@@ -209,6 +209,19 @@ function updatePaginationUi() {
     }
 }
 
+function debounce(fn, waitMs) {
+    let timeoutId = null;
+    return (...args) => {
+        if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+        }
+        timeoutId = window.setTimeout(() => {
+            timeoutId = null;
+            fn(...args);
+        }, waitMs);
+    };
+}
+
 function buildFilterParams() {
     const params = new URLSearchParams();
 
@@ -300,6 +313,8 @@ function loadTestCases(resetPage = false) {
 function applyFilters() {
     loadTestCases(true);
 }
+
+const debouncedApplyFilters = debounce(applyFilters, 300);
 
 function fetchOptionValues(url) {
     return fetch(url)
@@ -591,7 +606,7 @@ function loadFolders() {
 }
 
 if (searchInput) {
-    searchInput.addEventListener('input', applyFilters);
+    searchInput.addEventListener('input', debouncedApplyFilters);
 }
 if (filterComponent) {
     filterComponent.addEventListener('change', applyFilters);
