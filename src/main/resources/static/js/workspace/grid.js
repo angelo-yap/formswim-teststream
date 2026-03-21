@@ -166,6 +166,9 @@ export function createGrid(tbody) {
             return;
         }
 
+        // If the grid rerenders while hovering/focused, ensure any tag tooltip is dismissed.
+        hideTagTooltip();
+
         tbody.innerHTML = '';
         testCaseMap = {};
 
@@ -205,6 +208,7 @@ export function createGrid(tbody) {
             const encodedTags = tagModel.tags && tagModel.tags.length > 0
                 ? encodeURIComponent(JSON.stringify(tagModel.tags))
                 : '';
+            const tagsTabIndex = encodedTags ? '0' : '-1';
 
             row.innerHTML =
                 '<td class="px-3 sm:px-8 py-2.5" onclick="event.stopPropagation();">' +
@@ -214,7 +218,7 @@ export function createGrid(tbody) {
                 '<td class="px-3 sm:px-0 sm:pr-6 py-2.5 text-white/55"><div class="min-w-0 truncate">' + escHtml(workKey) + '</div></td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
-                '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 flex flex-wrap gap-2" data-ws-tags="' + escHtml(encodedTags) + '" tabindex="0">' + tagsCell + '</div></td>' +
+                '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 flex flex-wrap gap-2" data-ws-tags="' + escHtml(encodedTags) + '" tabindex="' + tagsTabIndex + '">' + tagsCell + '</div></td>' +
                 '<td class="pl-3 pr-6 sm:pl-6 sm:pr-10 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>';
 
             const tagsEl = row.querySelector('[data-ws-tags]');

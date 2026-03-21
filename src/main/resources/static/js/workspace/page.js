@@ -287,6 +287,12 @@ function renderFolderTree() {
                 return;
             }
 
+            // If a nested control (like the expand/collapse button) has focus,
+            // ignore bubbled key events so we don't accidentally activate the row.
+            if (event.target !== element) {
+                return;
+            }
+
             const key = event.key;
             if (key === 'Enter' || key === ' ') {
                 event.preventDefault();
