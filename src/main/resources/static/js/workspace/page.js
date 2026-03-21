@@ -16,6 +16,7 @@ const filterTag = document.getElementById('wsFilterTag');
 const bulkBar = document.getElementById('bulkBar');
 const bulkCount = document.getElementById('bulkCount');
 const bulkExportSelected = document.getElementById('bulkExportSelected');
+const bulkOrganize = document.getElementById('bulkOrganize');
 const importNoticeContainer = document.getElementById('importNoticeContainer');
 const importNotice = document.getElementById('importNotice');
 const importNoticeBadge = document.getElementById('importNoticeBadge');
@@ -33,6 +34,16 @@ const sidebarInner = document.getElementById('wsSidebarInner');
 const sidebarHeader = document.getElementById('wsSidebarHeader');
 const sidebarToggleExpandedHost = document.getElementById('wsSidebarToggleExpandedHost');
 const sidebarToggleCollapsedHost = document.getElementById('wsSidebarToggleCollapsedHost');
+
+const organizeModal = document.getElementById('organizeModal');
+const organizeBackdrop = document.getElementById('organizeBackdrop');
+const organizePanel = document.getElementById('organizePanel');
+const organizeClose = document.getElementById('organizeClose');
+const organizeCancel = document.getElementById('organizeCancel');
+const organizeSave = document.getElementById('organizeSave');
+const organizeFolderSelect = document.getElementById('organizeFolderSelect');
+const organizeFolderInput = document.getElementById('organizeFolderInput');
+const organizeError = document.getElementById('organizeError');
 
 const apiBaseUrl = document.querySelector('meta[name="workspace-api-base"]')?.content || '/api/testcases';
 const exportBaseUrl = document.querySelector('meta[name="workspace-export-base"]')?.content || '/workspace/export';
@@ -56,27 +67,28 @@ const drawer = createDrawer({
     drawerReporter: document.getElementById('drawerReporter'),
     drawerCreatedOn: document.getElementById('drawerCreatedOn'),
     drawerTags: document.getElementById('drawerTags'),
+    drawerModeLabel: document.getElementById('drawerModeLabel'),
+    drawerFooterHint: document.getElementById('drawerFooterHint'),
     getTestCaseById: grid.getTestCaseById
 });
 
 let allTestCases = [];
 let selectedFolder = '';
-
 let folderTreeModel = null;
 let isSidebarExpanded = true;
+let activeDragPayload = null;
+let activeDropTargetEl = null;
 
 function setSidebarExpanded(expanded) {
     isSidebarExpanded = Boolean(expanded);
 
     if (sidebar) {
-        // Use inline sizing so Tailwind CDN doesn't miss dynamically-toggled width classes.
         if (isSidebarExpanded) {
             sidebar.style.width = '';
             sidebar.style.minWidth = '';
             sidebar.style.borderRight = '';
             sidebar.style.overflow = '';
         } else {
-            // Fully collapse so the grid can be flush-left.
             sidebar.style.width = '0px';
             sidebar.style.minWidth = '0px';
             sidebar.style.borderRight = '0';
@@ -93,7 +105,6 @@ function setSidebarExpanded(expanded) {
     }
 
     if (sidebarInner) {
-        // Keep button height; only reduce horizontal padding when collapsed.
         sidebarInner.style.padding = isSidebarExpanded ? '' : '0.25rem';
     }
 
@@ -104,7 +115,6 @@ function setSidebarExpanded(expanded) {
     if (sidebarToggle) {
         sidebarToggle.setAttribute('aria-expanded', String(isSidebarExpanded));
         sidebarToggle.setAttribute('aria-label', isSidebarExpanded ? 'Collapse repository sidebar' : 'Expand repository sidebar');
-        // Keep a consistent square button in both locations.
         sidebarToggle.style.width = '';
         sidebarToggle.style.padding = '';
         sidebarToggle.innerHTML = isSidebarExpanded
@@ -112,7 +122,6 @@ function setSidebarExpanded(expanded) {
             : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 6l6 6-6 6" /></svg>';
     }
 
-    // Move the toggle button so it's still accessible when the sidebar is fully collapsed.
     if (sidebarToggleExpandedHost && sidebarToggleCollapsedHost && sidebarToggle) {
         if (isSidebarExpanded) {
             sidebarToggleExpandedHost.appendChild(sidebarToggle);
@@ -124,106 +133,12 @@ function setSidebarExpanded(expanded) {
     }
 }
 
-if (sidebarToggle) {
-    sidebarToggle.addEventListener('click', () => {
-        setSidebarExpanded(!isSidebarExpanded);
-    });
-}
-
-selection.setSelectionChangeHandler((selectedIds) => {
-    exportSelected.updateButtonState(selectedIds);
-});
-
-drawer.bind(tbody);
-
-if (importNoticeClose) {
-    importNoticeClose.addEventListener('click', clearImportNotice);
-}
-
-if (tbody) {
-    tbody.addEventListener('change', (event) => {
-        const target = event.target;
-        if (!target || !target.classList || !target.classList.contains('ws-row-check')) {
-            return;
-        }
-
-        selection.toggleSelection(target.dataset.workKey || '', target.checked);
-    });
-}
-
-function clearImportNotice() {
-    if (!importNoticeContainer) {
-        return;
-    }
-
-    importNoticeContainer.classList.add('hidden');
-    if (importNoticeMessage) {
-        importNoticeMessage.textContent = '';
-    }
-}
-
-function showImportNotice(type, message) {
-    if (!importNoticeContainer || !importNotice || !importNoticeBadge || !importNoticeMessage || !message) {
-        return;
-    }
-
-    const isSuccess = type === 'success';
-    importNoticeContainer.classList.remove('hidden');
-    importNoticeMessage.textContent = message;
-
-    if (isSuccess) {
-        importNotice.style.borderColor = 'rgba(231, 255, 2, 0.35)';
-        importNoticeBadge.textContent = 'OK';
-        importNoticeBadge.classList.remove('bg-white/70');
-        importNoticeBadge.style.backgroundColor = '#E7FF02';
-    } else {
-        importNotice.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-        importNoticeBadge.textContent = 'Error';
-        importNoticeBadge.classList.add('bg-white/70');
-        importNoticeBadge.style.backgroundColor = '';
-    }
-}
-
-function applyFilters() {
-    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
-    const component = filterComponent ? filterComponent.value.trim().toLowerCase() : '';
-    const status = filterStatus ? filterStatus.value.trim().toLowerCase() : '';
-    const tag = filterTag ? filterTag.value.trim().toLowerCase() : '';
-    const selectedFolderLower = selectedFolder ? selectedFolder.toLowerCase() : '';
-
-    const filtered = allTestCases.filter((testCase) => {
-        const workKey = (testCase.workKey || '').toLowerCase();
-        const summary = (testCase.summary || '').toLowerCase();
-        const components = (testCase.components || '').toLowerCase();
-        const testCaseType = (testCase.testCaseType || '').toLowerCase();
-        const testCaseStatus = (testCase.status || '').toLowerCase();
-        const folder = normalizeFolder(testCase.folder || '').toLowerCase();
-
-        const matchesQuery = !query || workKey.includes(query) || summary.includes(query) || components.includes(query);
-        const matchesComponent = !component || components.includes(component);
-        const matchesStatus = !status || testCaseStatus === status;
-        const matchesTag = !tag || components.includes(tag) || testCaseType.includes(tag);
-
-        const matchesFolder = !selectedFolderLower || folder === selectedFolderLower || folder.startsWith(selectedFolderLower + '/');
-        return matchesQuery && matchesComponent && matchesStatus && matchesTag && matchesFolder;
-    });
-
-    if (totalCount) {
-        totalCount.textContent = String(filtered.length);
-    }
-
-    grid.renderRows(filtered, new Set(selection.getSelectedIds()));
-    selection.setVisibleIds(filtered.map((testCase) => testCase.workKey).filter(Boolean));
-    selection.bindRowCheckboxes(tbody);
-}
-
 function normalizeFolder(value) {
     const raw = String(value || '').trim();
     if (!raw) {
         return '';
     }
 
-    // Accept both Windows and URL separators, then normalize to forward slashes.
     const asSlash = raw.replace(/\\/g, '/');
     return asSlash.replace(/^\/+/, '').replace(/\/+$/, '');
 }
@@ -263,11 +178,177 @@ function createFolderTreeModel(folderNames) {
     return root;
 }
 
+function getCaseFolders() {
+    const set = new Set();
+    for (const testCase of allTestCases) {
+        const normalized = normalizeFolder(testCase?.folder || '');
+        if (normalized) {
+            set.add(normalized);
+        }
+    }
+    return Array.from(set);
+}
+
+function collectFolderPaths(node, output) {
+    if (!node || !node.children) {
+        return;
+    }
+
+    for (const child of node.children.values()) {
+        if (child.path) {
+            output.push(child.path);
+        }
+        collectFolderPaths(child, output);
+    }
+}
+
+function listKnownFolders() {
+    const folders = new Set(getCaseFolders());
+    const fromTree = [];
+    collectFolderPaths(folderTreeModel, fromTree);
+    for (const folder of fromTree) {
+        folders.add(folder);
+    }
+
+    return Array.from(folders).sort((a, b) => a.localeCompare(b));
+}
+
+function setDropCursor(isValid) {
+    document.body.style.cursor = isValid ? 'copy' : 'not-allowed';
+}
+
+function clearDropCursor() {
+    document.body.style.cursor = '';
+}
+
+function clearDropHover() {
+    if (activeDropTargetEl) {
+        activeDropTargetEl.classList.remove('ws-folder-drop-hover');
+        activeDropTargetEl = null;
+    }
+}
+
+function setDropHover(targetEl) {
+    if (activeDropTargetEl === targetEl) {
+        return;
+    }
+
+    clearDropHover();
+    if (targetEl) {
+        targetEl.classList.add('ws-folder-drop-hover');
+        activeDropTargetEl = targetEl;
+    }
+}
+
+function getValidDropTarget(event) {
+    const candidate = event.target?.closest?.('[data-drop-target="folder"]');
+    if (!candidate || !folderTree || !folderTree.contains(candidate)) {
+        return null;
+    }
+
+    return candidate;
+}
+
+function syncRowSelectionUI() {
+    if (!tbody) {
+        return;
+    }
+
+    selection.bindRowCheckboxes(tbody);
+    const rows = tbody.querySelectorAll('tr[data-work-key]');
+    rows.forEach((row) => {
+        const workKey = row.dataset.workKey || '';
+        const isSelected = selection.isSelected(workKey);
+        row.classList.toggle('ws-row-selected', isSelected);
+        row.classList.toggle('bg-[#E7FF02]/10', isSelected);
+    });
+}
+
+function isInteractiveTarget(target) {
+    return Boolean(target?.closest?.('.ws-interactive, a, button, input, select, textarea, label'));
+}
+
+function createDragImage(workKeys) {
+    const holder = document.createElement('div');
+    holder.className = 'fixed -left-[9999px] -top-[9999px] pointer-events-none';
+
+    const chip = document.createElement('div');
+    chip.style.background = 'rgba(0, 0, 0, 0.95)';
+    chip.style.border = '1px solid rgba(231, 255, 2, 0.5)';
+    chip.style.color = '#ffffff';
+    chip.style.padding = '8px 10px';
+    chip.style.fontSize = '12px';
+    chip.style.display = 'inline-flex';
+    chip.style.alignItems = 'center';
+    chip.style.gap = '8px';
+
+    if (workKeys.length === 1) {
+        chip.textContent = workKeys[0];
+    } else {
+        const dots = document.createElement('span');
+        dots.textContent = '::';
+        dots.style.opacity = '0.8';
+
+        const label = document.createElement('span');
+        label.textContent = 'Move selected';
+
+        const badge = document.createElement('span');
+        badge.textContent = String(workKeys.length);
+        badge.style.background = '#E7FF02';
+        badge.style.color = '#000000';
+        badge.style.fontWeight = '700';
+        badge.style.padding = '1px 6px';
+        badge.style.borderRadius = '10px';
+
+        chip.appendChild(dots);
+        chip.appendChild(label);
+        chip.appendChild(badge);
+    }
+
+    holder.appendChild(chip);
+    document.body.appendChild(holder);
+    return { holder, chip };
+}
+
+function applyFilters() {
+    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    const component = filterComponent ? filterComponent.value.trim().toLowerCase() : '';
+    const status = filterStatus ? filterStatus.value.trim().toLowerCase() : '';
+    const tag = filterTag ? filterTag.value.trim().toLowerCase() : '';
+    const selectedFolderLower = selectedFolder ? selectedFolder.toLowerCase() : '';
+
+    const filtered = allTestCases.filter((testCase) => {
+        const workKey = (testCase.workKey || '').toLowerCase();
+        const summary = (testCase.summary || '').toLowerCase();
+        const components = (testCase.components || '').toLowerCase();
+        const testCaseType = (testCase.testCaseType || '').toLowerCase();
+        const testCaseStatus = (testCase.status || '').toLowerCase();
+        const folder = normalizeFolder(testCase.folder || '').toLowerCase();
+
+        const matchesQuery = !query || workKey.includes(query) || summary.includes(query) || components.includes(query);
+        const matchesComponent = !component || components.includes(component);
+        const matchesStatus = !status || testCaseStatus === status;
+        const matchesTag = !tag || components.includes(tag) || testCaseType.includes(tag);
+        const matchesFolder = !selectedFolderLower || folder === selectedFolderLower || folder.startsWith(selectedFolderLower + '/');
+
+        return matchesQuery && matchesComponent && matchesStatus && matchesTag && matchesFolder;
+    });
+
+    if (totalCount) {
+        totalCount.textContent = String(filtered.length);
+    }
+
+    grid.renderRows(filtered, new Set(selection.getSelectedIds()));
+    selection.setVisibleIds(filtered.map((testCase) => testCase.workKey).filter(Boolean));
+    syncRowSelectionUI();
+}
+
 function renderFolderTree() {
     if (!folderTree) {
         return;
     }
 
+    clearDropHover();
     folderTree.innerHTML = '';
 
     const selectedRowClasses = 'bg-[#E7FF02]/10 border-[#E7FF02] text-white';
@@ -276,7 +357,6 @@ function renderFolderTree() {
     const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pl-2 pr-2 text-sm rounded-md border transition-colors w-full';
     const rowSelectButtonClasses = 'min-w-0 flex-1 flex items-center gap-2 text-left';
 
-    // Always offer a way to clear the folder filter.
     const showAllWrap = document.createElement('div');
     showAllWrap.className = rowWrapClasses;
     showAllWrap.style.paddingLeft = '12px';
@@ -288,6 +368,7 @@ function renderFolderTree() {
     showAllButton.type = 'button';
     showAllButton.className = rowSelectButtonClasses;
     showAllButton.setAttribute('aria-label', 'Show all files');
+    showAllInner.dataset.dropTarget = 'invalid';
     if (!selectedFolder) {
         showAllButton.setAttribute('aria-current', 'true');
     }
@@ -297,16 +378,15 @@ function renderFolderTree() {
         '</span>' +
         '<span class="min-w-0 truncate">Show all files</span>';
 
-    const activateShowAll = () => {
+    showAllButton.addEventListener('click', () => {
         if (!selectedFolder) {
             return;
         }
         selectedFolder = '';
         renderFolderTree();
         applyFilters();
-    };
+    });
 
-    showAllButton.addEventListener('click', activateShowAll);
     showAllInner.appendChild(showAllButton);
     showAllWrap.appendChild(showAllInner);
     folderTree.appendChild(showAllWrap);
@@ -327,6 +407,8 @@ function renderFolderTree() {
         const rowInner = document.createElement('div');
         const isSelected = selectedFolder === node.path;
         rowInner.className = rowInnerBaseClasses + ' ' + (isSelected ? selectedRowClasses : unselectedRowClasses);
+        rowInner.dataset.dropTarget = 'folder';
+        rowInner.dataset.folderPath = node.path;
 
         let toggle;
         if (hasChildren) {
@@ -346,7 +428,6 @@ function renderFolderTree() {
                 renderFolderTree();
             });
         } else {
-            // Avoid creating a disabled/unlabeled button for leaf nodes.
             toggle = document.createElement('span');
             toggle.className = 'shrink-0 w-5 h-5 flex items-center justify-center';
             toggle.innerHTML = '<span class="block w-4 h-4"></span>';
@@ -374,15 +455,12 @@ function renderFolderTree() {
 
         selectButton.appendChild(iconSpan);
         selectButton.appendChild(labelSpan);
-
-        const activateFolder = () => {
+        selectButton.addEventListener('click', () => {
             const next = selectedFolder === node.path ? '' : node.path;
             selectedFolder = next;
             renderFolderTree();
             applyFilters();
-        };
-
-        selectButton.addEventListener('click', activateFolder);
+        });
 
         rowInner.appendChild(toggle);
         rowInner.appendChild(selectButton);
@@ -399,6 +477,113 @@ function renderFolderTree() {
     for (const child of sortedChildren(folderTreeModel)) {
         renderNode(child, 0);
     }
+}
+
+function populateOrganizeFolderOptions(selectedValue) {
+    if (!organizeFolderSelect) {
+        return;
+    }
+
+    const folders = listKnownFolders();
+    organizeFolderSelect.innerHTML = '';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Select a folder';
+    organizeFolderSelect.appendChild(placeholder);
+
+    for (const folder of folders) {
+        const option = document.createElement('option');
+        option.value = folder;
+        option.textContent = folder;
+        organizeFolderSelect.appendChild(option);
+    }
+
+    const normalizedSelected = normalizeFolder(selectedValue || '');
+    if (normalizedSelected && folders.includes(normalizedSelected)) {
+        organizeFolderSelect.value = normalizedSelected;
+    } else {
+        organizeFolderSelect.value = '';
+    }
+}
+
+function closeOrganizeModal() {
+    if (!organizeModal || !organizePanel) {
+        return;
+    }
+
+    organizePanel.classList.add('translate-y-3', 'opacity-0');
+    organizeModal.setAttribute('aria-hidden', 'true');
+    window.setTimeout(() => {
+        organizeModal.classList.add('hidden');
+    }, 160);
+}
+
+function openOrganizeModal() {
+    if (!organizeModal || !organizePanel) {
+        return;
+    }
+
+    const selectedIds = selection.getSelectedIds();
+    if (selectedIds.length === 0) {
+        return;
+    }
+
+    populateOrganizeFolderOptions('');
+
+    if (organizeFolderInput) {
+        organizeFolderInput.value = '';
+    }
+    if (organizeError) {
+        organizeError.classList.add('hidden');
+        organizeError.textContent = 'A target folder is required.';
+    }
+
+    organizeModal.classList.remove('hidden');
+    organizeModal.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => {
+        organizePanel.classList.remove('translate-y-3', 'opacity-0');
+    });
+}
+
+function handleBulkMove(input) {
+    const moveInput = input || {};
+    const workKeys = Array.isArray(moveInput.workKeys) ? moveInput.workKeys : [];
+    const source = moveInput.source || 'unknown';
+    const targetFolder = normalizeFolder(moveInput.targetFolder || '');
+
+    if (!targetFolder) {
+        return false;
+    }
+
+    const uniqueKeys = Array.from(new Set(workKeys.filter(Boolean)));
+    if (uniqueKeys.length === 0) {
+        return false;
+    }
+
+    console.log({
+        workKeys: uniqueKeys,
+        targetFolder,
+        source
+    });
+
+    const moveSet = new Set(uniqueKeys);
+    allTestCases = allTestCases.map((testCase) => {
+        if (!moveSet.has(testCase.workKey)) {
+            return testCase;
+        }
+
+        return {
+            ...testCase,
+            folder: targetFolder
+        };
+    });
+
+    selection.removeSelectedIds(uniqueKeys);
+    folderTreeModel = createFolderTreeModel(getCaseFolders());
+    renderFolderTree();
+    applyFilters();
+    return true;
 }
 
 function loadFolders() {
@@ -419,7 +604,11 @@ function loadFolders() {
         })
         .then((data) => {
             const folders = Array.isArray(data) ? data : [];
-            folderTreeModel = createFolderTreeModel(folders);
+            const merged = Array.from(new Set([...
+                folders.map((item) => normalizeFolder(item)).filter(Boolean),
+                ...getCaseFolders()
+            ]));
+            folderTreeModel = createFolderTreeModel(merged);
 
             if (folderLoading) {
                 folderLoading.classList.add('hidden');
@@ -434,13 +623,14 @@ function loadFolders() {
         })
         .catch((error) => {
             console.error('Failed to load folders', error);
-            folderTreeModel = createFolderTreeModel([]);
+            folderTreeModel = createFolderTreeModel(getCaseFolders());
             if (folderLoading) {
                 folderLoading.classList.add('hidden');
             }
             if (folderEmpty) {
-                folderEmpty.classList.remove('hidden');
-                folderEmpty.textContent = 'Folders unavailable.';
+                const hasAny = folderTreeModel && folderTreeModel.children && folderTreeModel.children.size > 0;
+                folderEmpty.classList.toggle('hidden', hasAny);
+                folderEmpty.textContent = hasAny ? 'No folders found.' : 'Folders unavailable.';
             }
             renderFolderTree();
         });
@@ -463,6 +653,219 @@ function loadAllTestCases() {
         });
 }
 
+function clearImportNotice() {
+    if (!importNoticeContainer) {
+        return;
+    }
+
+    importNoticeContainer.classList.add('hidden');
+    if (importNoticeMessage) {
+        importNoticeMessage.textContent = '';
+    }
+}
+
+function showImportNotice(type, message) {
+    if (!importNoticeContainer || !importNotice || !importNoticeBadge || !importNoticeMessage || !message) {
+        return;
+    }
+
+    const isSuccess = type === 'success';
+    importNoticeContainer.classList.remove('hidden');
+    importNoticeMessage.textContent = message;
+
+    if (isSuccess) {
+        importNotice.style.borderColor = 'rgba(231, 255, 2, 0.35)';
+        importNoticeBadge.textContent = 'OK';
+        importNoticeBadge.classList.remove('bg-white/70');
+        importNoticeBadge.style.backgroundColor = '#E7FF02';
+    } else {
+        importNotice.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        importNoticeBadge.textContent = 'Error';
+        importNoticeBadge.classList.add('bg-white/70');
+        importNoticeBadge.style.backgroundColor = '';
+    }
+}
+
+if (sidebarToggle) {
+    sidebarToggle.addEventListener('click', () => {
+        setSidebarExpanded(!isSidebarExpanded);
+    });
+}
+
+selection.setSelectionChangeHandler((selectedIds) => {
+    exportSelected.updateButtonState(selectedIds);
+    syncRowSelectionUI();
+});
+
+if (importNoticeClose) {
+    importNoticeClose.addEventListener('click', clearImportNotice);
+}
+
+if (tbody) {
+    tbody.addEventListener('change', (event) => {
+        const target = event.target;
+        if (!target?.classList?.contains('ws-row-check')) {
+            return;
+        }
+
+        const workKey = target.dataset.workKey || '';
+        selection.setSelected(workKey, target.checked);
+        syncRowSelectionUI();
+    });
+
+    tbody.addEventListener('click', (event) => {
+        const actionButton = event.target?.closest?.('.ws-row-action');
+        if (actionButton) {
+            const workKey = actionButton.dataset.workKey || actionButton.closest('[data-work-key]')?.dataset.workKey || '';
+            if (!workKey) {
+                return;
+            }
+
+            const action = actionButton.dataset.action;
+            if (action === 'preview') {
+                drawer.openByWorkKey(workKey, { readOnly: true });
+            } else {
+                drawer.openByWorkKey(workKey, { readOnly: false });
+            }
+            return;
+        }
+
+        if (isInteractiveTarget(event.target)) {
+            return;
+        }
+
+        const row = event.target?.closest?.('tr[data-work-key]');
+        if (!row) {
+            return;
+        }
+
+        const workKey = row.dataset.workKey || '';
+        if (!workKey) {
+            return;
+        }
+
+        selection.setSelected(workKey, !selection.isSelected(workKey));
+        syncRowSelectionUI();
+    });
+
+    tbody.addEventListener('dragstart', (event) => {
+        const grabHandle = event.target?.closest?.('.ws-row-grab');
+        if (!grabHandle) {
+            event.preventDefault();
+            return;
+        }
+
+        const workKey = grabHandle.dataset.workKey || grabHandle.closest('tr[data-work-key]')?.dataset.workKey || '';
+        if (!workKey || !event.dataTransfer) {
+            event.preventDefault();
+            return;
+        }
+
+        const selectedIds = selection.getSelectedIds();
+        const workKeys = selection.isSelected(workKey)
+            ? selectedIds.filter(Boolean)
+            : [workKey];
+
+        activeDragPayload = { workKeys: Array.from(new Set(workKeys)) };
+        event.dataTransfer.effectAllowed = 'copyMove';
+        event.dataTransfer.setData('application/x-work-keys', JSON.stringify(activeDragPayload.workKeys));
+        event.dataTransfer.setData('text/plain', activeDragPayload.workKeys.join(','));
+
+        const dragImage = createDragImage(activeDragPayload.workKeys);
+        event.dataTransfer.setDragImage(dragImage.chip, 12, 12);
+        window.setTimeout(() => {
+            dragImage.holder.remove();
+        }, 0);
+    });
+
+    tbody.addEventListener('dragend', () => {
+        activeDragPayload = null;
+        clearDropHover();
+        clearDropCursor();
+    });
+}
+
+if (folderTree) {
+    folderTree.addEventListener('dragenter', (event) => {
+        if (!activeDragPayload) {
+            return;
+        }
+
+        const targetEl = getValidDropTarget(event);
+        if (!targetEl) {
+            if (event.dataTransfer) {
+                event.dataTransfer.dropEffect = 'none';
+            }
+            setDropCursor(false);
+            clearDropHover();
+            return;
+        }
+
+        event.preventDefault();
+        if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = 'copy';
+        }
+        setDropCursor(true);
+        setDropHover(targetEl);
+    });
+
+    folderTree.addEventListener('dragover', (event) => {
+        if (!activeDragPayload) {
+            return;
+        }
+
+        const targetEl = getValidDropTarget(event);
+        if (!targetEl) {
+            if (event.dataTransfer) {
+                event.dataTransfer.dropEffect = 'none';
+            }
+            setDropCursor(false);
+            clearDropHover();
+            return;
+        }
+
+        event.preventDefault();
+        if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = 'copy';
+        }
+        setDropCursor(true);
+        setDropHover(targetEl);
+    });
+
+    folderTree.addEventListener('dragleave', (event) => {
+        if (!activeDragPayload) {
+            return;
+        }
+
+        const next = event.relatedTarget;
+        if (!next || !folderTree.contains(next)) {
+            clearDropHover();
+            clearDropCursor();
+        }
+    });
+
+    folderTree.addEventListener('drop', (event) => {
+        if (!activeDragPayload) {
+            return;
+        }
+
+        event.preventDefault();
+        const targetEl = getValidDropTarget(event);
+        if (targetEl) {
+            const targetFolder = targetEl.dataset.folderPath || '';
+            handleBulkMove({
+                workKeys: activeDragPayload.workKeys,
+                targetFolder,
+                source: 'drag-drop'
+            });
+        }
+
+        activeDragPayload = null;
+        clearDropHover();
+        clearDropCursor();
+    });
+}
+
 if (searchInput) {
     searchInput.addEventListener('input', applyFilters);
 }
@@ -474,6 +877,69 @@ if (filterStatus) {
 }
 if (filterTag) {
     filterTag.addEventListener('change', applyFilters);
+}
+
+if (bulkOrganize) {
+    bulkOrganize.addEventListener('click', openOrganizeModal);
+}
+
+if (organizeBackdrop) {
+    organizeBackdrop.addEventListener('click', closeOrganizeModal);
+}
+if (organizeClose) {
+    organizeClose.addEventListener('click', closeOrganizeModal);
+}
+if (organizeCancel) {
+    organizeCancel.addEventListener('click', closeOrganizeModal);
+}
+
+if (organizeFolderSelect && organizeFolderInput) {
+    organizeFolderSelect.addEventListener('change', () => {
+        organizeFolderInput.value = organizeFolderSelect.value;
+        if (organizeError) {
+            organizeError.classList.add('hidden');
+        }
+    });
+
+    organizeFolderInput.addEventListener('input', () => {
+        const normalized = normalizeFolder(organizeFolderInput.value || '');
+        if (normalizeFolder(organizeFolderSelect.value || '') === normalized) {
+            return;
+        }
+
+        const options = Array.from(organizeFolderSelect.options).map((option) => option.value);
+        organizeFolderSelect.value = options.includes(normalized) ? normalized : '';
+        if (organizeError) {
+            organizeError.classList.add('hidden');
+        }
+    });
+}
+
+if (organizeSave) {
+    organizeSave.addEventListener('click', () => {
+        const selectedIds = selection.getSelectedIds();
+        const fromInput = organizeFolderInput ? organizeFolderInput.value : '';
+        const fromSelect = organizeFolderSelect ? organizeFolderSelect.value : '';
+        const targetFolder = normalizeFolder(fromInput || fromSelect);
+
+        if (!targetFolder) {
+            if (organizeError) {
+                organizeError.classList.remove('hidden');
+                organizeError.textContent = 'A target folder is required.';
+            }
+            return;
+        }
+
+        const moved = handleBulkMove({
+            workKeys: selectedIds,
+            targetFolder,
+            source: 'organize-modal'
+        });
+
+        if (moved) {
+            closeOrganizeModal();
+        }
+    });
 }
 
 if (importBtn && importFile) {
@@ -496,7 +962,7 @@ if (importBtn && importFile) {
             formData.append(csrfInput.name, csrfInput.value);
         }
 
-        importBtn.textContent = 'Importing…';
+        importBtn.textContent = 'Importing...';
         importBtn.disabled = true;
 
         fetch('/api/upload', { method: 'POST', body: formData })
@@ -505,7 +971,6 @@ if (importBtn && importFile) {
                     return response.json();
                 }
 
-                // Try to surface the backend's message (Spring may return JSON or plain text).
                 let detail = '';
                 try {
                     const contentType = response.headers.get('content-type') || '';
@@ -516,7 +981,7 @@ if (importBtn && importFile) {
                         detail = await response.text();
                     }
                 } catch (e) {
-                    // ignore parsing failure
+                    // Ignore parse failures and use status message.
                 }
 
                 const suffix = detail ? ': ' + String(detail).trim() : '';
