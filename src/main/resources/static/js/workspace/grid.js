@@ -197,7 +197,7 @@ export function createGrid(tbody) {
 
             const row = document.createElement('tr');
             const isSelected = selectedIds.has(workKey);
-            row.className = 'ws-row border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer' + (isSelected ? ' ws-row-selected bg-[#E7FF02]/10' : '');
+            row.className = 'ws-row border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer' + (isSelected ? ' ws-row-selected' : '');
             row.dataset.id = workKey;
             row.dataset.workKey = workKey;
             row.dataset.title = title;

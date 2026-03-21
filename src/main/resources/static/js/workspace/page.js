@@ -16,6 +16,7 @@ const filterTag = document.getElementById('wsFilterTag');
 const bulkBar = document.getElementById('bulkBar');
 const bulkCount = document.getElementById('bulkCount');
 const bulkExportSelected = document.getElementById('bulkExportSelected');
+const bulkOrganize = document.getElementById('bulkOrganize');
 const importNoticeContainer = document.getElementById('importNoticeContainer');
 const importNotice = document.getElementById('importNotice');
 const importNoticeBadge = document.getElementById('importNoticeBadge');
@@ -34,8 +35,21 @@ const sidebarHeader = document.getElementById('wsSidebarHeader');
 const sidebarToggleExpandedHost = document.getElementById('wsSidebarToggleExpandedHost');
 const sidebarToggleCollapsedHost = document.getElementById('wsSidebarToggleCollapsedHost');
 
+const organizeModal = document.getElementById('organizeModal');
+const organizeBackdrop = document.getElementById('organizeBackdrop');
+const organizePanel = document.getElementById('organizePanel');
+const organizeClose = document.getElementById('organizeClose');
+const organizeCancel = document.getElementById('organizeCancel');
+const organizeSave = document.getElementById('organizeSave');
+const organizeFolderSelect = document.getElementById('organizeFolderSelect');
+const organizeFolderInput = document.getElementById('organizeFolderInput');
+const organizeError = document.getElementById('organizeError');
+
 const apiBaseUrl = document.querySelector('meta[name="workspace-api-base"]')?.content || '/api/testcases';
 const exportBaseUrl = document.querySelector('meta[name="workspace-export-base"]')?.content || '/workspace/export';
+const componentsBaseUrl = document.querySelector('meta[name="workspace-components-base"]')?.content || '/api/components';
+const statusesBaseUrl = document.querySelector('meta[name="workspace-statuses-base"]')?.content || '/api/statuses';
+const tagsBaseUrl = document.querySelector('meta[name="workspace-tags-base"]')?.content || '/api/tags';
 
 const grid = createGrid(tbody);
 const selection = createSelection(selectAll, bulkBar, bulkCount);
@@ -56,6 +70,8 @@ const drawer = createDrawer({
     drawerReporter: document.getElementById('drawerReporter'),
     drawerCreatedOn: document.getElementById('drawerCreatedOn'),
     drawerTags: document.getElementById('drawerTags'),
+    drawerModeLabel: document.getElementById('drawerModeLabel'),
+    drawerFooterHint: document.getElementById('drawerFooterHint'),
     getTestCaseById: grid.getTestCaseById
 });
 
@@ -64,6 +80,9 @@ let selectedFolder = '';
 
 let folderTreeModel = null;
 let isSidebarExpanded = true;
+let activeDragPayload = null;
+let activeDropTargetEl = null;
+let activeDragImageHolder = null;
 
 function setSidebarExpanded(expanded) {
     isSidebarExpanded = Boolean(expanded);
@@ -132,6 +151,7 @@ if (sidebarToggle) {
 
 selection.setSelectionChangeHandler((selectedIds) => {
     exportSelected.updateButtonState(selectedIds);
+    syncRowSelectionUi();
 });
 
 if (drawer && typeof drawer.bind === 'function') {
@@ -150,6 +170,157 @@ if (tbody) {
         }
 
         selection.toggleSelection(target.dataset.workKey || '', target.checked);
+        syncRowSelectionUi();
+    });
+
+    tbody.addEventListener('click', (event) => {
+        const actionButton = event.target?.closest?.('.ws-row-action');
+        if (actionButton) {
+            const workKey = actionButton.dataset.workKey || actionButton.closest('[data-work-key]')?.dataset.workKey || '';
+            if (!workKey) {
+                return;
+            }
+
+            const action = actionButton.dataset.action;
+            if (action === 'preview') {
+                drawer.openByWorkKey(workKey, { readOnly: true });
+            } else if (action === 'edit') {
+                drawer.openByWorkKey(workKey, { readOnly: false });
+            }
+            return;
+        }
+
+        if (isInteractiveTarget(event.target)) {
+            return;
+        }
+
+        const row = event.target?.closest?.('tr[data-work-key]');
+        if (!row) {
+            return;
+        }
+
+        const workKey = row.dataset.workKey || '';
+        if (!workKey) {
+            return;
+        }
+
+        const nextChecked = !selection.isSelected(workKey);
+        selection.setSelected(workKey, nextChecked);
+        const check = row.querySelector('.ws-row-check');
+        if (check) {
+            check.checked = nextChecked;
+        }
+        syncRowSelectionUi();
+    });
+
+    tbody.addEventListener('dragstart', (event) => {
+        const grabHandle = event.target?.closest?.('.ws-row-grab');
+        if (!grabHandle) {
+            return;
+        }
+
+        const workKey = grabHandle.dataset.workKey || grabHandle.closest('[data-work-key]')?.dataset.workKey || '';
+        if (!workKey || !event.dataTransfer) {
+            return;
+        }
+
+        const selectedIds = selection.getSelectedIds();
+        const workKeys = selectedIds.includes(workKey) ? selectedIds : [workKey];
+        activeDragPayload = {
+            workKeys,
+            source: 'drag'
+        };
+
+        if (activeDragImageHolder) {
+            activeDragImageHolder.remove();
+            activeDragImageHolder = null;
+        }
+
+        const dragImage = createDragImage(workKeys);
+        activeDragImageHolder = dragImage.holder;
+
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', JSON.stringify(activeDragPayload));
+        event.dataTransfer.setDragImage(dragImage.chip, 16, 16);
+        clearDropCursor();
+    });
+
+    tbody.addEventListener('dragend', () => {
+        activeDragPayload = null;
+        if (activeDragImageHolder) {
+            activeDragImageHolder.remove();
+            activeDragImageHolder = null;
+        }
+        clearDropHover();
+        clearDropCursor();
+    });
+}
+
+if (folderTree) {
+    folderTree.addEventListener('dragenter', (event) => {
+        if (!activeDragPayload) {
+            return;
+        }
+
+        const target = getValidDropTarget(event);
+        setDropHover(target);
+        setDropCursor(Boolean(target));
+    });
+
+    folderTree.addEventListener('dragover', (event) => {
+        if (!activeDragPayload) {
+            return;
+        }
+
+        const target = getValidDropTarget(event);
+        setDropHover(target);
+        setDropCursor(Boolean(target));
+        if (!target) {
+            return;
+        }
+
+        event.preventDefault();
+        if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = 'move';
+        }
+    });
+
+    folderTree.addEventListener('dragleave', (event) => {
+        if (!activeDragPayload) {
+            return;
+        }
+
+        const next = event.relatedTarget;
+        if (!next || !folderTree.contains(next)) {
+            clearDropHover();
+            setDropCursor(false);
+        }
+    });
+
+    folderTree.addEventListener('drop', (event) => {
+        if (!activeDragPayload) {
+            return;
+        }
+
+        const target = getValidDropTarget(event);
+        clearDropHover();
+        clearDropCursor();
+
+        if (!target) {
+            activeDragPayload = null;
+            return;
+        }
+
+        event.preventDefault();
+        const targetFolder = normalizeFolder(target.dataset.folderPath || '');
+        const payload = activeDragPayload;
+        activeDragPayload = null;
+
+        handleBulkMove({
+            workKeys: payload.workKeys,
+            targetFolder,
+            source: 'drag'
+        });
     });
 }
 
@@ -217,6 +388,94 @@ function applyFilters() {
     grid.renderRows(filtered, new Set(selection.getSelectedIds()));
     selection.setVisibleIds(filtered.map((testCase) => testCase.workKey).filter(Boolean));
     selection.bindRowCheckboxes(tbody);
+    syncRowSelectionUi();
+}
+
+function syncRowSelectionUi() {
+    if (!tbody) {
+        return;
+    }
+
+    const rows = tbody.querySelectorAll('tr[data-work-key]');
+    rows.forEach((row) => {
+        const workKey = row.dataset.workKey || '';
+        const isSelected = selection.isSelected(workKey);
+        row.classList.toggle('ws-row-selected', isSelected);
+    });
+}
+
+function isInteractiveTarget(target) {
+    return Boolean(target?.closest?.('.ws-interactive, a, button, input, select, textarea, label'));
+}
+
+function setDropCursor(isValid) {
+    document.body.style.cursor = isValid ? 'copy' : 'grabbing';
+}
+
+function clearDropCursor() {
+    document.body.style.cursor = '';
+}
+
+function createDragImage(workKeys) {
+    const holder = document.createElement('div');
+    holder.className = 'fixed -left-[9999px] -top-[9999px] pointer-events-none z-50';
+
+    const chip = document.createElement('div');
+    chip.className = 'inline-flex items-center gap-2 border border-[#E7FF02]/40 bg-black/95 px-3 py-2 text-xs text-white shadow-lg';
+
+    if (Array.isArray(workKeys) && workKeys.length > 1) {
+        const glyph = document.createElement('span');
+        glyph.className = 'text-white/70';
+        glyph.textContent = '::';
+
+        const label = document.createElement('span');
+        label.className = 'text-white/90';
+        label.textContent = 'Move selected';
+
+        const badge = document.createElement('span');
+        badge.className = 'inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 rounded-full bg-[#E7FF02] text-black font-bold text-xs';
+        badge.textContent = String(workKeys.length);
+
+        chip.appendChild(glyph);
+        chip.appendChild(label);
+        chip.appendChild(badge);
+    } else {
+        const value = Array.isArray(workKeys) && workKeys.length > 0 ? workKeys[0] : 'Move item';
+        chip.textContent = String(value);
+    }
+
+    holder.appendChild(chip);
+    document.body.appendChild(holder);
+
+    return { holder, chip };
+}
+
+function clearDropHover() {
+    if (activeDropTargetEl) {
+        activeDropTargetEl.classList.remove('ws-folder-drop-hover');
+        activeDropTargetEl = null;
+    }
+}
+
+function setDropHover(targetEl) {
+    if (activeDropTargetEl === targetEl) {
+        return;
+    }
+
+    clearDropHover();
+    if (targetEl) {
+        targetEl.classList.add('ws-folder-drop-hover');
+        activeDropTargetEl = targetEl;
+    }
+}
+
+function getValidDropTarget(event) {
+    const candidate = event.target?.closest?.('[data-drop-target="folder"]');
+    if (!candidate || !folderTree || !folderTree.contains(candidate)) {
+        return null;
+    }
+
+    return candidate;
 }
 
 function normalizeFolder(value) {
@@ -329,6 +588,8 @@ function renderFolderTree() {
         const rowInner = document.createElement('div');
         const isSelected = selectedFolder === node.path;
         rowInner.className = rowInnerBaseClasses + ' ' + (isSelected ? selectedRowClasses : unselectedRowClasses);
+        rowInner.dataset.dropTarget = 'folder';
+        rowInner.dataset.folderPath = node.path;
 
         let toggle;
         if (hasChildren) {
@@ -448,6 +709,194 @@ function loadFolders() {
         });
 }
 
+function loadFilterOptions() {
+    const requests = [
+        fetchOptionValues(componentsBaseUrl),
+        fetchOptionValues(statusesBaseUrl),
+        fetchOptionValues(tagsBaseUrl)
+    ];
+
+    Promise.all(requests)
+        .then(([components, statuses, tags]) => {
+            populateSelect(filterComponent, components);
+            populateSelect(filterStatus, statuses);
+            populateSelect(filterTag, tags);
+        })
+        .catch(() => {
+            const components = uniqueSorted(allTestCases.map((item) => item?.components));
+            const statuses = uniqueSorted(allTestCases.map((item) => item?.status));
+            const tags = uniqueSorted(allTestCases.flatMap((item) => [item?.components, item?.testCaseType]));
+            populateSelect(filterComponent, components);
+            populateSelect(filterStatus, statuses);
+            populateSelect(filterTag, tags);
+        });
+}
+
+function fetchOptionValues(url) {
+    return fetch(url)
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Options failed with status ' + response.status);
+            }
+            return response.json();
+        })
+        .then((data) => uniqueSorted(Array.isArray(data) ? data : []));
+}
+
+function uniqueSorted(values) {
+    const set = new Set();
+    for (const value of values || []) {
+        const raw = String(value || '').trim();
+        if (raw) {
+            set.add(raw);
+        }
+    }
+
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+}
+
+function populateSelect(selectEl, values) {
+    if (!selectEl) {
+        return;
+    }
+
+    const previous = selectEl.value || '';
+    selectEl.innerHTML = '<option value="">All</option>';
+    for (const value of values) {
+        const option = document.createElement('option');
+        option.value = String(value || '');
+        option.textContent = String(value || '');
+        selectEl.appendChild(option);
+    }
+
+    if (previous && values.includes(previous)) {
+        selectEl.value = previous;
+    }
+}
+
+function collectFolderPaths(node, output) {
+    if (!node || !node.children) {
+        return;
+    }
+
+    for (const child of node.children.values()) {
+        if (child.path) {
+            output.push(child.path);
+        }
+        collectFolderPaths(child, output);
+    }
+}
+
+function listKnownFolders() {
+    const folders = new Set();
+    for (const testCase of allTestCases) {
+        const folder = normalizeFolder(testCase?.folder || '');
+        if (folder) {
+            folders.add(folder);
+        }
+    }
+
+    const fromTree = [];
+    collectFolderPaths(folderTreeModel, fromTree);
+    for (const folder of fromTree) {
+        const normalized = normalizeFolder(folder);
+        if (normalized) {
+            folders.add(normalized);
+        }
+    }
+
+    return Array.from(folders).sort((a, b) => a.localeCompare(b));
+}
+
+function populateOrganizeFolderOptions(selectedValue) {
+    if (!organizeFolderSelect) {
+        return;
+    }
+
+    const folders = listKnownFolders();
+    organizeFolderSelect.innerHTML = '<option value="">Select a folder</option>';
+    for (const folder of folders) {
+        const option = document.createElement('option');
+        option.value = folder;
+        option.textContent = folder;
+        organizeFolderSelect.appendChild(option);
+    }
+
+    const normalizedSelected = normalizeFolder(selectedValue || '');
+    if (normalizedSelected && folders.includes(normalizedSelected)) {
+        organizeFolderSelect.value = normalizedSelected;
+    }
+}
+
+function closeOrganizeModal() {
+    if (!organizeModal || !organizePanel) {
+        return;
+    }
+
+    organizePanel.classList.add('translate-y-3', 'opacity-0');
+    organizeModal.setAttribute('aria-hidden', 'true');
+    window.setTimeout(() => {
+        organizeModal.classList.add('hidden');
+    }, 160);
+}
+
+function openOrganizeModal() {
+    if (!organizeModal || !organizePanel) {
+        return;
+    }
+
+    const selectedIds = selection.getSelectedIds();
+    if (selectedIds.length === 0) {
+        return;
+    }
+
+    populateOrganizeFolderOptions('');
+    if (organizeFolderInput) {
+        organizeFolderInput.value = '';
+    }
+    if (organizeError) {
+        organizeError.classList.add('hidden');
+        organizeError.textContent = 'A target folder is required.';
+    }
+
+    organizeModal.classList.remove('hidden');
+    organizeModal.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => {
+        organizePanel.classList.remove('translate-y-3', 'opacity-0');
+    });
+}
+
+function handleBulkMove(input) {
+    const moveInput = input || {};
+    const uniqueKeys = Array.from(new Set((moveInput.workKeys || []).filter(Boolean)));
+    const targetFolder = normalizeFolder(moveInput.targetFolder || '');
+    if (!targetFolder || uniqueKeys.length === 0) {
+        return false;
+    }
+
+    const moveSet = new Set(uniqueKeys);
+    allTestCases = allTestCases.map((testCase) => {
+        if (!moveSet.has(testCase.workKey)) {
+            return testCase;
+        }
+        return {
+            ...testCase,
+            folder: targetFolder
+        };
+    });
+
+    selection.removeSelectedIds(uniqueKeys);
+
+    const knownFolders = listKnownFolders();
+    if (!knownFolders.includes(targetFolder)) {
+        knownFolders.push(targetFolder);
+    }
+    folderTreeModel = createFolderTreeModel(knownFolders);
+    renderFolderTree();
+    applyFilters();
+    return true;
+}
+
 function loadAllTestCases() {
     const pageSize = 200;
     const maxPages = 500;
@@ -489,11 +938,13 @@ function loadAllTestCases() {
             if (totalCount) {
                 totalCount.textContent = String(allTestCases.length);
             }
+            loadFilterOptions();
             applyFilters();
         })
         .catch((error) => {
             console.error('Failed to load test cases', error);
             allTestCases = [];
+            loadFilterOptions();
             applyFilters();
         });
 }
@@ -509,6 +960,65 @@ if (filterStatus) {
 }
 if (filterTag) {
     filterTag.addEventListener('change', applyFilters);
+}
+
+if (bulkOrganize) {
+    bulkOrganize.addEventListener('click', openOrganizeModal);
+}
+if (organizeBackdrop) {
+    organizeBackdrop.addEventListener('click', closeOrganizeModal);
+}
+if (organizeClose) {
+    organizeClose.addEventListener('click', closeOrganizeModal);
+}
+if (organizeCancel) {
+    organizeCancel.addEventListener('click', closeOrganizeModal);
+}
+if (organizeFolderSelect && organizeFolderInput) {
+    organizeFolderSelect.addEventListener('change', () => {
+        const selected = normalizeFolder(organizeFolderSelect.value || '');
+        if (selected) {
+            organizeFolderInput.value = selected;
+        }
+    });
+
+    organizeFolderInput.addEventListener('input', () => {
+        const normalized = normalizeFolder(organizeFolderInput.value || '');
+        if (normalizeFolder(organizeFolderSelect.value || '') === normalized) {
+            return;
+        }
+        organizeFolderSelect.value = '';
+    });
+}
+if (organizeSave) {
+    organizeSave.addEventListener('click', () => {
+        const workKeys = selection.getSelectedIds();
+        const fromSelect = normalizeFolder(organizeFolderSelect?.value || '');
+        const fromInput = normalizeFolder(organizeFolderInput?.value || '');
+        const targetFolder = normalizeFolder(fromInput || fromSelect);
+
+        if (!targetFolder) {
+            if (organizeError) {
+                organizeError.classList.remove('hidden');
+                organizeError.textContent = 'A target folder is required.';
+            }
+            return;
+        }
+
+        if (organizeError) {
+            organizeError.classList.add('hidden');
+        }
+
+        const moved = handleBulkMove({
+            workKeys,
+            targetFolder,
+            source: 'organize-modal'
+        });
+
+        if (moved) {
+            closeOrganizeModal();
+        }
+    });
 }
 
 if (importBtn && importFile) {
