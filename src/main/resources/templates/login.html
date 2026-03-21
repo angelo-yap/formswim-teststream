@@ -24,6 +24,23 @@
                 <div th:if="${successMessage}" class="p-3 bg-emerald-500/10 border border-emerald-500 text-emerald-400 text-sm rounded text-center" th:text="${successMessage}"></div>
                 <div th:if="${logoutMessage}" class="p-3 bg-white/10 border border-white/20 text-white text-sm rounded text-center" th:text="${logoutMessage}"></div>
 
+                <div th:if="${generatedTeamCode}" class="p-4 bg-white/5 border border-white/20 text-white rounded">
+                    <div class="text-sm text-white/70">Your new team code</div>
+                    <div class="mt-2 flex items-center justify-between gap-3">
+                        <div class="font-mono text-lg tracking-widest" id="teamCodeValue" th:text="${generatedTeamCode}"></div>
+                        <button
+                            type="button"
+                            class="shrink-0 py-2 px-3 text-black font-bold transition-all hover:opacity-80"
+                            style="background-color: #E7FF02;"
+                            onclick="copyTeamCode()"
+                            id="copyTeamCodeButton"
+                        >
+                            Copy
+                        </button>
+                    </div>
+                    <div class="mt-2 text-xs text-white/60" id="copyTeamCodeStatus" aria-live="polite"></div>
+                </div>
+
                 <div>
                     <label for="email" class="block text-white mb-2 font-semibold">
                         Email
@@ -73,5 +90,40 @@
             </form>
         </div>
     </div>
+
+    <script>
+        async function copyTeamCode() {
+            const valueEl = document.getElementById('teamCodeValue');
+            const statusEl = document.getElementById('copyTeamCodeStatus');
+            const buttonEl = document.getElementById('copyTeamCodeButton');
+            const teamCode = valueEl ? valueEl.textContent.trim() : '';
+
+            if (!teamCode) {
+                if (statusEl) statusEl.textContent = 'No team code found.';
+                return;
+            }
+
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(teamCode);
+                } else {
+                    const input = document.createElement('input');
+                    input.value = teamCode;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(input);
+                }
+
+                if (statusEl) statusEl.textContent = 'Copied to clipboard.';
+                if (buttonEl) buttonEl.textContent = 'Copied';
+                setTimeout(() => {
+                    if (buttonEl) buttonEl.textContent = 'Copy';
+                }, 1200);
+            } catch (e) {
+                if (statusEl) statusEl.textContent = 'Copy failed. Please select and copy manually.';
+            }
+        }
+    </script>
 </body>
 </html>
