@@ -57,6 +57,11 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                   and (:tag is null or :tag = ''
                        or lower(coalesce(testCase.components, '')) like lower(concat('%', :tag, '%'))
                        or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :tag, '%')))
+                        and (
+                                :folder is null or :folder = ''
+                                or lower(coalesce(testCase.folder, '')) = lower(:folder)
+                                or lower(coalesce(testCase.folder, '')) like lower(concat(:folder, '/%'))
+                          )
                   and (
                         :search is null or :search = ''
                         or lower(coalesce(testCase.workKey, '')) like lower(concat('%', :search, '%'))
@@ -82,6 +87,11 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                   and (:tag is null or :tag = ''
                        or lower(coalesce(testCase.components, '')) like lower(concat('%', :tag, '%'))
                        or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :tag, '%')))
+                        and (
+                                :folder is null or :folder = ''
+                                or lower(coalesce(testCase.folder, '')) = lower(:folder)
+                                or lower(coalesce(testCase.folder, '')) like lower(concat(:folder, '/%'))
+                          )
                   and (
                         :search is null or :search = ''
                         or lower(coalesce(testCase.workKey, '')) like lower(concat('%', :search, '%'))
@@ -103,6 +113,7 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                                              @Param("status") String status,
                                              @Param("component") String component,
                                              @Param("tag") String tag,
+                                             @Param("folder") String folder,
                                              Pageable pageable);
 
     @Query("""

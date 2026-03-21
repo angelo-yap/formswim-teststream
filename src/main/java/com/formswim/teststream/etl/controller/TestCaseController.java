@@ -108,6 +108,7 @@ public class TestCaseController {
             normalizeQueryParam(status),
             normalizeQueryParam(component),
             null,
+            null,
             pageable
         );
 
@@ -235,6 +236,7 @@ public class TestCaseController {
                                                           @RequestParam(required = false) String status,
                                                           @RequestParam(required = false) String component,
                                                           @RequestParam(required = false) String tag,
+                                                          @RequestParam(required = false) String folder,
                                                           @RequestParam(defaultValue = "0") int page,
                                                           @RequestParam(defaultValue = "50") int size,
                                                           Authentication authentication) {
@@ -257,6 +259,7 @@ public class TestCaseController {
             normalizeQueryParam(status),
             normalizeQueryParam(component),
             normalizeQueryParam(tag),
+            normalizeQueryParam(folder),
             pageable
         );
 
