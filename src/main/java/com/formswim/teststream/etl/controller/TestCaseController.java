@@ -131,6 +131,18 @@ public class TestCaseController {
         return "workspace";
     }
 
+    @GetMapping("/workspace/test-cases/{id}")
+    public String testCaseDetails(@PathVariable String id,
+                                  Model model) {
+        String safeId = id == null ? "" : id.trim();
+
+        model.addAttribute("detailsCaseId", safeId.isBlank() ? "-" : safeId);
+        model.addAttribute("detailsPageTitle", "Test case details");
+        model.addAttribute("detailsIsPlaceholder", true);
+
+        return "test-case-details";
+    }
+
     @PostMapping("/workspace/import")
     public String importFile(@RequestParam("file") MultipartFile file,
                              HttpSession session,

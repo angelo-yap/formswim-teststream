@@ -52,7 +52,7 @@ public class SecurityConfig {
         http
             .userDetailsService(appUserDetailsService)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/login", "/register", "/error", "/test.html").permitAll()
+                .requestMatchers("/", "/login", "/register", "/error", "/test.html", "/workspace/test-cases/**").permitAll()
                 .requestMatchers("/workspace/**", "/logout").authenticated()
                 .anyRequest().authenticated()
             )
