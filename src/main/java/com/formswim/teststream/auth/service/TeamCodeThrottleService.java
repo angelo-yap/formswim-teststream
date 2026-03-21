@@ -3,10 +3,11 @@ package com.formswim.teststream.auth.service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 @Service
 public class TeamCodeThrottleService {
@@ -15,7 +16,10 @@ public class TeamCodeThrottleService {
     static final Duration BLOCK_DURATION = Duration.ofMinutes(15);
     static final Duration INACTIVITY_RESET_AFTER = Duration.ofHours(1);
 
-    private final Map<String, AttemptRecord> attempts = new ConcurrentHashMap<>();
+    private final Cache<String, AttemptRecord> attempts = Caffeine.newBuilder()
+        .maximumSize(10_000)
+        .expireAfterAccess(INACTIVITY_RESET_AFTER)
+        .build();
     private final Clock clock;
 
     public TeamCodeThrottleService() {
@@ -32,18 +36,27 @@ public class TeamCodeThrottleService {
             return;
         }
 
-        attempts.compute(key, (ip, existing) -> {
-            Instant now = Instant.now(clock);
-            AttemptRecord record = existing;
+        Instant now = Instant.now(clock);
+        AttemptRecord record = attempts.get(key, ip -> new AttemptRecord());
+        synchronized (record) {
+            if (record.blockExpiresAt != null) {
+                if (now.isAfter(record.blockExpiresAt)) {
+                    record.failureCount = 0;
+                    record.blockExpiresAt = null;
+                    record.lastFailureAt = null;
+                } else {
+                    return;
+                }
+            }
 
-            boolean blockExpired = record != null && record.blockExpiresAt != null && now.isAfter(record.blockExpiresAt);
-            boolean inactiveTooLong = record != null
-                && record.lastFailureAt != null
+            boolean inactiveTooLong = record.lastFailureAt != null
                 && record.blockExpiresAt == null
                 && Duration.between(record.lastFailureAt, now).compareTo(INACTIVITY_RESET_AFTER) > 0;
 
-            if (record == null || blockExpired || inactiveTooLong) {
-                record = new AttemptRecord();
+            if (inactiveTooLong) {
+                record.failureCount = 0;
+                record.blockExpiresAt = null;
+                record.lastFailureAt = null;
             }
 
             record.failureCount++;
@@ -51,9 +64,7 @@ public class TeamCodeThrottleService {
             if (record.failureCount >= MAX_FAILURES) {
                 record.blockExpiresAt = now.plus(BLOCK_DURATION);
             }
-
-            return record;
-        });
+        }
     }
 
     public void resetFailures(String clientIp) {
@@ -62,7 +73,7 @@ public class TeamCodeThrottleService {
             return;
         }
 
-        attempts.remove(key);
+        attempts.invalidate(key);
     }
 
     public boolean isBlocked(String clientIp) {
@@ -71,27 +82,28 @@ public class TeamCodeThrottleService {
             return false;
         }
 
-        AttemptRecord record = attempts.get(key);
+        AttemptRecord record = attempts.getIfPresent(key);
         if (record == null) {
             return false;
         }
 
         Instant now = Instant.now(clock);
-
-        if (record.blockExpiresAt != null) {
-            if (now.isAfter(record.blockExpiresAt)) {
-                attempts.remove(key);
-                return false;
+        synchronized (record) {
+            if (record.blockExpiresAt != null) {
+                if (now.isAfter(record.blockExpiresAt)) {
+                    attempts.invalidate(key);
+                    return false;
+                }
+                return true;
             }
-            return true;
-        }
 
-        if (record.lastFailureAt != null
-            && Duration.between(record.lastFailureAt, now).compareTo(INACTIVITY_RESET_AFTER) > 0) {
-            attempts.remove(key);
-        }
+            if (record.lastFailureAt != null
+                && Duration.between(record.lastFailureAt, now).compareTo(INACTIVITY_RESET_AFTER) > 0) {
+                attempts.invalidate(key);
+            }
 
-        return false;
+            return false;
+        }
     }
 
     private String normalizeClientIp(String clientIp) {

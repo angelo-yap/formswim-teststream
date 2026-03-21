@@ -101,10 +101,7 @@ public class SecurityConfig {
     @Bean
     public AuthenticationFailureHandler authenticationFailureHandler() {
         return (request, response, exception) -> {
-            if (!(exception instanceof org.springframework.security.authentication.LockedException)
-                && !(exception instanceof org.springframework.security.authentication.DisabledException)) {
-                loginThrottleService.recordFailure(getClientIp(request));
-            }
+            loginThrottleService.recordFailure(getClientIp(request));
 
             FlashMessageSupport.addFlashMessage(request, response, "errorMessage", GENERIC_LOGIN_ERROR, "/login");
             response.sendRedirect(request.getContextPath() + "/login");

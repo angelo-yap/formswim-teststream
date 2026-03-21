@@ -5,10 +5,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 @Service
 public class LoginThrottleService {
@@ -18,7 +19,10 @@ public class LoginThrottleService {
     static final Duration INITIAL_BLOCK_DURATION = Duration.ofMinutes(15);
     static final Duration MAX_BLOCK_DURATION = Duration.ofHours(24);
 
-    private final Map<String, AttemptRecord> attempts = new ConcurrentHashMap<>();
+    private final Cache<String, AttemptRecord> attempts = Caffeine.newBuilder()
+        .maximumSize(10_000)
+        .expireAfterAccess(MAX_BLOCK_DURATION)
+        .build();
     private final Clock clock;
 
     public LoginThrottleService() {
@@ -39,24 +43,18 @@ public class LoginThrottleService {
             return;
         }
 
-        attempts.compute(key, (ip, existing) -> {
-            Instant now = Instant.now(clock);
-            AttemptRecord record = existing;
-
-            if (record == null) {
-                record = new AttemptRecord();
-            }
-
+        Instant now = Instant.now(clock);
+        AttemptRecord record = attempts.get(key, ip -> new AttemptRecord());
+        synchronized (record) {
             pruneOldFailures(record, now);
 
             if (!isCurrentlyBlocked(record, now) && record.failures.isEmpty() && shouldReset(record, now)) {
-                return null;
+                attempts.invalidate(key);
+                return;
             }
 
             record.lastAttemptAt = now;
-
-            return record;
-        });
+        }
     }
 
     /** Records a failed login attempt for the given IP. */
@@ -66,20 +64,15 @@ public class LoginThrottleService {
             return;
         }
 
-        attempts.compute(key, (ip, existing) -> {
-            Instant now = Instant.now(clock);
-            AttemptRecord record = existing;
-
-            if (record == null) {
-                record = new AttemptRecord();
-            }
-
+        Instant now = Instant.now(clock);
+        AttemptRecord record = attempts.get(key, ip -> new AttemptRecord());
+        synchronized (record) {
             record.lastAttemptAt = now;
             pruneOldFailures(record, now);
 
             // If already blocked, don't extend the block on each request.
             if (isCurrentlyBlocked(record, now)) {
-                return record;
+                return;
             }
 
             record.failures.addLast(now);
@@ -96,9 +89,7 @@ public class LoginThrottleService {
                 record.currentBlockDuration = next;
                 record.blockExpiresAt = now.plus(next);
             }
-
-            return record;
-        });
+        }
     }
 
     /** Resets all throttling state for the IP, typically after a successful login. */
@@ -108,7 +99,7 @@ public class LoginThrottleService {
             return;
         }
 
-        attempts.remove(key);
+        attempts.invalidate(key);
     }
 
     public boolean isBlocked(String clientIp) {

@@ -2,6 +2,7 @@ package com.formswim.teststream.auth.controller;
 
 import java.security.SecureRandom;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -92,6 +93,14 @@ public class AuthController {
             fieldErrors.putIfAbsent("email", "An account with that email already exists");
         }
 
+        if (!fieldErrors.isEmpty()) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Please correct the highlighted fields.");
+            redirectAttributes.addFlashAttribute("fieldErrors", fieldErrors);
+            redirectAttributes.addFlashAttribute("email", registrationForm.getEmail());
+            redirectAttributes.addFlashAttribute("teamCode", registrationForm.getTeamCode());
+            return "redirect:/register";
+        }
+
         String normalizedTeamCode = normalizeTeamCode(registrationForm.getTeamCode());
         boolean generatedTeam = false;
         if (normalizedTeamCode == null || normalizedTeamCode.isBlank()) {
@@ -127,10 +136,9 @@ public class AuthController {
 
         if (generatedTeam) {
             redirectAttributes.addFlashAttribute("generatedTeamCode", normalizedTeamCode);
-            redirectAttributes.addFlashAttribute("successMessage", "Account created successfully. Sign in to continue.");
-        } else {
-            redirectAttributes.addFlashAttribute("successMessage", "Account created successfully. Sign in to continue.");
         }
+
+        redirectAttributes.addFlashAttribute("successMessage", "Account created successfully. Sign in to continue.");
         return "redirect:/login";
     }
 
@@ -142,7 +150,7 @@ public class AuthController {
         if (trimmed.isBlank()) {
             return "";
         }
-        return trimmed.toUpperCase();
+        return trimmed.toUpperCase(Locale.ROOT);
     }
 
     private String getClientIp(HttpServletRequest request) {
