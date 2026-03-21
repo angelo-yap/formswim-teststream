@@ -82,6 +82,8 @@ public class TestCaseController {
                             @RequestParam(required = false) String search,
                             @RequestParam(required = false) String status,
                             @RequestParam(required = false) String component,
+                            @RequestParam(defaultValue = "0") int page,
+                            @RequestParam(defaultValue = "50") int size,
                             @RequestParam(required = false) String importError,
                             @RequestParam(required = false) String importSuccess,
                             Model model) {
@@ -96,18 +98,29 @@ public class TestCaseController {
         }
 
         String teamKey = user.getTeamKey();
-        List<TestCase> cases = testCaseRepository.findWorkspaceCasesByFilters(
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 200);
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+
+        Page<Long> idPage = testCaseRepository.findWorkspaceCaseIdsByFilters(
             teamKey,
             normalizeQueryParam(search),
             normalizeQueryParam(status),
             normalizeQueryParam(component),
-            null
+            null,
+            pageable
         );
+
+        List<TestCase> cases = findCasesByOrderedIds(idPage.getContent());
 
         model.addAttribute("userEmail", user.getEmail());
         model.addAttribute("teamKey", teamKey);
         model.addAttribute("testCases", cases);
-        model.addAttribute("testCaseCount", testCaseRepository.countByTeamKey(teamKey));
+        model.addAttribute("testCaseCount", idPage.getTotalElements());
+        model.addAttribute("page", idPage.getNumber());
+        model.addAttribute("pageSize", idPage.getSize());
+        model.addAttribute("totalPages", idPage.getTotalPages());
+        model.addAttribute("hasNext", idPage.hasNext());
         model.addAttribute("search", search != null ? search : "");
         model.addAttribute("filterStatus", status != null ? status : "");
         model.addAttribute("filterComponent", component != null ? component : "");
@@ -247,14 +260,7 @@ public class TestCaseController {
             pageable
         );
 
-        List<Long> ids = idPage.getContent();
-        List<TestCase> cases = ids.isEmpty() ? List.of() : testCaseRepository.findAllWithStepsByIdIn(ids);
-
-        Map<Long, Integer> positionById = new HashMap<>();
-        for (int index = 0; index < ids.size(); index++) {
-            positionById.put(ids.get(index), index);
-        }
-        cases.sort(Comparator.comparingInt(testCase -> positionById.getOrDefault(testCase.getId(), Integer.MAX_VALUE)));
+        List<TestCase> cases = findCasesByOrderedIds(idPage.getContent());
 
         return ResponseEntity.ok()
             .header("X-Total-Count", String.valueOf(idPage.getTotalElements()))
@@ -474,6 +480,20 @@ public class TestCaseController {
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private List<TestCase> findCasesByOrderedIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+
+        List<TestCase> cases = testCaseRepository.findAllWithStepsByIdIn(ids);
+        Map<Long, Integer> positionById = new HashMap<>();
+        for (int index = 0; index < ids.size(); index++) {
+            positionById.put(ids.get(index), index);
+        }
+        cases.sort(Comparator.comparingInt(testCase -> positionById.getOrDefault(testCase.getId(), Integer.MAX_VALUE)));
+        return cases;
     }
 
     private void addDelimitedTags(Set<String> tags, String rawValue) {
