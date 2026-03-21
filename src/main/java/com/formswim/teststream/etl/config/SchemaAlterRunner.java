@@ -1,6 +1,7 @@
 package com.formswim.teststream.etl.config;
 
 import java.sql.Connection;
+import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,7 +84,7 @@ public class SchemaAlterRunner implements ApplicationRunner {
             }
             try (Connection connection = jdbc.getDataSource().getConnection()) {
                 String product = connection.getMetaData().getDatabaseProductName();
-                return product != null && product.toLowerCase().contains("postgres");
+                return product != null && product.toLowerCase(Locale.ROOT).contains("postgres");
             }
         } catch (Exception e) {
             return false;

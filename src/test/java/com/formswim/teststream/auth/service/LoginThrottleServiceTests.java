@@ -101,7 +101,16 @@ class LoginThrottleServiceTests {
                 future.get(5, TimeUnit.SECONDS);
             }
         } finally {
-            executor.shutdownNow();
+            executor.shutdown();
+            try {
+                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    executor.shutdownNow();
+                    executor.awaitTermination(5, TimeUnit.SECONDS);
+                }
+            } catch (InterruptedException interrupted) {
+                executor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
         }
 
         assertThat(throttle.isBlocked(ip)).isTrue();

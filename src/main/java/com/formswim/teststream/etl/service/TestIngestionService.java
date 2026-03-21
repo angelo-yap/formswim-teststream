@@ -64,13 +64,13 @@ public class TestIngestionService {
             EtlResultSummary result = transactionTemplate.execute(status -> ingestFileCore(file, teamKey));
             return result == null ? new EtlResultSummary(0, 0, List.of("Import failed."), List.of()) : result;
         } catch (DataIntegrityViolationException exception) {
-            log.warn("Upload failed due to data integrity violation (teamKey={})", teamKey, exception);
-            EtlResultSummary result = new EtlResultSummary(0, 0, List.of("Import failed due to a data constraint: " + safeMessage(exception)), List.of());
+            log.error("Upload failed due to data integrity violation (teamKey={})", teamKey, exception);
+            EtlResultSummary result = new EtlResultSummary(0, 0, List.of("Import failed due to a data constraint."), List.of());
             result.setMessage("Import failed.");
             return result;
         } catch (Exception exception) {
             log.error("Upload failed unexpectedly (teamKey={})", teamKey, exception);
-            EtlResultSummary result = new EtlResultSummary(0, 0, List.of("Unexpected error: " + safeMessage(exception)), List.of());
+            EtlResultSummary result = new EtlResultSummary(0, 0, List.of("An unexpected error occurred."), List.of());
             result.setMessage("Import failed.");
             return result;
         }
@@ -180,25 +180,6 @@ public class TestIngestionService {
         parsed.setReviewUrl("/workspace/import/review/" + session.getId());
         parsed.setMessage("Upload needs review before saving. " + stagedNewCases.size() + " new test case(s) staged and " + changedConflicts.size() + " duplicate conflict(s) found.");
         return parsed;
-    }
-
-    private String safeMessage(Exception exception) {
-        if (exception == null) {
-            return "(no details)";
-        }
-
-        Throwable cursor = exception;
-        int guard = 0;
-        while (cursor.getCause() != null && cursor.getCause() != cursor && guard < 8) {
-            cursor = cursor.getCause();
-            guard++;
-        }
-
-        String msg = cursor.getMessage();
-        if (msg == null || msg.isBlank()) {
-            return cursor.getClass().getSimpleName();
-        }
-        return cursor.getClass().getSimpleName() + ": " + msg;
     }
 
     private String buildDirectImportMessage(int importedCount, int unchangedDuplicates) {
