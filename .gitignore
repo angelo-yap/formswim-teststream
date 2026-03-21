@@ -4,11 +4,10 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .env
-application.properties
 
 Proposal.txt
 .testcases
-src/main/resources/application.properties
+
 ### STS ###
 .apt_generated
 .classpath
