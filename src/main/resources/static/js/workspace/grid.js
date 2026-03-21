@@ -191,6 +191,7 @@ export function createGrid(tbody) {
             const status = testCase.status || '—';
             const tagModel = buildTagBadges(testCase, 3);
             const updated = testCase.updatedOn || '—';
+            const idFontSize = workKey.length > 14 ? '10px' : (workKey.length > 10 ? '11px' : '12px');
 
             testCaseMap[workKey] = testCase;
 
@@ -201,8 +202,11 @@ export function createGrid(tbody) {
             row.dataset.status = status;
             row.dataset.updated = updated;
 
-            const titleCell = '<span class="font-semibold text-white/85">' + escHtml(title) + '</span>' +
-                (folder ? '<span class="text-white/45"> - </span><span class="text-white/45">' + escHtml(folder) + '</span>' : '');
+            const titleCell =
+                '<div class="min-w-0">' +
+                    '<div class="font-semibold text-white/85 truncate">' + escHtml(title) + '</div>' +
+                    (folder ? '<div class="text-white/45 text-xs mt-0.5 truncate">' + escHtml(folder) + '</div>' : '') +
+                '</div>';
 
             const tagsCell = tagModel.html || '<span class="text-white/45">—</span>';
             const encodedTags = tagModel.tags && tagModel.tags.length > 0
@@ -215,8 +219,8 @@ export function createGrid(tbody) {
                     '<input type="checkbox" class="ws-row-check h-4 w-4 accent-[#E7FF02]" aria-label="Select row" data-work-key="' + escHtml(workKey) + '"' +
                     (selectedIds.has(workKey) ? ' checked' : '') + ' />' +
                 '</td>' +
-                '<td class="px-3 sm:px-0 sm:pr-6 py-2.5 text-white/55"><div class="min-w-0 truncate">' + escHtml(workKey) + '</div></td>' +
-                '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
+                '<td class="px-3 sm:px-0 sm:pr-6 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap leading-tight" style="font-size:' + escHtml(idFontSize) + ';">' + escHtml(workKey) + '</div></td>' +
+                '<td class="px-3 sm:px-6 py-2.5">' + titleCell + '</td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 flex flex-wrap gap-2" data-ws-tags="' + escHtml(encodedTags) + '" tabindex="' + tagsTabIndex + '">' + tagsCell + '</div></td>' +
                 '<td class="pl-3 pr-6 sm:pl-6 sm:pr-10 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>';
