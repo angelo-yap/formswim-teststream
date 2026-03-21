@@ -16,6 +16,8 @@ export function createDrawer(options) {
     const drawerReporter = options.drawerReporter;
     const drawerCreatedOn = options.drawerCreatedOn;
     const drawerTags = options.drawerTags;
+    const drawerModeLabel = options.drawerModeLabel;
+    const drawerFooterHint = options.drawerFooterHint;
     const getTestCaseById = options.getTestCaseById;
 
     function renderSteps(steps) {
@@ -43,19 +45,48 @@ export function createDrawer(options) {
         }
     }
 
-    function openDrawer(row) {
+    function setReadOnlyMode(readOnly) {
+        if (!drawer) {
+            return;
+        }
+
+        const isReadOnly = Boolean(readOnly);
+        const fields = drawer.querySelectorAll('input, textarea, select');
+        fields.forEach((field) => {
+            field.disabled = isReadOnly;
+            field.classList.toggle('opacity-70', isReadOnly);
+        });
+
+        if (drawerSave) {
+            drawerSave.disabled = isReadOnly;
+            drawerSave.classList.toggle('hidden', isReadOnly);
+        }
+
+        if (drawerModeLabel) {
+            drawerModeLabel.textContent = isReadOnly ? 'Preview test case' : 'Edit test case';
+        }
+
+        if (drawerFooterHint) {
+            drawerFooterHint.textContent = isReadOnly
+                ? 'Preview mode is read-only.'
+                : 'Save updates and return to grid.';
+        }
+    }
+
+    function openByWorkKey(workKey, options) {
         if (!drawer || !drawerPanel) {
             return;
         }
 
-        const workKey = row.dataset.id || '—';
-        const title = row.dataset.title || '';
-        const status = row.dataset.status || '—';
-        const updated = row.dataset.updated || '—';
-        const testCase = getTestCaseById(workKey) || {};
+        const resolvedWorkKey = workKey || '—';
+        const openOptions = options || {};
+        const testCase = getTestCaseById(resolvedWorkKey) || {};
+        const title = testCase.summary || '';
+        const status = testCase.status || '—';
+        const updated = testCase.updatedOn || '—';
 
         if (drawerId) {
-            drawerId.textContent = workKey;
+            drawerId.textContent = resolvedWorkKey;
         }
         if (drawerTitle) {
             drawerTitle.value = title;
@@ -90,6 +121,7 @@ export function createDrawer(options) {
         }
 
         renderSteps(testCase.steps || []);
+        setReadOnlyMode(Boolean(openOptions.readOnly));
 
         drawer.classList.remove('hidden');
         drawer.setAttribute('aria-hidden', 'false');
@@ -121,24 +153,7 @@ export function createDrawer(options) {
     }
 
     return {
-        bind(tbody) {
-            if (!tbody) {
-                return;
-            }
-
-            tbody.addEventListener('click', (event) => {
-                const target = event.target;
-                if (target && target.classList && target.classList.contains('ws-row-check')) {
-                    return;
-                }
-
-                const row = target && target.closest ? target.closest('tr') : null;
-                if (!row || !row.dataset.id) {
-                    return;
-                }
-
-                openDrawer(row);
-            });
-        }
+        close: closeDrawer,
+        openByWorkKey
     };
 }
