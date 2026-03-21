@@ -1,5 +1,19 @@
 package com.formswim.teststream.etl.service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.formswim.teststream.etl.dto.EtlResultSummary;
 import com.formswim.teststream.etl.dto.ReviewCaseSnapshot;
 import com.formswim.teststream.etl.dto.ReviewConflictCandidate;
@@ -9,18 +23,11 @@ import com.formswim.teststream.etl.model.UploadReviewSession;
 import com.formswim.teststream.etl.repository.TestCaseRepository;
 import com.formswim.teststream.etl.repository.UploadHistoryRepository;
 import com.formswim.teststream.etl.repository.UploadReviewSessionRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class TestIngestionService {
+
+    private static final Logger log = LoggerFactory.getLogger(TestIngestionService.class);
 
     private final ExcelParserService excelParserService;
     private final CsvParserService csvParserService;
@@ -30,6 +37,7 @@ public class TestIngestionService {
     private final FileHashService fileHashService;
     private final UploadDiffService uploadDiffService;
     private final UploadReviewService uploadReviewService;
+    private final TransactionTemplate transactionTemplate;
 
     public TestIngestionService(ExcelParserService excelParserService,
                                 CsvParserService csvParserService,
@@ -38,7 +46,8 @@ public class TestIngestionService {
                                 UploadReviewSessionRepository uploadReviewSessionRepository,
                                 FileHashService fileHashService,
                                 UploadDiffService uploadDiffService,
-                                UploadReviewService uploadReviewService) {
+                                UploadReviewService uploadReviewService,
+                                PlatformTransactionManager transactionManager) {
         this.excelParserService = excelParserService;
         this.csvParserService = csvParserService;
         this.testCaseRepository = testCaseRepository;
@@ -47,10 +56,27 @@ public class TestIngestionService {
         this.fileHashService = fileHashService;
         this.uploadDiffService = uploadDiffService;
         this.uploadReviewService = uploadReviewService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    @Transactional
     public EtlResultSummary ingestFile(MultipartFile file, String teamKey) {
+        try {
+            EtlResultSummary result = transactionTemplate.execute(status -> ingestFileCore(file, teamKey));
+            return result == null ? new EtlResultSummary(0, 0, List.of("Import failed."), List.of()) : result;
+        } catch (DataIntegrityViolationException exception) {
+            log.error("Upload failed due to data integrity violation (teamKey={})", teamKey, exception);
+            EtlResultSummary result = new EtlResultSummary(0, 0, List.of("Import failed due to a data constraint."), List.of());
+            result.setMessage("Import failed.");
+            return result;
+        } catch (Exception exception) {
+            log.error("Upload failed unexpectedly (teamKey={})", teamKey, exception);
+            EtlResultSummary result = new EtlResultSummary(0, 0, List.of("An unexpected error occurred."), List.of());
+            result.setMessage("Import failed.");
+            return result;
+        }
+    }
+
+    private EtlResultSummary ingestFileCore(MultipartFile file, String teamKey) {
         String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase();
 
         if (teamKey == null || teamKey.isBlank()) {
@@ -88,77 +114,72 @@ public class TestIngestionService {
             return parsed;
         }
 
-        try {
-            List<TestCase> parsedCases = parsed.getTestCases();
-            Map<String, Long> uploadWorkKeyCounts = parsedCases.stream()
-                .collect(Collectors.groupingBy(TestCase::getWorkKey, LinkedHashMap::new, Collectors.counting()));
-            List<String> repeatedUploadKeys = uploadWorkKeyCounts.entrySet().stream()
-                .filter(entry -> entry.getValue() > 1)
-                .map(Map.Entry::getKey)
-                .toList();
-            if (!repeatedUploadKeys.isEmpty()) {
-                parsed.addError("Upload contains duplicate workKey values: " + String.join(", ", repeatedUploadKeys));
-                return parsed;
-            }
-
-            Map<String, TestCase> existingByWorkKey = testCaseRepository
-                .findAllWithStepsByTeamKeyAndWorkKeyIn(teamKey, parsedCases.stream().map(TestCase::getWorkKey).collect(Collectors.toSet()))
-                .stream()
-                .collect(Collectors.toMap(TestCase::getWorkKey, testCase -> testCase, (left, right) -> left, LinkedHashMap::new));
-
-            List<TestCase> newCasesToSave = new ArrayList<>();
-            List<ReviewCaseSnapshot> stagedNewCases = new ArrayList<>();
-            List<ReviewConflictCandidate> changedConflicts = new ArrayList<>();
-            int unchangedDuplicates = 0;
-
-            for (TestCase testCase : parsedCases) {
-                TestCase existing = existingByWorkKey.get(testCase.getWorkKey());
-                if (existing == null) {
-                    newCasesToSave.add(testCase);
-                    stagedNewCases.add(uploadDiffService.toSnapshot(testCase));
-                    continue;
-                }
-
-                if (uploadDiffService.isEquivalent(existing, testCase)) {
-                    unchangedDuplicates++;
-                    continue;
-                }
-
-                changedConflicts.add(uploadDiffService.buildConflict(existing, testCase));
-            }
-
-            parsed.setDuplicateUnchangedCount(unchangedDuplicates);
-            parsed.setDuplicateChangedCount(changedConflicts.size());
-            parsed.setStagedNewCount(stagedNewCases.size());
-
-            if (changedConflicts.isEmpty()) {
-                testCaseRepository.saveAll(newCasesToSave);
-                uploadHistoryRepository.save(new UploadHistory(teamKey, file.getOriginalFilename() == null ? "upload" : file.getOriginalFilename(), fileHash));
-                parsed.setImportedCount(newCasesToSave.size());
-                parsed.setMessage(buildDirectImportMessage(newCasesToSave.size(), unchangedDuplicates));
-                return parsed;
-            }
-
-            UploadReviewSession session = uploadReviewService.createReviewSession(
-                teamKey,
-                file.getOriginalFilename() == null ? "upload" : file.getOriginalFilename(),
-                fileHash,
-                parsed.getTestCasesParsed(),
-                parsed.getTotalStepsParsed(),
-                stagedNewCases,
-                unchangedDuplicates,
-                changedConflicts
-            );
-
-            parsed.setReviewRequired(true);
-            parsed.setReviewSessionId(session.getId());
-            parsed.setReviewUrl("/workspace/import/review/" + session.getId());
-            parsed.setMessage("Upload needs review before saving. " + stagedNewCases.size() + " new test case(s) staged and " + changedConflicts.size() + " duplicate conflict(s) found.");
+        List<TestCase> parsedCases = parsed.getTestCases();
+        Map<String, Long> uploadWorkKeyCounts = parsedCases.stream()
+            .collect(Collectors.groupingBy(TestCase::getWorkKey, LinkedHashMap::new, Collectors.counting()));
+        List<String> repeatedUploadKeys = uploadWorkKeyCounts.entrySet().stream()
+            .filter(entry -> entry.getValue() > 1)
+            .map(Map.Entry::getKey)
+            .toList();
+        if (!repeatedUploadKeys.isEmpty()) {
+            parsed.addError("Upload contains duplicate workKey values: " + String.join(", ", repeatedUploadKeys));
             return parsed;
-
-        } catch (Exception exception) {
-            return new EtlResultSummary(0, 0, List.of("Unexpected error: " + exception.getMessage()), List.of());
         }
+
+        Map<String, TestCase> existingByWorkKey = testCaseRepository
+            .findAllWithStepsByTeamKeyAndWorkKeyIn(teamKey, parsedCases.stream().map(TestCase::getWorkKey).collect(Collectors.toSet()))
+            .stream()
+            .collect(Collectors.toMap(TestCase::getWorkKey, testCase -> testCase, (left, right) -> left, LinkedHashMap::new));
+
+        List<TestCase> newCasesToSave = new ArrayList<>();
+        List<ReviewCaseSnapshot> stagedNewCases = new ArrayList<>();
+        List<ReviewConflictCandidate> changedConflicts = new ArrayList<>();
+        int unchangedDuplicates = 0;
+
+        for (TestCase testCase : parsedCases) {
+            TestCase existing = existingByWorkKey.get(testCase.getWorkKey());
+            if (existing == null) {
+                newCasesToSave.add(testCase);
+                stagedNewCases.add(uploadDiffService.toSnapshot(testCase));
+                continue;
+            }
+
+            if (uploadDiffService.isEquivalent(existing, testCase)) {
+                unchangedDuplicates++;
+                continue;
+            }
+
+            changedConflicts.add(uploadDiffService.buildConflict(existing, testCase));
+        }
+
+        parsed.setDuplicateUnchangedCount(unchangedDuplicates);
+        parsed.setDuplicateChangedCount(changedConflicts.size());
+        parsed.setStagedNewCount(stagedNewCases.size());
+
+        if (changedConflicts.isEmpty()) {
+            testCaseRepository.saveAll(newCasesToSave);
+            uploadHistoryRepository.save(new UploadHistory(teamKey, file.getOriginalFilename() == null ? "upload" : file.getOriginalFilename(), fileHash));
+            parsed.setImportedCount(newCasesToSave.size());
+            parsed.setMessage(buildDirectImportMessage(newCasesToSave.size(), unchangedDuplicates));
+            return parsed;
+        }
+
+        UploadReviewSession session = uploadReviewService.createReviewSession(
+            teamKey,
+            file.getOriginalFilename() == null ? "upload" : file.getOriginalFilename(),
+            fileHash,
+            parsed.getTestCasesParsed(),
+            parsed.getTotalStepsParsed(),
+            stagedNewCases,
+            unchangedDuplicates,
+            changedConflicts
+        );
+
+        parsed.setReviewRequired(true);
+        parsed.setReviewSessionId(session.getId());
+        parsed.setReviewUrl("/workspace/import/review/" + session.getId());
+        parsed.setMessage("Upload needs review before saving. " + stagedNewCases.size() + " new test case(s) staged and " + changedConflicts.size() + " duplicate conflict(s) found.");
+        return parsed;
     }
 
     private String buildDirectImportMessage(int importedCount, int unchangedDuplicates) {

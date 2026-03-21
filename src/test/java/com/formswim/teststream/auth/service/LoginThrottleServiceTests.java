@@ -1,12 +1,17 @@
 package com.formswim.teststream.auth.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 class LoginThrottleServiceTests {
@@ -74,6 +79,42 @@ class LoginThrottleServiceTests {
         throttle.recordFailure(ip);
 
         assertThat(throttle.isBlocked(ip)).isFalse();
+    }
+
+    @Test
+    void concurrentAccessDoesNotCorruptState() throws Exception {
+        LoginThrottleService throttle = new LoginThrottleService(Clock.systemUTC());
+        String ip = "203.0.113.77";
+
+        ExecutorService executor = Executors.newFixedThreadPool(8);
+        try {
+            List<Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < 64; i++) {
+                futures.add(executor.submit(() -> {
+                    throttle.recordFailure(ip);
+                    throttle.isBlocked(ip);
+                    throttle.getRemainingBlockDuration(ip);
+                }));
+            }
+
+            for (Future<?> future : futures) {
+                future.get(5, TimeUnit.SECONDS);
+            }
+        } finally {
+            executor.shutdown();
+            try {
+                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    executor.shutdownNow();
+                    executor.awaitTermination(5, TimeUnit.SECONDS);
+                }
+            } catch (InterruptedException interrupted) {
+                executor.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        assertThat(throttle.isBlocked(ip)).isTrue();
+        assertThat(throttle.getRemainingBlockDuration(ip)).isGreaterThan(Duration.ZERO);
     }
 
     private static final class MutableClock extends Clock {

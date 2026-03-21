@@ -95,6 +95,7 @@
 									class="hidden absolute right-0 mt-2 z-50 w-64 border border-white/20 bg-black px-4 py-3 text-left"
 									role="dialog"
 									aria-label="Account details"
+									aria-hidden="true"
 								>
 									<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Signed in as</p>
 									<p class="mt-1 text-sm text-white/80 break-words" th:text="${userEmail != null ? userEmail : 'Signed in'}">Signed in</p>
@@ -120,6 +121,7 @@
 									class="hidden absolute right-0 mt-2 z-50 w-64 border border-white/20 bg-black px-4 py-3 text-left"
 									role="dialog"
 									aria-label="Team code"
+									aria-hidden="true"
 								>
 									<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Team code</p>
 									<div class="mt-2 flex items-center justify-between gap-2">
@@ -212,9 +214,12 @@
 		<main class="w-full px-0 sm:px-0">
 			<div class="px-6 sm:px-8 py-6 border-b border-white/10">
 				<div class="flex items-center justify-between gap-6">
-					<div>
-						<h1 class="text-base uppercase tracking-wider text-white/70" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Test cases</h1>
-						<p class="text-xs text-white/45 mt-1">Select rows for bulk actions. Click a row to edit in the drawer.</p>
+					<div class="flex items-start gap-3 min-w-0">
+						<div id="wsSidebarToggleCollapsedHost" class="hidden shrink-0"></div>
+						<div class="min-w-0">
+							<h1 class="text-base uppercase tracking-wider text-white/70" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Test cases</h1>
+							<p class="text-xs text-white/45 mt-1">Select rows for bulk actions. Click a row to edit in the drawer.</p>
+						</div>
 					</div>
 					<div class="text-right">
 						<p class="text-xs text-white/45">Total</p>
@@ -223,29 +228,62 @@
 				</div>
 			</div>
 
-			<div class="overflow-x-auto">
-				<table class="min-w-full text-sm">
-					<thead class="text-white/50">
-						<tr class="border-b border-white/10">
-							<th class="px-6 sm:px-8 py-3 w-10">
-								<input id="wsSelectAll" type="checkbox" class="h-4 w-4 accent-[#E7FF02]" aria-label="Select all" />
-							</th>
-							<th class="text-left px-6 py-3 sm:px-0 sm:pr-8 font-medium">ID</th>
-							<th class="text-left px-6 py-3 font-medium">Title</th>
-							<th class="text-left px-6 py-3 font-medium">Status</th>
-							<th class="text-left px-6 py-3 font-medium">Tags</th>
-							<th class="text-left px-6 py-3 font-medium">Last updated</th>
-						</tr>
-					</thead>
-					<tbody id="wsTbody" class="text-white/75">
-						<!-- Rows are populated by JavaScript on page load via /api/testcases -->
-						<tr id="wsLoadingRow" class="border-b border-white/10">
-							<td class="px-6 sm:px-8 py-6" colspan="6">
-								<p class="text-sm text-white/45">Loading test cases…</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
+			<div class="flex min-h-[calc(100vh-12rem)]">
+				<!-- Sidebar: repository folder tree -->
+				<aside id="wsSidebar" class="w-[18rem] sm:w-[20rem] border-r border-white/10 bg-black shrink-0">
+					<div id="wsSidebarInner" class="px-6 py-5">
+						<div id="wsSidebarHeader" class="flex items-center justify-between gap-3">
+							<p id="wsSidebarTitle" class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Directory</p>
+							<div id="wsSidebarToggleExpandedHost" class="shrink-0">
+								<button
+									id="wsSidebarToggle"
+									type="button"
+									class="shrink-0 h-10 w-10 flex items-center justify-center border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-white/70"
+									aria-label="Collapse repository sidebar"
+									aria-controls="wsSidebar"
+									aria-expanded="true"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
+										<path d="M15 6l-6 6 6 6" />
+									</svg>
+								</button>
+							</div>
+						</div>
+						<div id="wsSidebarContent" class="mt-4" aria-label="Folder tree">
+							<div id="wsFolderLoading" class="text-xs text-white/45">Loading folders…</div>
+							<div id="wsFolderEmpty" class="hidden text-xs text-white/45">No folders found.</div>
+							<nav id="wsFolderTree" class="mt-2 space-y-1"></nav>
+						</div>
+					</div>
+				</aside>
+
+				<!-- Main grid -->
+				<section class="flex-1 min-w-0">
+					<div class="overflow-x-hidden">
+						<table class="w-full table-fixed text-sm">
+							<thead class="text-white/50">
+								<tr class="border-b border-white/10">
+									<th class="px-3 sm:px-8 py-3 w-10">
+										<input id="wsSelectAll" type="checkbox" class="h-4 w-4 accent-[#E7FF02]" aria-label="Select all" />
+									</th>
+									<th class="text-left px-3 sm:px-0 sm:pr-6 py-3 font-medium w-28">ID</th>
+									<th class="text-left px-3 sm:px-6 py-3 font-medium">Title</th>
+									<th class="text-left px-3 sm:px-6 py-3 font-medium w-28">Status</th>
+									<th class="text-left px-3 sm:px-6 py-3 font-medium w-44">Tags</th>
+									<th class="text-left pl-3 pr-6 sm:pl-6 sm:pr-10 py-3 font-medium w-44">Last updated</th>
+								</tr>
+							</thead>
+							<tbody id="wsTbody" class="text-white/75">
+								<!-- Rows are populated by JavaScript on page load via /api/testcases -->
+								<tr id="wsLoadingRow" class="border-b border-white/10">
+									<td class="px-6 sm:px-8 py-6" colspan="6">
+										<p class="text-sm text-white/45">Loading test cases…</p>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</section>
 			</div>
 		</main>
 	</div>
@@ -363,7 +401,9 @@
 
 	<script>
 		function toggleWorkspaceHeaderDropdown(which) {
+			const accountToggle = document.getElementById('workspaceAccountToggle');
 			const account = document.getElementById('workspaceAccountDropdown');
+			const teamToggle = document.getElementById('workspaceTeamCodeToggle');
 			const team = document.getElementById('workspaceTeamCodeDropdown');
 			const accountToggle = document.getElementById('workspaceAccountToggle');
 			const teamToggle = document.getElementById('workspaceTeamCodeToggle');
@@ -374,10 +414,21 @@
 			const nextAccountOpen = which === 'account' ? !isAccountOpen : false;
 			const nextTeamOpen = which === 'team' ? !isTeamOpen : false;
 
-			if (account) account.classList.toggle('hidden', !nextAccountOpen);
-			if (team) team.classList.toggle('hidden', !nextTeamOpen);
-			if (accountToggle) accountToggle.setAttribute('aria-expanded', nextAccountOpen ? 'true' : 'false');
-			if (teamToggle) teamToggle.setAttribute('aria-expanded', nextTeamOpen ? 'true' : 'false');
+			if (account) {
+				account.classList.toggle('hidden', !nextAccountOpen);
+				account.setAttribute('aria-hidden', String(!nextAccountOpen));
+			}
+			if (team) {
+				team.classList.toggle('hidden', !nextTeamOpen);
+				team.setAttribute('aria-hidden', String(!nextTeamOpen));
+			}
+
+			if (accountToggle) {
+				accountToggle.setAttribute('aria-expanded', String(nextAccountOpen));
+			}
+			if (teamToggle) {
+				teamToggle.setAttribute('aria-expanded', String(nextTeamOpen));
+			}
 		}
 
 		function onWorkspaceTeamCodeKeydown(event) {

@@ -1,17 +1,21 @@
 package com.formswim.teststream.etl.service;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.formswim.teststream.etl.dto.EtlResultSummary;
 import com.formswim.teststream.etl.model.TestCase;
 import com.formswim.teststream.etl.model.TestStep;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
 
 /**
  * Extract & Transform – QMetry .csv export format.
@@ -114,7 +118,11 @@ public class CsvParserService {
                 String[] row = allRows.get(r);
                 String workKey = get(row, workKeyCol).trim();
 
-                if (!workKey.isEmpty()) {
+                // Some QMetry exports repeat Work Key on every step row.
+                // Treat a repeated Work Key matching the current test case as a continuation row.
+                boolean startsNewCase = !workKey.isEmpty() && (current == null || !workKey.equalsIgnoreCase(current.getWorkKey()));
+
+                if (startsNewCase) {
                     current = new TestCase(
                             teamKey,
                             workKey,

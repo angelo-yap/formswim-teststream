@@ -108,25 +108,35 @@ public class LoginThrottleService {
             return false;
         }
 
-        AttemptRecord record = attempts.getIfPresent(key);
-        if (record == null) {
-            return false;
-        }
-
         Instant now = Instant.now(clock);
-        synchronized (record) {
-            if (record.blockExpiresAt != null && now.isAfter(record.blockExpiresAt)) {
-                record.blockExpiresAt = null;
+        final boolean[] blockedHolder = new boolean[] { false };
+
+        attempts.asMap().compute(key, (ip, record) -> {
+            if (record == null) {
+                blockedHolder[0] = false;
+                return null;
             }
 
-            pruneOldFailures(record, now);
-            if (!isCurrentlyBlocked(record, now) && record.failures.isEmpty() && shouldReset(record, now)) {
-                attempts.invalidate(key);
-                return false;
-            }
+            synchronized (record) {
+                if (record.blockExpiresAt != null && now.isAfter(record.blockExpiresAt)) {
+                    record.blockExpiresAt = null;
+                }
 
-            return isCurrentlyBlocked(record, now);
-        }
+                pruneOldFailures(record, now);
+                boolean blocked = isCurrentlyBlocked(record, now);
+
+                // Cleanup: if fully reset, remove the cache entry.
+                if (!blocked && record.failures.isEmpty() && shouldReset(record, now)) {
+                    blockedHolder[0] = false;
+                    return null;
+                }
+
+                blockedHolder[0] = blocked;
+                return record;
+            }
+        });
+
+        return blockedHolder[0];
     }
 
     public Duration getRemainingBlockDuration(String clientIp) {
@@ -135,18 +145,42 @@ public class LoginThrottleService {
             return Duration.ZERO;
         }
 
-        AttemptRecord record = attempts.getIfPresent(key);
-        if (record == null || record.blockExpiresAt == null) {
-            return Duration.ZERO;
-        }
-
         Instant now = Instant.now(clock);
-        synchronized (record) {
-            if (record.blockExpiresAt == null || now.isAfter(record.blockExpiresAt)) {
-                return Duration.ZERO;
+        final Duration[] remainingHolder = new Duration[] { Duration.ZERO };
+
+        attempts.asMap().compute(key, (ip, record) -> {
+            if (record == null) {
+                remainingHolder[0] = Duration.ZERO;
+                return null;
             }
-            return Duration.between(now, record.blockExpiresAt);
-        }
+
+            synchronized (record) {
+                if (record.blockExpiresAt == null) {
+                    remainingHolder[0] = Duration.ZERO;
+                    if (record.failures.isEmpty() && shouldReset(record, now)) {
+                        return null;
+                    }
+                    return record;
+                }
+
+                if (now.isAfter(record.blockExpiresAt)) {
+                    record.blockExpiresAt = null;
+                    pruneOldFailures(record, now);
+                    remainingHolder[0] = Duration.ZERO;
+
+                    if (!isCurrentlyBlocked(record, now) && record.failures.isEmpty() && shouldReset(record, now)) {
+                        return null;
+                    }
+
+                    return record;
+                }
+
+                remainingHolder[0] = Duration.between(now, record.blockExpiresAt);
+                return record;
+            }
+        });
+
+        return remainingHolder[0];
     }
 
     private boolean shouldReset(AttemptRecord record, Instant now) {
