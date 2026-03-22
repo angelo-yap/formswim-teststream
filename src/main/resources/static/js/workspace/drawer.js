@@ -52,7 +52,7 @@ export function createDrawer(options) {
 
         for (const tag of currentTags) {
             const badge = document.createElement('span');
-            badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full';
+            badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap';
 
             const c = tagColor(tag.id);
             badge.style.color = c.color;

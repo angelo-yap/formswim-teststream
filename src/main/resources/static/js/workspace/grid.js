@@ -1,12 +1,12 @@
 const TAG_COLORS = [
-    { color: '#60a5fa', bg: 'rgba(96,165,250,0.15)' },   // blue
-    { color: '#a78bfa', bg: 'rgba(167,139,250,0.15)' },  // violet
-    { color: '#4ade80', bg: 'rgba(74,222,128,0.15)' },   // green
-    { color: '#fb923c', bg: 'rgba(251,146,60,0.15)' },   // orange
-    { color: '#f472b6', bg: 'rgba(244,114,182,0.15)' },  // pink
-    { color: '#22d3ee', bg: 'rgba(34,211,238,0.15)' },   // cyan
-    { color: '#f87171', bg: 'rgba(248,113,113,0.15)' },  // red
-    { color: '#a3e635', bg: 'rgba(163,230,53,0.15)' },   // lime
+    { color: '#60a5fa', bg: 'rgba(96,165,250,0.18)' },   // blue
+    { color: '#a78bfa', bg: 'rgba(167,139,250,0.18)' },  // violet
+    { color: '#4ade80', bg: 'rgba(74,222,128,0.18)' },   // green
+    { color: '#fb923c', bg: 'rgba(251,146,60,0.18)' },   // orange
+    { color: '#f472b6', bg: 'rgba(244,114,182,0.18)' },  // pink
+    { color: '#22d3ee', bg: 'rgba(34,211,238,0.18)' },   // cyan
+    { color: '#f87171', bg: 'rgba(248,113,113,0.18)' },  // red
+    { color: '#a3e635', bg: 'rgba(163,230,53,0.18)' },   // lime
 ];
 
 export function tagColor(tagId) {
@@ -56,10 +56,10 @@ function buildTagBadges(testCase, maxVisible = 3) {
     let html = '';
     for (const tag of visible) {
         const c = tagColor(tag.id);
-        html += '<span class="max-w-full truncate px-2 py-0.5 text-xs rounded-full" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</span>';
+        html += '<span class="whitespace-nowrap shrink-0 px-2 py-0.5 text-xs font-medium rounded-full" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</span>';
     }
     if (hiddenCount > 0) {
-        html += '<span class="max-w-full truncate px-2 py-0.5 text-xs rounded-full text-white/60" style="background-color:rgba(255,255,255,0.08)">+' + hiddenCount + '</span>';
+        html += '<span class="whitespace-nowrap shrink-0 text-xs text-white/40">+' + hiddenCount + '</span>';
     }
 
     return { tags, html };
@@ -133,7 +133,7 @@ function showTagTooltip(anchorEl, tags) {
     let html = '<div class="flex flex-wrap gap-2">';
     for (const tag of tags) {
         const c = tagColor(tag.id);
-        html += '<span class="max-w-full truncate px-2 py-0.5 text-xs rounded-full" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</span>';
+        html += '<span class="whitespace-nowrap px-2 py-0.5 text-xs font-medium rounded-full" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</span>';
     }
     html += '</div>';
 
