@@ -56,7 +56,7 @@ function buildTagBadges(testCase, maxVisible = 3) {
     let html = '';
     for (const tag of visible) {
         const c = tagColor(tag.id);
-        html += '<span class="whitespace-nowrap shrink-0 px-2 py-0.5 text-xs font-medium rounded-full" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</span>';
+        html += '<button type="button" class="ws-interactive ws-tag-filter whitespace-nowrap shrink-0 px-2 py-0.5 text-xs font-medium rounded-full hover:opacity-75 transition-opacity" data-tag-filter="' + escHtml(tag.name) + '" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</button>';
     }
 
     return { tags, html, hiddenCount };
