@@ -30,6 +30,8 @@ export function createDrawer(options) {
     let onTagAdd = options.onTagAdd || null;       // (workKey, tagId) => Promise<Tag[]>
     let onTagRemove = options.onTagRemove || null; // (workKey, tagId) => Promise<Tag[]>
     let onTagCreate = options.onTagCreate || null; // (name) => Promise<Tag>
+    let onTagRename = options.onTagRename || null; // (tagId, name) => Promise<Tag>
+    let onTagDelete = options.onTagDelete || null; // (tagId) => Promise<void>
 
     // Live state for the open drawer.
     let currentWorkKey = null;
