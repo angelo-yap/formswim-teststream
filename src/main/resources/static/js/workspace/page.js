@@ -74,6 +74,10 @@ const drawer = createDrawer({
     drawerTagBadges: document.getElementById('drawerTagBadges'),
     drawerTagInput: document.getElementById('drawerTagInput'),
     drawerTagDropdown: document.getElementById('drawerTagDropdown'),
+    drawerManageTagsBtn: document.getElementById('drawerManageTagsBtn'),
+    drawerManageTagsPanel: document.getElementById('drawerManageTagsPanel'),
+    drawerManageTagsList: document.getElementById('drawerManageTagsList'),
+    drawerManageTagsEmpty: document.getElementById('drawerManageTagsEmpty'),
     drawerModeLabel: document.getElementById('drawerModeLabel'),
     drawerFooterHint: document.getElementById('drawerFooterHint'),
     getTestCaseById: grid.getTestCaseById

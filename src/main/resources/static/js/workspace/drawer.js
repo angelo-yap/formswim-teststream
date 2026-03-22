@@ -280,6 +280,155 @@ export function createDrawer(options) {
         }
     });
 
+    // --- Manage panel ---
+
+    function renderManageTagsList() {
+        if (!drawerManageTagsList) {
+            return;
+        }
+
+        drawerManageTagsList.innerHTML = '';
+
+        const isEmpty = teamCatalog.length === 0;
+        if (drawerManageTagsEmpty) {
+            drawerManageTagsEmpty.classList.toggle('hidden', !isEmpty);
+        }
+
+        for (const tag of teamCatalog) {
+            const c = tagColor(tag.id);
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 py-1';
+            row.dataset.tagId = String(tag.id);
+
+            // Colored pill label.
+            const pill = document.createElement('span');
+            pill.className = 'px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap';
+            pill.style.color = c.color;
+            pill.style.backgroundColor = c.bg;
+            pill.textContent = tag.name;
+
+            // Rename button.
+            const renameBtn = document.createElement('button');
+            renameBtn.type = 'button';
+            renameBtn.className = 'ml-auto shrink-0 text-white/35 hover:text-white/70 transition-colors focus:outline-none';
+            renameBtn.setAttribute('aria-label', 'Rename ' + tag.name);
+            renameBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5"><path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L2.68 10.845a.75.75 0 0 0-.207.404l-.5 3a.75.75 0 0 0 .878.878l3-.5a.75.75 0 0 0 .404-.207l8.33-8.33a1.75 1.75 0 0 0 0-2.475l-.097-.098Z"/></svg>';
+
+            // Delete button.
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'shrink-0 text-white/35 hover:text-red-400 transition-colors focus:outline-none';
+            deleteBtn.setAttribute('aria-label', 'Delete ' + tag.name);
+            deleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5"><path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5A.75.75 0 0 1 9.95 6Z" clip-rule="evenodd"/></svg>';
+
+            row.appendChild(pill);
+            row.appendChild(renameBtn);
+            row.appendChild(deleteBtn);
+            drawerManageTagsList.appendChild(row);
+
+            renameBtn.addEventListener('click', () => startRename(row, tag));
+            deleteBtn.addEventListener('click', () => handleDeleteTag(tag.id));
+        }
+    }
+
+    function startRename(row, tag) {
+        row.innerHTML = '';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = tag.name;
+        input.className = 'min-w-0 flex-1 bg-black border border-white/20 px-2 py-0.5 text-xs text-white/85 focus:outline-none focus:border-[#E7FF02]';
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'ml-auto shrink-0 text-white/50 hover:text-[#E7FF02] transition-colors focus:outline-none';
+        confirmBtn.setAttribute('aria-label', 'Confirm rename');
+        confirmBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5"><path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd"/></svg>';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'shrink-0 text-white/35 hover:text-white/70 transition-colors focus:outline-none';
+        cancelBtn.setAttribute('aria-label', 'Cancel rename');
+        cancelBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/></svg>';
+
+        row.appendChild(input);
+        row.appendChild(confirmBtn);
+        row.appendChild(cancelBtn);
+        input.focus();
+        input.select();
+
+        const commit = () => {
+            const newName = input.value.trim();
+            if (!newName || newName === tag.name || !onTagRename) {
+                renderManageTagsList();
+                return;
+            }
+            handleRenameTag(tag.id, newName);
+        };
+
+        confirmBtn.addEventListener('click', commit);
+        cancelBtn.addEventListener('click', () => renderManageTagsList());
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                commit();
+            } else if (e.key === 'Escape') {
+                renderManageTagsList();
+            }
+        });
+    }
+
+    function handleRenameTag(tagId, newName) {
+        if (!onTagRename) {
+            return;
+        }
+
+        // Optimistic update in catalog and current tags.
+        teamCatalog = teamCatalog.map((t) => t.id === tagId ? { ...t, name: newName } : t);
+        currentTags = currentTags.map((t) => t.id === tagId ? { ...t, name: newName } : t);
+        renderManageTagsList();
+        renderTagBadges();
+
+        onTagRename(tagId, newName).catch(() => {
+            // Revert isn't straightforward without the old name — just re-fetch is handled by caller.
+        });
+    }
+
+    function handleDeleteTag(tagId) {
+        if (!onTagDelete) {
+            return;
+        }
+
+        // Optimistic update.
+        const prevCatalog = teamCatalog;
+        const prevTags = currentTags;
+        teamCatalog = teamCatalog.filter((t) => t.id !== tagId);
+        currentTags = currentTags.filter((t) => t.id !== tagId);
+        renderManageTagsList();
+        renderTagBadges();
+
+        onTagDelete(tagId).catch(() => {
+            teamCatalog = prevCatalog;
+            currentTags = prevTags;
+            renderManageTagsList();
+            renderTagBadges();
+        });
+    }
+
+    let manageOpen = false;
+
+    if (drawerManageTagsBtn) {
+        drawerManageTagsBtn.addEventListener('click', () => {
+            manageOpen = !manageOpen;
+            if (drawerManageTagsPanel) {
+                drawerManageTagsPanel.classList.toggle('hidden', !manageOpen);
+            }
+            drawerManageTagsBtn.textContent = manageOpen ? 'Done' : 'Manage';
+            if (manageOpen) {
+                renderManageTagsList();
+            }
+        });
+    }
+
     // --- Steps ---
 
     function renderSteps(steps) {
@@ -386,6 +535,13 @@ export function createDrawer(options) {
             drawerTagInput.value = '';
         }
         hideDropdown();
+        manageOpen = false;
+        if (drawerManageTagsPanel) {
+            drawerManageTagsPanel.classList.add('hidden');
+        }
+        if (drawerManageTagsBtn) {
+            drawerManageTagsBtn.textContent = 'Manage';
+        }
 
         renderSteps(testCase.steps || []);
         setReadOnlyMode(Boolean(opts.readOnly));
@@ -416,15 +572,11 @@ export function createDrawer(options) {
     }
 
     function setCallbacks(callbacks) {
-        if (callbacks.onTagAdd) {
-            onTagAdd = callbacks.onTagAdd;
-        }
-        if (callbacks.onTagRemove) {
-            onTagRemove = callbacks.onTagRemove;
-        }
-        if (callbacks.onTagCreate) {
-            onTagCreate = callbacks.onTagCreate;
-        }
+        if (callbacks.onTagAdd) { onTagAdd = callbacks.onTagAdd; }
+        if (callbacks.onTagRemove) { onTagRemove = callbacks.onTagRemove; }
+        if (callbacks.onTagCreate) { onTagCreate = callbacks.onTagCreate; }
+        if (callbacks.onTagRename) { onTagRename = callbacks.onTagRename; }
+        if (callbacks.onTagDelete) { onTagDelete = callbacks.onTagDelete; }
     }
 
     if (drawerBackdrop) {
