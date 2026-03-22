@@ -712,25 +712,43 @@ function loadFolders() {
 }
 
 function loadFilterOptions() {
-    const requests = [
+    const tagRequest = fetch(tagsBaseUrl)
+        .then((r) => {
+            if (!r.ok) {
+                throw new Error('Tags failed');
+            }
+            return r.json();
+        })
+        .then((data) => {
+            const catalog = Array.isArray(data) ? data : [];
+            drawer.setTeamCatalog(catalog);
+            drawer.setCallbacks({
+                onTagAdd: apiAddTag,
+                onTagRemove: apiRemoveTag,
+                onTagCreate: apiCreateTag
+            });
+            return uniqueSorted(catalog.map((t) => t.name));
+        });
+
+    Promise.all([
         fetchOptionValues(componentsBaseUrl),
         fetchOptionValues(statusesBaseUrl),
-        fetchOptionValues(tagsBaseUrl)
-    ];
-
-    Promise.all(requests)
-        .then(([components, statuses, tags]) => {
+        tagRequest
+    ])
+        .then(([components, statuses, tagNames]) => {
             populateSelect(filterComponent, components);
             populateSelect(filterStatus, statuses);
-            populateSelect(filterTag, tags);
+            populateSelect(filterTag, tagNames);
         })
         .catch(() => {
             const components = uniqueSorted(allTestCases.map((item) => item?.components));
             const statuses = uniqueSorted(allTestCases.map((item) => item?.status));
-            const tags = uniqueSorted(allTestCases.flatMap((item) => [item?.components, item?.testCaseType]));
+            const tagNames = uniqueSorted(
+                allTestCases.flatMap((item) => (item?.tags || []).map((t) => t?.name))
+            );
             populateSelect(filterComponent, components);
             populateSelect(filterStatus, statuses);
-            populateSelect(filterTag, tags);
+            populateSelect(filterTag, tagNames);
         });
 }
 
@@ -897,6 +915,62 @@ function handleBulkMove(input) {
     renderFolderTree();
     applyFilters();
     return true;
+}
+
+// --- Tag API helpers ---
+
+function apiAddTag(workKey, tagId) {
+    return fetch(apiBaseUrl + '/' + encodeURIComponent(workKey) + '/tags/' + tagId, { method: 'POST' })
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Tag assign failed: ' + response.status);
+            }
+            return response.json();
+        })
+        .then((updatedTags) => {
+            // Sync to local store so grid badges update.
+            allTestCases = allTestCases.map((tc) => {
+                if (tc.workKey === workKey) {
+                    return { ...tc, tags: updatedTags };
+                }
+                return tc;
+            });
+            applyFilters();
+            return updatedTags;
+        });
+}
+
+function apiRemoveTag(workKey, tagId) {
+    return fetch(apiBaseUrl + '/' + encodeURIComponent(workKey) + '/tags/' + tagId, { method: 'DELETE' })
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Tag unassign failed: ' + response.status);
+            }
+            return response.json();
+        })
+        .then((updatedTags) => {
+            allTestCases = allTestCases.map((tc) => {
+                if (tc.workKey === workKey) {
+                    return { ...tc, tags: updatedTags };
+                }
+                return tc;
+            });
+            applyFilters();
+            return updatedTags;
+        });
+}
+
+function apiCreateTag(name) {
+    return fetch(tagsBaseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+    }).then((response) => {
+        if (!response.ok && response.status !== 409) {
+            throw new Error('Tag create failed: ' + response.status);
+        }
+        return response.json();
+    });
 }
 
 function loadAllTestCases() {
