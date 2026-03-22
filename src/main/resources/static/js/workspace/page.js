@@ -982,6 +982,44 @@ function apiRemoveTag(workKey, tagId) {
         });
 }
 
+function apiRenameTag(tagId, name) {
+    return fetch(tagsBaseUrl + '/' + tagId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', [csrfHeader]: csrfToken },
+        body: JSON.stringify({ name })
+    }).then((response) => {
+        if (!response.ok) {
+            throw new Error('Rename failed: ' + response.status);
+        }
+        return response.json();
+    }).then((updatedTag) => {
+        // Sync renamed tag name into local test case data.
+        allTestCases = allTestCases.map((tc) => ({
+            ...tc,
+            tags: (tc.tags || []).map((t) => t.id === tagId ? { ...t, name: updatedTag.name } : t)
+        }));
+        applyFilters();
+        return updatedTag;
+    });
+}
+
+function apiDeleteTag(tagId) {
+    return fetch(tagsBaseUrl + '/' + tagId, {
+        method: 'DELETE',
+        headers: { [csrfHeader]: csrfToken }
+    }).then((response) => {
+        if (!response.ok) {
+            throw new Error('Delete failed: ' + response.status);
+        }
+        // Remove from local test case data and refresh filter dropdown.
+        allTestCases = allTestCases.map((tc) => ({
+            ...tc,
+            tags: (tc.tags || []).filter((t) => t.id !== tagId)
+        }));
+        applyFilters();
+    });
+}
+
 function apiCreateTag(name) {
     return fetch(tagsBaseUrl, {
         method: 'POST',
