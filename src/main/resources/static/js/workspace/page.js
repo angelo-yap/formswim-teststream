@@ -69,7 +69,9 @@ const drawer = createDrawer({
     drawerAssignee: document.getElementById('drawerAssignee'),
     drawerReporter: document.getElementById('drawerReporter'),
     drawerCreatedOn: document.getElementById('drawerCreatedOn'),
-    drawerTags: document.getElementById('drawerTags'),
+    drawerTagBadges: document.getElementById('drawerTagBadges'),
+    drawerTagInput: document.getElementById('drawerTagInput'),
+    drawerTagDropdown: document.getElementById('drawerTagDropdown'),
     drawerModeLabel: document.getElementById('drawerModeLabel'),
     drawerFooterHint: document.getElementById('drawerFooterHint'),
     getTestCaseById: grid.getTestCaseById
