@@ -52,11 +52,11 @@ export function createDrawer(options) {
 
         for (const tag of currentTags) {
             const badge = document.createElement('span');
-            badge.className = 'inline-flex items-center gap-1 px-2 py-1 text-xs border';
+            badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full';
 
             const c = tagColor(tag.id);
             badge.style.color = c.color;
-            badge.style.borderColor = c.border;
+            badge.style.backgroundColor = c.bg;
 
             const label = document.createElement('span');
             label.textContent = tag.name;
@@ -65,7 +65,7 @@ export function createDrawer(options) {
             if (!isReadOnly) {
                 const removeBtn = document.createElement('button');
                 removeBtn.type = 'button';
-                removeBtn.className = 'ml-0.5 text-white/40 hover:text-white/80 focus:outline-none';
+                removeBtn.className = 'ml-0.5 opacity-50 hover:opacity-100 focus:outline-none';
                 removeBtn.setAttribute('aria-label', 'Remove tag ' + tag.name);
                 removeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/></svg>';
                 removeBtn.addEventListener('click', () => handleRemoveTag(tag.id));
