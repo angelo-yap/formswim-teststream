@@ -183,7 +183,7 @@ if (tbody) {
 
             const action = actionButton.dataset.action;
             if (action === 'preview') {
-                drawer.openByWorkKey(workKey, { readOnly: true });
+                window.location.href = '/workspace/test-cases/' + encodeURIComponent(workKey);
             } else if (action === 'edit') {
                 drawer.openByWorkKey(workKey, { readOnly: false });
             }
