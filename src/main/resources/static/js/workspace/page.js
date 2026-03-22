@@ -741,7 +741,9 @@ function loadFilterOptions() {
             drawer.setCallbacks({
                 onTagAdd: apiAddTag,
                 onTagRemove: apiRemoveTag,
-                onTagCreate: apiCreateTag
+                onTagCreate: apiCreateTag,
+                onTagRename: apiRenameTag,
+                onTagDelete: apiDeleteTag
             });
             return uniqueSorted(catalog.map((t) => t.name));
         });
