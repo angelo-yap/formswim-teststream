@@ -105,7 +105,14 @@ export function createDrawer(options) {
                 row.innerHTML = '<span class="text-white/45 mr-1">Create</span>' + escHtml(item.name);
                 row.addEventListener('click', () => handleCreateTag(item.name));
             } else {
-                row.textContent = item.name;
+                row.className += ' flex items-center justify-between gap-2';
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = item.name;
+                const countSpan = document.createElement('span');
+                countSpan.className = 'shrink-0 text-white/30';
+                countSpan.textContent = item.count > 0 ? String(item.count) : '';
+                row.appendChild(nameSpan);
+                row.appendChild(countSpan);
                 row.addEventListener('click', () => handleAddTag(item.id));
             }
 
