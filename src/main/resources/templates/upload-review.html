@@ -299,6 +299,113 @@
                 return normalize(value) === '' ? '-' : String(value);
             }
 
+            function escapeHtml(value) {
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            function placeholderHtml() {
+                return '<span class="text-white/35">—</span>';
+            }
+
+            function renderPlainHtml(value) {
+                if (normalize(value) === '') {
+                    return placeholderHtml();
+                }
+                return escapeHtml(String(value));
+            }
+
+            function tokenize(value) {
+                return String(value || '').split(/(\s+)/).filter(function (token) {
+                    return token.length > 0;
+                });
+            }
+
+            function buildLcsMatrix(a, b) {
+                const matrix = Array(a.length + 1).fill(null).map(function () {
+                    return Array(b.length + 1).fill(0);
+                });
+
+                for (let i = a.length - 1; i >= 0; i--) {
+                    for (let j = b.length - 1; j >= 0; j--) {
+                        if (a[i] === b[j]) {
+                            matrix[i][j] = matrix[i + 1][j + 1] + 1;
+                        } else {
+                            matrix[i][j] = Math.max(matrix[i + 1][j], matrix[i][j + 1]);
+                        }
+                    }
+                }
+
+                return matrix;
+            }
+
+            function buildDiffParts(currentValue, updatedValue) {
+                const a = tokenize(currentValue);
+                const b = tokenize(updatedValue);
+                const matrix = buildLcsMatrix(a, b);
+
+                let i = 0;
+                let j = 0;
+                const parts = [];
+
+                while (i < a.length && j < b.length) {
+                    if (a[i] === b[j]) {
+                        parts.push({ value: a[i] });
+                        i++;
+                        j++;
+                    } else if (matrix[i + 1][j] >= matrix[i][j + 1]) {
+                        parts.push({ value: a[i], removed: true });
+                        i++;
+                    } else {
+                        parts.push({ value: b[j], added: true });
+                        j++;
+                    }
+                }
+
+                while (i < a.length) {
+                    parts.push({ value: a[i], removed: true });
+                    i++;
+                }
+
+                while (j < b.length) {
+                    parts.push({ value: b[j], added: true });
+                    j++;
+                }
+
+                return parts;
+            }
+
+            function renderDiffSide(currentValue, updatedValue, side) {
+                const parts = buildDiffParts(currentValue || '', updatedValue || '');
+                let html = '';
+
+                parts.forEach(function (part) {
+                    const safe = escapeHtml(part.value);
+
+                    if (part.added) {
+                        if (side === 'updated') {
+                            html += '<span class="bg-green-500/20 text-green-300 px-1 rounded">' + safe + '</span>';
+                        }
+                        return;
+                    }
+
+                    if (part.removed) {
+                        if (side === 'current') {
+                            html += '<span class="bg-red-500/20 text-red-300 px-1 rounded">' + safe + '</span>';
+                        }
+                        return;
+                    }
+
+                    html += '<span>' + safe + '</span>';
+                });
+
+                return html.trim() === '' ? placeholderHtml() : html;
+            }
+
             function selectedAction(itemCard, itemId) {
                 const selected = itemCard.querySelector('input[type="radio"][name="action_' + itemId + '"]:checked');
                 return selected ? selected.value : 'SKIP';
@@ -382,14 +489,28 @@
 
                 rows.forEach(function (row) {
                     const fieldKey = row.getAttribute('data-field-key') || '';
-                    const currentRaw = row.querySelector('[data-current-raw]') ? row.querySelector('[data-current-raw]').value : '';
+                    const currentRaw = row.querySelector('[data-current-raw]')
+                        ? row.querySelector('[data-current-raw]').value
+                        : '';
                     const updatedRaw = editedValue(itemCard, itemId, fieldKey);
+
+                    const currentValue = row.querySelector('[data-current-value]');
                     const updatedValue = row.querySelector('[data-updated-value]');
-                    if (updatedValue) {
-                        updatedValue.textContent = displayValue(updatedRaw);
-                    }
 
                     const changed = normalize(currentRaw) !== normalize(updatedRaw);
+
+                    if (currentValue) {
+                        currentValue.innerHTML = changed
+                            ? renderDiffSide(currentRaw, updatedRaw, 'current')
+                            : renderPlainHtml(currentRaw);
+                    }
+
+                    if (updatedValue) {
+                        updatedValue.innerHTML = changed
+                            ? renderDiffSide(currentRaw, updatedRaw, 'updated')
+                            : renderPlainHtml(updatedRaw);
+                    }
+
                     row.classList.toggle('hidden', !changed);
                     if (changed) {
                         visibleCount++;
