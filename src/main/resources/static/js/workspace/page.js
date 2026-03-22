@@ -866,7 +866,7 @@ function openOrganizeModal() {
     });
 }
 
-function handleBulkMove(input) {
+async function handleBulkMove(input) {
     const moveInput = input || {};
     const uniqueKeys = Array.from(new Set((moveInput.workKeys || []).filter(Boolean)));
     const targetFolder = normalizeFolder(moveInput.targetFolder || '');
@@ -874,18 +874,40 @@ function handleBulkMove(input) {
         return false;
     }
 
-    const moveSet = new Set(uniqueKeys);
-    allTestCases = allTestCases.map((testCase) => {
-        if (!moveSet.has(testCase.workKey)) {
-            return testCase;
+    let result;
+    try {
+        const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+        const response = await fetch('/api/testcases/bulk-move', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', [csrfHeader]: csrfToken },
+            body: JSON.stringify({ workKeys: uniqueKeys, targetFolder })
+        });
+        if (!response.ok) {
+            const msg = response.status === 401 ? 'You must be logged in to move test cases.'
+                : response.status === 403 ? 'You do not have permission to move these test cases.'
+                : 'Move failed. Please try again.';
+            showImportNotice('error', msg);
+            return false;
         }
-        return {
-            ...testCase,
-            folder: targetFolder
-        };
-    });
+        result = await response.json();
+    } catch (_) {
+        showImportNotice('error', 'Move failed. Please check your connection and try again.');
+        return false;
+    }
 
-    selection.removeSelectedIds(uniqueKeys);
+    if (result.movedCount === 0) {
+        showImportNotice('error', 'No test cases were moved.');
+        return false;
+    }
+
+    const failedKeys = new Set((result.failures || []).map(f => f.workKey));
+    const movedKeys = new Set(uniqueKeys.filter(k => !failedKeys.has(k)));
+
+    allTestCases = allTestCases.map(tc =>
+        movedKeys.has(tc.workKey) ? { ...tc, folder: targetFolder } : tc
+    );
+    selection.removeSelectedIds(Array.from(movedKeys));
 
     const knownFolders = listKnownFolders();
     if (!knownFolders.includes(targetFolder)) {
@@ -894,6 +916,12 @@ function handleBulkMove(input) {
     folderTreeModel = createFolderTreeModel(knownFolders);
     renderFolderTree();
     applyFilters();
+
+    if (result.movedCount < uniqueKeys.length) {
+        showImportNotice('error',
+            `${result.movedCount} of ${uniqueKeys.length} test cases moved. Some could not be moved.`);
+    }
+
     return true;
 }
 
@@ -991,7 +1019,7 @@ if (organizeFolderSelect && organizeFolderInput) {
     });
 }
 if (organizeSave) {
-    organizeSave.addEventListener('click', () => {
+    organizeSave.addEventListener('click', async () => {
         const workKeys = selection.getSelectedIds();
         const fromSelect = normalizeFolder(organizeFolderSelect?.value || '');
         const fromInput = normalizeFolder(organizeFolderInput?.value || '');
@@ -1009,7 +1037,7 @@ if (organizeSave) {
             organizeError.classList.add('hidden');
         }
 
-        const moved = handleBulkMove({
+        const moved = await handleBulkMove({
             workKeys,
             targetFolder,
             source: 'organize-modal'
