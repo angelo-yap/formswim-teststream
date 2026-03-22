@@ -176,7 +176,7 @@ export function createGrid(tbody) {
             const emptyRow = document.createElement('tr');
             emptyRow.className = 'border-b border-white/10';
             emptyRow.innerHTML =
-                '<td class="px-6 sm:px-8 py-6" colspan="6">' +
+                '<td class="px-6 sm:px-8 py-6" colspan="7">' +
                 '<p class="text-sm text-white/70">No test cases found.</p>' +
                 '<p class="text-xs text-white/45 mt-1">Import a CSV or XLSX file to get started.</p>' +
                 '</td>';
@@ -196,8 +196,10 @@ export function createGrid(tbody) {
             testCaseMap[workKey] = testCase;
 
             const row = document.createElement('tr');
-            row.className = 'border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer';
+            const isSelected = selectedIds.has(workKey);
+            row.className = 'ws-row border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer' + (isSelected ? ' ws-row-selected' : '');
             row.dataset.id = workKey;
+            row.dataset.workKey = workKey;
             row.dataset.title = title;
             row.dataset.status = status;
             row.dataset.updated = updated;
@@ -215,15 +217,25 @@ export function createGrid(tbody) {
             const tagsTabIndex = encodedTags ? '0' : '-1';
 
             row.innerHTML =
-                '<td class="px-3 sm:px-8 py-2.5" onclick="event.stopPropagation();">' +
-                    '<input type="checkbox" class="ws-row-check h-4 w-4 accent-[#E7FF02]" aria-label="Select row" data-work-key="' + escHtml(workKey) + '"' +
+                '<td class="px-2 sm:px-4 py-2.5 text-white/45">' +
+                    '<button type="button" class="ws-row-grab ws-interactive h-7 w-7 inline-flex items-center justify-center border border-transparent hover:border-white/20 rounded-sm" aria-label="Drag to move" draggable="true" data-work-key="' + escHtml(workKey) + '">' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5"><circle cx="4" cy="3" r="1.1" /><circle cx="4" cy="8" r="1.1" /><circle cx="4" cy="13" r="1.1" /><circle cx="12" cy="3" r="1.1" /><circle cx="12" cy="8" r="1.1" /><circle cx="12" cy="13" r="1.1" /></svg>' +
+                    '</button>' +
+                '</td>' +
+                '<td class="px-2 sm:px-3 py-2.5">' +
+                    '<input type="checkbox" class="ws-row-check ws-interactive h-4 w-4 accent-[#E7FF02]" aria-label="Select row" data-work-key="' + escHtml(workKey) + '"' +
                     (selectedIds.has(workKey) ? ' checked' : '') + ' />' +
                 '</td>' +
-                '<td class="px-3 sm:px-0 sm:pr-6 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap leading-tight" style="font-size:' + escHtml(idFontSize) + ';">' + escHtml(workKey) + '</div></td>' +
-                '<td class="px-3 sm:px-6 py-2.5">' + titleCell + '</td>' +
+                '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 flex flex-wrap gap-2" data-ws-tags="' + escHtml(encodedTags) + '" tabindex="' + tagsTabIndex + '">' + tagsCell + '</div></td>' +
-                '<td class="pl-3 pr-6 sm:pl-6 sm:pr-10 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>';
+                '<td class="pl-3 pr-6 sm:pl-6 sm:pr-4 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>' +
+                '<td class="px-2 sm:px-4 py-2.5 text-right">' +
+                    '<div class="inline-flex items-center gap-2" data-work-key="' + escHtml(workKey) + '">' +
+                        '<button type="button" class="ws-row-action ws-row-preview ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="preview" data-work-key="' + escHtml(workKey) + '">Preview</button>' +
+                        '<button type="button" class="ws-row-action ws-row-edit ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="edit" data-work-key="' + escHtml(workKey) + '">Edit</button>' +
+                    '</div>' +
+                '</td>';
 
             const tagsEl = row.querySelector('[data-ws-tags]');
             if (tagsEl) {

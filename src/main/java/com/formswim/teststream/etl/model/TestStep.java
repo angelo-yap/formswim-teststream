@@ -55,11 +55,23 @@ public class TestStep {
         return stepSummary;
     }
 
+    public void setStepSummary(String stepSummary) {
+        this.stepSummary = stepSummary;
+    }
+
     public String getTestData() {
         return testData;
     }
 
+    public void setTestData(String testData) {
+        this.testData = testData;
+    }
+
     public String getExpectedResult() {
         return expectedResult;
+    }
+
+    public void setExpectedResult(String expectedResult) {
+        this.expectedResult = expectedResult;
     }
 }

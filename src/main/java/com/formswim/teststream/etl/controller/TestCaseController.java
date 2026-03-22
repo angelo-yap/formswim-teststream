@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -35,6 +36,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
+import com.formswim.teststream.etl.dto.BulkEditRequest;
+import com.formswim.teststream.etl.dto.BulkEditResult;
 import com.formswim.teststream.etl.dto.BulkMoveRequest;
 import com.formswim.teststream.etl.dto.BulkMoveResult;
 import com.formswim.teststream.etl.dto.EtlResultSummary;
@@ -43,6 +46,7 @@ import com.formswim.teststream.etl.dto.UploadReviewSessionView;
 import com.formswim.teststream.etl.model.TestCase;
 import com.formswim.teststream.etl.repository.TestCaseRepository;
 import com.formswim.teststream.etl.service.ExcelExportService;
+import com.formswim.teststream.etl.service.TestCaseBulkEditService;
 import com.formswim.teststream.etl.service.TestCaseBulkMoveService;
 import com.formswim.teststream.etl.service.TestIngestionService;
 import com.formswim.teststream.etl.service.UploadReviewService;
@@ -57,23 +61,29 @@ public class TestCaseController {
 
     private final TestCaseRepository testCaseRepository;
     private final ExcelExportService excelExportService;
+    private final TestCaseBulkEditService testCaseBulkEditService;
     private final TestCaseBulkMoveService testCaseBulkMoveService;
     private final TestIngestionService testIngestionService;
     private final UploadReviewService uploadReviewService;
     private final UserRepository userRepository;
+    private final boolean bulkEditEnabled;
 
     public TestCaseController(TestCaseRepository testCaseRepository,
                               ExcelExportService excelExportService,
+                              TestCaseBulkEditService testCaseBulkEditService,
                               TestCaseBulkMoveService testCaseBulkMoveService,
                               TestIngestionService testIngestionService,
                               UploadReviewService uploadReviewService,
-                              UserRepository userRepository) {
+                              UserRepository userRepository,
+                              @Value("${teststream.bulk-edit.enabled:false}") boolean bulkEditEnabled) {
         this.testCaseRepository = testCaseRepository;
         this.excelExportService = excelExportService;
+        this.testCaseBulkEditService = testCaseBulkEditService;
         this.testCaseBulkMoveService = testCaseBulkMoveService;
         this.testIngestionService = testIngestionService;
         this.uploadReviewService = uploadReviewService;
         this.userRepository = userRepository;
+        this.bulkEditEnabled = bulkEditEnabled;
     }
 
     @GetMapping("/workspace")
@@ -401,6 +411,52 @@ public class TestCaseController {
 
         BulkMoveResult result = testCaseBulkMoveService.bulkMoveByWorkKeys(user.getTeamKey(), request);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * PATCH /api/testcases/bulk-edit
+     *
+     * <p>Runs team-scoped exact text replacement for selected work keys and fields.
+     * Returns 400 for invalid payloads (blank find text, empty work keys, unsupported fields,
+     * or over-limit batch sizes), 503 when disabled by rollout flag,
+     * and 401/403 for authentication or team access failures.</p>
+     */
+    @PatchMapping("/api/testcases/bulk-edit")
+    @ResponseBody
+    public ResponseEntity<BulkEditResult> apiBulkEditTestCases(@Valid @RequestBody BulkEditRequest request,
+                                                               HttpSession session,
+                                                               Authentication authentication) {
+        if (!bulkEditEnabled) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
+
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        if (request.getWorkKeys().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        String findText = request.getFindText() == null ? "" : request.getFindText().trim();
+        if (findText.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        // Use the normalized token for mutation so validation and execution are consistent.
+        request.setFindText(findText);
+
+        try {
+            BulkEditResult result = testCaseBulkEditService.bulkEditByWorkKeys(user.getTeamKey(), request);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     /**
