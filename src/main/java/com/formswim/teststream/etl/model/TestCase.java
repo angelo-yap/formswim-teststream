@@ -109,6 +109,16 @@ public class TestCase {
     @OrderBy("stepNumber ASC")
     private List<TestStep> steps = new ArrayList<>();
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "test_case_tag",
+        joinColumns = @JoinColumn(name = "test_case_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    @BatchSize(size = 50)
+    @OrderBy("name ASC")
+    private List<Tag> tags = new ArrayList<>();
+
     protected TestCase() {
     }
 
@@ -355,5 +365,19 @@ public class TestCase {
 
     public List<TestStep> getSteps() {
         return steps;
+    }
+
+    public List<Tag> getTags() {
+        return tags;
+    }
+
+    public void addTag(Tag tag) {
+        if (!tags.contains(tag)) {
+            tags.add(tag);
+        }
+    }
+
+    public void removeTag(Tag tag) {
+        tags.remove(tag);
     }
 }
