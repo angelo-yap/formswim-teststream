@@ -137,17 +137,32 @@ export function createDrawer(options) {
             return;
         }
 
+        const tag = teamCatalog.find((t) => t.id === tagId);
+        if (!tag || currentTags.some((t) => t.id === tagId)) {
+            return;
+        }
+
         if (drawerTagInput) {
             drawerTagInput.value = '';
         }
         hideDropdown();
+
+        // Optimistic update.
+        currentTags = [...currentTags, tag].sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        );
+        renderTagBadges();
 
         onTagAdd(currentWorkKey, tagId).then((updatedTags) => {
             if (updatedTags) {
                 currentTags = updatedTags;
                 renderTagBadges();
             }
-        }).catch(() => {});
+        }).catch(() => {
+            // Revert.
+            currentTags = currentTags.filter((t) => t.id !== tagId);
+            renderTagBadges();
+        });
     }
 
     function handleCreateTag(name) {
@@ -160,11 +175,20 @@ export function createDrawer(options) {
         }
         hideDropdown();
 
-        onTagCreate(name).then((newTag) => {
+        // Optimistic update with a temporary ID.
+        const tempId = 'tmp_' + Date.now();
+        const trimmedName = name.trim();
+        currentTags = [...currentTags, { id: tempId, name: trimmedName }].sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        );
+        renderTagBadges();
+
+        onTagCreate(trimmedName).then((newTag) => {
             if (!newTag) {
-                return;
+                throw new Error('No tag returned');
             }
-            // Add to local catalog so it's available immediately.
+            // Replace temp entry and update catalog.
+            currentTags = currentTags.filter((t) => t.id !== tempId);
             if (!teamCatalog.some((t) => t.id === newTag.id)) {
                 teamCatalog = [...teamCatalog, newTag].sort((a, b) =>
                     a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
@@ -176,7 +200,11 @@ export function createDrawer(options) {
                 currentTags = updatedTags;
                 renderTagBadges();
             }
-        }).catch(() => {});
+        }).catch(() => {
+            // Revert temp entry.
+            currentTags = currentTags.filter((t) => t.id !== tempId);
+            renderTagBadges();
+        });
     }
 
     function handleRemoveTag(tagId) {
@@ -184,12 +212,21 @@ export function createDrawer(options) {
             return;
         }
 
+        // Optimistic update.
+        const previous = currentTags;
+        currentTags = currentTags.filter((t) => t.id !== tagId);
+        renderTagBadges();
+
         onTagRemove(currentWorkKey, tagId).then((updatedTags) => {
             if (updatedTags) {
                 currentTags = updatedTags;
                 renderTagBadges();
             }
-        }).catch(() => {});
+        }).catch(() => {
+            // Revert.
+            currentTags = previous;
+            renderTagBadges();
+        });
     }
 
     // --- Input events ---
