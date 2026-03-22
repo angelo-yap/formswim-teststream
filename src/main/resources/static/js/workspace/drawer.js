@@ -1,4 +1,4 @@
-import { escHtml } from './grid.js';
+import { escHtml, tagColor } from './grid.js';
 
 export function createDrawer(options) {
     const drawer = options.drawer;
@@ -52,7 +52,11 @@ export function createDrawer(options) {
 
         for (const tag of currentTags) {
             const badge = document.createElement('span');
-            badge.className = 'inline-flex items-center gap-1 px-2 py-1 text-xs border border-white/15 text-white/75';
+            badge.className = 'inline-flex items-center gap-1 px-2 py-1 text-xs border';
+
+            const c = tagColor(tag.id);
+            badge.style.color = c.color;
+            badge.style.borderColor = c.border;
 
             const label = document.createElement('span');
             label.textContent = tag.name;
