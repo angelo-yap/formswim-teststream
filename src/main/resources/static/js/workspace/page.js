@@ -377,7 +377,8 @@ function applyFilters() {
         const matchesQuery = !query || workKey.includes(query) || summary.includes(query) || components.includes(query);
         const matchesComponent = !component || components.includes(component);
         const matchesStatus = !status || testCaseStatus === status;
-        const matchesTag = !tag || components.includes(tag) || testCaseType.includes(tag);
+        const customTags = Array.isArray(testCase.tags) ? testCase.tags : [];
+        const matchesTag = !tag || customTags.some((t) => (t.name || '').toLowerCase() === tag);
 
         const matchesFolder = !selectedFolderLower || folder === selectedFolderLower || folder.startsWith(selectedFolderLower + '/');
         return matchesQuery && matchesComponent && matchesStatus && matchesTag && matchesFolder;
