@@ -50,6 +50,8 @@ const exportBaseUrl = document.querySelector('meta[name="workspace-export-base"]
 const componentsBaseUrl = document.querySelector('meta[name="workspace-components-base"]')?.content || '/api/components';
 const statusesBaseUrl = document.querySelector('meta[name="workspace-statuses-base"]')?.content || '/api/statuses';
 const tagsBaseUrl = document.querySelector('meta[name="workspace-tags-base"]')?.content || '/api/tags';
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+const csrfHeader = document.querySelector('meta[name="csrf-header"]')?.content || 'X-CSRF-TOKEN';
 
 const grid = createGrid(tbody);
 const selection = createSelection(selectAll, bulkBar, bulkCount);
@@ -920,7 +922,10 @@ function handleBulkMove(input) {
 // --- Tag API helpers ---
 
 function apiAddTag(workKey, tagId) {
-    return fetch(apiBaseUrl + '/' + encodeURIComponent(workKey) + '/tags/' + tagId, { method: 'POST' })
+    return fetch(apiBaseUrl + '/' + encodeURIComponent(workKey) + '/tags/' + tagId, {
+        method: 'POST',
+        headers: { [csrfHeader]: csrfToken }
+    })
         .then((response) => {
             if (!response.ok) {
                 throw new Error('Tag assign failed: ' + response.status);
@@ -941,7 +946,10 @@ function apiAddTag(workKey, tagId) {
 }
 
 function apiRemoveTag(workKey, tagId) {
-    return fetch(apiBaseUrl + '/' + encodeURIComponent(workKey) + '/tags/' + tagId, { method: 'DELETE' })
+    return fetch(apiBaseUrl + '/' + encodeURIComponent(workKey) + '/tags/' + tagId, {
+        method: 'DELETE',
+        headers: { [csrfHeader]: csrfToken }
+    })
         .then((response) => {
             if (!response.ok) {
                 throw new Error('Tag unassign failed: ' + response.status);
@@ -963,7 +971,7 @@ function apiRemoveTag(workKey, tagId) {
 function apiCreateTag(name) {
     return fetch(tagsBaseUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', [csrfHeader]: csrfToken },
         body: JSON.stringify({ name })
     }).then((response) => {
         if (!response.ok && response.status !== 409) {
