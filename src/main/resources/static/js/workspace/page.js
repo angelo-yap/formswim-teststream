@@ -937,6 +937,16 @@ function handleBulkMove(input) {
     return true;
 }
 
+function buildTagUsageCounts() {
+    const counts = new Map();
+    for (const tc of allTestCases) {
+        for (const tag of (tc.tags || [])) {
+            counts.set(tag.id, (counts.get(tag.id) || 0) + 1);
+        }
+    }
+    return counts;
+}
+
 // --- Tag API helpers ---
 
 function apiAddTag(workKey, tagId) {
