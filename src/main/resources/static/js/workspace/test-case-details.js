@@ -150,4 +150,37 @@ function normalizeMarkdownInput(value) {
         .trim();
 }
 
+function initBackToWorkspaceLink() {
+    const backLink = document.querySelector('[data-back-to-workspace="true"]');
+    if (!backLink) {
+        return;
+    }
+
+    let hasSameOriginReferrer = false;
+    if (document.referrer) {
+        try {
+            hasSameOriginReferrer = new URL(document.referrer).origin === window.location.origin;
+        } catch (error) {
+            hasSameOriginReferrer = false;
+        }
+    }
+
+    const canUseHistoryBack = window.history.length > 1 && hasSameOriginReferrer;
+
+    backLink.addEventListener('click', (event) => {
+        if (!canUseHistoryBack) {
+            return;
+        }
+
+        // Keep modifier clicks/new-tab behavior unchanged.
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return;
+        }
+
+        event.preventDefault();
+        window.history.back();
+    });
+}
+
+initBackToWorkspaceLink();
 formatMarkdownBlocks();
