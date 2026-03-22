@@ -58,11 +58,8 @@ function buildTagBadges(testCase, maxVisible = 3) {
         const c = tagColor(tag.id);
         html += '<span class="whitespace-nowrap shrink-0 px-2 py-0.5 text-xs font-medium rounded-full" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</span>';
     }
-    if (hiddenCount > 0) {
-        html += '<span class="whitespace-nowrap shrink-0 text-xs text-white/40">+' + hiddenCount + '</span>';
-    }
 
-    return { tags, html };
+    return { tags, html, hiddenCount };
 }
 
 let tagTooltipEl = null;
@@ -212,11 +209,16 @@ export function createGrid(tbody) {
                     (folder ? '<div class="text-white/45 text-xs mt-0.5 truncate">' + escHtml(folder) + '</div>' : '') +
                 '</div>';
 
-            const tagsCell = tagModel.html || '<span class="text-white/45">—</span>';
             const encodedTags = tagModel.tags && tagModel.tags.length > 0
                 ? encodeURIComponent(JSON.stringify(tagModel.tags))
                 : '';
             const tagsTabIndex = encodedTags ? '0' : '-1';
+            const overflowBadge = tagModel.hiddenCount > 0
+                ? '<span class="shrink-0 text-xs text-white/40">+' + tagModel.hiddenCount + '</span>'
+                : '';
+            const tagsCell = tagModel.html
+                ? '<div class="min-w-0 flex flex-nowrap gap-1.5 overflow-hidden">' + tagModel.html + '</div>' + overflowBadge
+                : '<span class="text-white/45">—</span>';
 
             row.innerHTML =
                 '<td class="px-2 sm:px-4 py-2.5 text-white/45">' +
@@ -230,7 +232,7 @@ export function createGrid(tbody) {
                 '</td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
-                '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 flex flex-nowrap gap-2 overflow-hidden" data-ws-tags="' + escHtml(encodedTags) + '" tabindex="' + tagsTabIndex + '">' + tagsCell + '</div></td>' +
+                '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 flex flex-nowrap items-center gap-1.5" data-ws-tags="' + escHtml(encodedTags) + '" tabindex="' + tagsTabIndex + '">' + tagsCell + '</div></td>' +
                 '<td class="pl-3 pr-6 sm:pl-6 sm:pr-4 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>' +
                 '<td class="px-2 sm:px-4 py-2.5 text-right">' +
                     '<div class="inline-flex items-center gap-2" data-work-key="' + escHtml(workKey) + '">' +

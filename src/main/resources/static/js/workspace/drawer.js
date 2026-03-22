@@ -126,9 +126,9 @@ export function createDrawer(options) {
 
         const items = matches.map((t) => ({ id: t.id, name: t.name }));
 
-        // Offer "create" if query is non-empty and no exact match exists.
+        // Offer "create" at the top if query is non-empty and no exact match exists.
         if (q && !teamCatalog.some((t) => t.name.toLowerCase() === q)) {
-            items.push({ isCreate: true, name: query.trim() });
+            items.unshift({ isCreate: true, name: query.trim() });
         }
 
         return items;
