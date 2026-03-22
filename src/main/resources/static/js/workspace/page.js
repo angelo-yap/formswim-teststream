@@ -178,6 +178,16 @@ if (tbody) {
     });
 
     tbody.addEventListener('click', (event) => {
+        const tagBadge = event.target?.closest?.('.ws-tag-filter');
+        if (tagBadge) {
+            const tagName = tagBadge.dataset.tagFilter || '';
+            if (filterTag && tagName) {
+                filterTag.value = filterTag.value === tagName ? '' : tagName;
+                applyFilters();
+            }
+            return;
+        }
+
         const actionButton = event.target?.closest?.('.ws-row-action');
         if (actionButton) {
             const workKey = actionButton.dataset.workKey || actionButton.closest('[data-work-key]')?.dataset.workKey || '';
