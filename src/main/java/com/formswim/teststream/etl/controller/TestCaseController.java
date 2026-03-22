@@ -133,12 +133,52 @@ public class TestCaseController {
 
     @GetMapping("/workspace/test-cases/{id}")
     public String testCaseDetails(@PathVariable String id,
+                                  HttpSession session,
+                                  Authentication authentication,
                                   Model model) {
-        String safeId = id == null ? "" : id.trim();
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return "redirect:/login?error=Please+log+in+first";
+        }
 
-        model.addAttribute("detailsCaseId", safeId.isBlank() ? "-" : safeId);
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return "redirect:/login?error=No+team+assigned";
+        }
+
+        String safeId = id == null ? "" : id.trim();
+        if (safeId.isBlank()) {
+            return "redirect:/workspace?importError=" + encodeMessage("Test case id is required");
+        }
+
+        List<TestCase> matches = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn(user.getTeamKey(), List.of(safeId));
+        if (matches.isEmpty()) {
+            return "redirect:/workspace?importError=" + encodeMessage("Test case not found");
+        }
+
+        TestCase testCase = matches.get(0);
+
+        model.addAttribute("detailsCaseId", testCase.getWorkKey());
         model.addAttribute("detailsPageTitle", "Test case details");
-        model.addAttribute("detailsIsPlaceholder", true);
+        model.addAttribute("detailsIsPlaceholder", false);
+        model.addAttribute("detailsSummary", testCase.getSummary());
+        model.addAttribute("detailsDescription", testCase.getDescription());
+        model.addAttribute("detailsPrecondition", testCase.getPrecondition());
+        model.addAttribute("detailsFolder", testCase.getFolder());
+        model.addAttribute("detailsFolderSegments", parseFolderSegments(testCase.getFolder()));
+        model.addAttribute("detailsStatus", testCase.getStatus());
+        model.addAttribute("detailsPriority", testCase.getPriority());
+        model.addAttribute("detailsComponents", testCase.getComponents());
+        model.addAttribute("detailsTestCaseType", testCase.getTestCaseType());
+        model.addAttribute("detailsLabels", testCase.getLabels());
+        model.addAttribute("detailsSprint", testCase.getSprint());
+        model.addAttribute("detailsFixVersions", testCase.getFixVersions());
+        model.addAttribute("detailsVersion", testCase.getVersion());
+        model.addAttribute("detailsEstimatedTime", testCase.getEstimatedTime());
+        model.addAttribute("detailsCreatedOn", testCase.getCreatedOn());
+        model.addAttribute("detailsUpdatedOn", testCase.getUpdatedOn());
+        model.addAttribute("detailsStoryLinkages", testCase.getStoryLinkages());
+        model.addAttribute("detailsSteps", testCase.getSteps());
 
         return "test-case-details";
     }
@@ -519,5 +559,16 @@ public class TestCaseController {
             .map(String::trim)
             .filter(value -> !value.isEmpty())
             .forEach(tags::add);
+    }
+
+    private List<String> parseFolderSegments(String folder) {
+        if (folder == null || folder.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(folder.split("/"))
+            .map(String::trim)
+            .filter(segment -> !segment.isBlank())
+            .collect(Collectors.toList());
     }
 }
