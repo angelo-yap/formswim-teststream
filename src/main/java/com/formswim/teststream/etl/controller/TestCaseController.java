@@ -170,7 +170,6 @@ public class TestCaseController {
 
         model.addAttribute("detailsCaseId", testCase.getWorkKey());
         model.addAttribute("detailsPageTitle", "Test case details");
-        model.addAttribute("detailsIsPlaceholder", false);
         model.addAttribute("detailsSummary", testCase.getSummary());
         model.addAttribute("detailsDescription", testCase.getDescription());
         model.addAttribute("detailsPrecondition", testCase.getPrecondition());
