@@ -183,7 +183,10 @@ if (tbody) {
 
             const action = actionButton.dataset.action;
             if (action === 'preview') {
-                window.location.href = '/workspace/test-cases/' + encodeURIComponent(workKey);
+                // Preview is rendered as an anchor; keep a defensive fallback for non-anchor actions.
+                if (actionButton.tagName !== 'A') {
+                    window.location.href = '/workspace/test-cases/' + encodeURIComponent(workKey);
+                }
             } else if (action === 'edit') {
                 drawer.openByWorkKey(workKey, { readOnly: false });
             }

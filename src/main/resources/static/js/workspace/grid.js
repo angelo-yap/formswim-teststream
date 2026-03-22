@@ -192,6 +192,7 @@ export function createGrid(tbody) {
             const tagModel = buildTagBadges(testCase, 3);
             const updated = testCase.updatedOn || '—';
             const idFontSize = workKey.length > 14 ? '10px' : (workKey.length > 10 ? '11px' : '12px');
+            const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
 
             testCaseMap[workKey] = testCase;
 
@@ -232,7 +233,7 @@ export function createGrid(tbody) {
                 '<td class="pl-3 pr-6 sm:pl-6 sm:pr-4 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>' +
                 '<td class="px-2 sm:px-4 py-2.5 text-right">' +
                     '<div class="inline-flex items-center gap-2" data-work-key="' + escHtml(workKey) + '">' +
-                        '<button type="button" class="ws-row-action ws-row-preview ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="preview" data-work-key="' + escHtml(workKey) + '">Preview</button>' +
+                        '<a class="ws-row-action ws-row-preview ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="preview" data-work-key="' + escHtml(workKey) + '" href="' + escHtml(previewUrl) + '">Preview</a>' +
                         '<button type="button" class="ws-row-action ws-row-edit ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="edit" data-work-key="' + escHtml(workKey) + '">Edit</button>' +
                     '</div>' +
                 '</td>';
