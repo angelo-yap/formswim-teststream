@@ -30,22 +30,9 @@ function parseTagList(value) {
 }
 
 function buildTagBadges(testCase, maxVisible = 3) {
-    // Today, tags live in `components` (often a string). `testCaseType` is shown as an additional badge.
-    // This helper keeps the future “real tags” implementation isolated.
-    const list = [];
-    list.push(...parseTagList(testCase?.components));
-    list.push(...parseTagList(testCase?.testCaseType));
-
-    // De-dupe (case-insensitive) while preserving the first-seen casing.
-    const byLower = new Map();
-    for (const tag of list) {
-        const key = tag.toLowerCase();
-        if (!byLower.has(key)) {
-            byLower.set(key, tag);
-        }
-    }
-
-    const tags = Array.from(byLower.values());
+    // Use the real custom tags array returned by the API.
+    const rawTags = Array.isArray(testCase?.tags) ? testCase.tags : [];
+    const tags = rawTags.map((t) => (t && t.name ? t.name : String(t))).filter(Boolean);
     const visible = tags.slice(0, Math.max(0, maxVisible));
     const hiddenCount = Math.max(0, tags.length - visible.length);
 
