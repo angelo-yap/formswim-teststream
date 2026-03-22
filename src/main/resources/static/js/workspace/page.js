@@ -370,7 +370,6 @@ function applyFilters() {
         const workKey = (testCase.workKey || '').toLowerCase();
         const summary = (testCase.summary || '').toLowerCase();
         const components = (testCase.components || '').toLowerCase();
-        const testCaseType = (testCase.testCaseType || '').toLowerCase();
         const testCaseStatus = (testCase.status || '').toLowerCase();
         const folder = normalizeFolder(testCase.folder || '').toLowerCase();
 
