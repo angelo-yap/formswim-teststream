@@ -272,6 +272,12 @@ export function createDrawer(options) {
             if (event.key === 'Escape') {
                 hideDropdown();
                 drawerTagInput.blur();
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                const firstBtn = drawerTagDropdown && drawerTagDropdown.querySelector('button');
+                if (firstBtn) {
+                    firstBtn.click();
+                }
             }
         });
     }
