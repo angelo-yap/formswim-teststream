@@ -433,28 +433,6 @@ public class TestCaseController {
         return ResponseEntity.ok(folders);
     }
 
-    @GetMapping("/api/tags")
-    @ResponseBody
-    public ResponseEntity<List<String>> getTagsByTeamKey(HttpSession session, Authentication authentication) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
-        if (currentUser.isEmpty()) {
-            return ResponseEntity.status(401).build();
-        }
-        AppUser user = currentUser.get();
-        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return ResponseEntity.status(403).build();
-        }
-
-        Set<String> tags = new LinkedHashSet<>();
-        testCaseRepository.findDistinctComponentsByTeamKey(user.getTeamKey()).forEach(value -> addDelimitedTags(tags, value));
-        testCaseRepository.findDistinctTestCaseTypeByTeamKey(user.getTeamKey()).forEach(value -> addDelimitedTags(tags, value));
-
-        List<String> sortedTags = tags.stream()
-            .sorted(String.CASE_INSENSITIVE_ORDER)
-            .collect(Collectors.toList());
-        return ResponseEntity.ok(sortedTags);
-    }
-
     @GetMapping("/api/components")
     @ResponseBody
     public ResponseEntity<List<String>> getComponentsByTeamKey(HttpSession session, Authentication authentication) {
