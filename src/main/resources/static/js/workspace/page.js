@@ -737,7 +737,9 @@ function loadFilterOptions() {
         })
         .then((data) => {
             const catalog = Array.isArray(data) ? data : [];
-            drawer.setTeamCatalog(catalog);
+            const usageCounts = buildTagUsageCounts();
+            const enrichedCatalog = catalog.map((t) => ({ ...t, count: usageCounts.get(t.id) || 0 }));
+            drawer.setTeamCatalog(enrichedCatalog);
             drawer.setCallbacks({
                 onTagAdd: apiAddTag,
                 onTagRemove: apiRemoveTag,
