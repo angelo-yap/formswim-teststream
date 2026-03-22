@@ -9,6 +9,8 @@
 	<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;700;900&display=swap" rel="stylesheet">
 	<meta name="workspace-api-base" content="/api/testcases">
 	<meta name="workspace-export-base" content="/workspace/export">
+	<meta name="_csrf" th:content="${_csrf.token}">
+	<meta name="_csrf_header" th:content="${_csrf.headerName}">
 	<style>
 		.ws-row-selected {
 			background-color: rgba(231, 255, 2, 0.2) !important;
