@@ -876,9 +876,11 @@ async function handleBulkMove(input) {
 
     let result;
     try {
+        const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
         const response = await fetch('/api/testcases/bulk-move', {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', [csrfHeader]: csrfToken },
             body: JSON.stringify({ workKeys: uniqueKeys, targetFolder })
         });
         if (!response.ok) {
