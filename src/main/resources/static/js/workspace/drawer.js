@@ -18,6 +18,10 @@ export function createDrawer(options) {
     const drawerTagBadges = options.drawerTagBadges;
     const drawerTagInput = options.drawerTagInput;
     const drawerTagDropdown = options.drawerTagDropdown;
+    const drawerManageTagsBtn = options.drawerManageTagsBtn;
+    const drawerManageTagsPanel = options.drawerManageTagsPanel;
+    const drawerManageTagsList = options.drawerManageTagsList;
+    const drawerManageTagsEmpty = options.drawerManageTagsEmpty;
     const drawerModeLabel = options.drawerModeLabel;
     const drawerFooterHint = options.drawerFooterHint;
     const getTestCaseById = options.getTestCaseById;
