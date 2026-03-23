@@ -983,6 +983,7 @@ function apiAddTag(workKey, tagId) {
                 return tc;
             });
             applyFilters();
+            drawer.refreshTagCounts(buildTagUsageCounts());
             return updatedTags;
         });
 }
@@ -1006,6 +1007,7 @@ function apiRemoveTag(workKey, tagId) {
                 return tc;
             });
             applyFilters();
+            drawer.refreshTagCounts(buildTagUsageCounts());
             return updatedTags;
         });
 }
