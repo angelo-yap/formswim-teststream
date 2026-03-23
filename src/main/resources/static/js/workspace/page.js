@@ -183,9 +183,12 @@ if (tbody) {
 
             const action = actionButton.dataset.action;
             if (action === 'preview') {
-                drawer.openByWorkKey(workKey, { readOnly: true });
-            } else if (action === 'edit') {
                 drawer.openByWorkKey(workKey, { readOnly: false });
+            } else if (action === 'edit') {
+                // Edit is rendered as an anchor; keep a defensive fallback for non-anchor actions.
+                if (actionButton.tagName !== 'A') {
+                    window.location.href = '/workspace/test-cases/' + encodeURIComponent(workKey);
+                }
             }
             return;
         }
