@@ -55,7 +55,7 @@ function buildTagBadges(testCase, maxVisible = 3) {
 
     let html = '';
     for (const tag of visible) {
-        const c = tagColor(tag.id);
+        const c = tagColor(tag.name);
         html += '<button type="button" class="ws-interactive ws-tag-filter whitespace-nowrap shrink-0 px-2 py-0.5 text-xs font-medium rounded-full hover:opacity-75 transition-opacity" data-tag-filter="' + escHtml(tag.name) + '" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</button>';
     }
 
@@ -129,7 +129,7 @@ function showTagTooltip(anchorEl, tags) {
 
     let html = '<div class="flex flex-wrap gap-2">';
     for (const tag of tags) {
-        const c = tagColor(tag.id);
+        const c = tagColor(tag.name);
         html += '<span class="whitespace-nowrap px-2 py-0.5 text-xs font-medium rounded-full" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</span>';
     }
     html += '</div>';

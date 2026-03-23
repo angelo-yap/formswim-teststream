@@ -60,7 +60,7 @@ export function createDrawer(options) {
             const badge = document.createElement('span');
             badge.className = 'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap';
 
-            const c = tagColor(tag.id);
+            const c = tagColor(tag.name);
             badge.style.color = c.color;
             badge.style.backgroundColor = c.bg;
 
@@ -308,7 +308,7 @@ export function createDrawer(options) {
         }
 
         for (const tag of teamCatalog) {
-            const c = tagColor(tag.id);
+            const c = tagColor(tag.name);
             const row = document.createElement('div');
             row.className = 'flex items-center gap-2 py-1';
             row.dataset.tagId = String(tag.id);
