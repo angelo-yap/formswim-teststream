@@ -459,12 +459,14 @@ export function createDrawer(options) {
         const prevTags = currentTags;
         teamCatalog = teamCatalog.filter((t) => t.id !== tagId);
         currentTags = currentTags.filter((t) => t.id !== tagId);
+        updateManageBtn();
         renderManageTagsList();
         renderTagBadges();
 
         onTagDelete(tagId).catch(() => {
             teamCatalog = prevCatalog;
             currentTags = prevTags;
+            updateManageBtn();
             renderManageTagsList();
             renderTagBadges();
         });
