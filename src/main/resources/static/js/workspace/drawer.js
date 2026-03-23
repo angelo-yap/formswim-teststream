@@ -627,6 +627,7 @@ export function createDrawer(options) {
 
     function setTeamCatalog(catalog) {
         teamCatalog = Array.isArray(catalog) ? catalog : [];
+        updateManageBtn();
     }
 
     function setCallbacks(callbacks) {
