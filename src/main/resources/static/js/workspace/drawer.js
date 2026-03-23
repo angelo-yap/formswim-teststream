@@ -137,7 +137,7 @@ export function createDrawer(options) {
             return !assignedIds.has(t.id) && (!q || t.name.toLowerCase().includes(q));
         });
 
-        const items = matches.map((t) => ({ id: t.id, name: t.name }));
+        const items = matches.map((t) => ({ id: t.id, name: t.name, count: t.count || 0 }));
 
         // Offer "create" at the top if query is non-empty and no exact match exists.
         if (q && !teamCatalog.some((t) => t.name.toLowerCase() === q)) {
