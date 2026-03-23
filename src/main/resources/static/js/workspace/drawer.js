@@ -231,6 +231,7 @@ export function createDrawer(options) {
                 teamCatalog = [...teamCatalog, newTag].sort((a, b) =>
                     a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
                 );
+                updateManageBtn();
             }
             return onTagAdd(currentWorkKey, newTag.id);
         }).then((updatedTags) => {
