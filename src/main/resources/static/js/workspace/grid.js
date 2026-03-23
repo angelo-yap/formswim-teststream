@@ -23,28 +23,6 @@ export function escHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
-function parseTagList(value) {
-    if (!value) {
-        return [];
-    }
-
-    if (Array.isArray(value)) {
-        return value
-            .map((item) => String(item || '').trim())
-            .filter(Boolean);
-    }
-
-    const raw = String(value || '').trim();
-    if (!raw) {
-        return [];
-    }
-
-    // Support comma/semicolon/pipe separated tag strings.
-    return raw
-        .split(/[,;|]/)
-        .map((item) => item.trim())
-        .filter(Boolean);
-}
 
 function buildTagBadges(testCase, maxVisible = 3) {
     const rawTags = Array.isArray(testCase?.tags) ? testCase.tags : [];
@@ -187,7 +165,7 @@ export function createGrid(tbody) {
             const title = testCase.summary || '—';
             const folder = testCase.folder || '';
             const status = testCase.status || '—';
-            const tagModel = buildTagBadges(testCase, 3);
+            const tagModel = buildTagBadges(testCase, 2);
             const updated = testCase.updatedOn || '—';
             const idFontSize = workKey.length > 14 ? '10px' : (workKey.length > 10 ? '11px' : '12px');
 
