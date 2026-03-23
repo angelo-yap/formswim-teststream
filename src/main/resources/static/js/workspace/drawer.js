@@ -439,19 +439,27 @@ export function createDrawer(options) {
         });
     }
 
-    function handleRenameTag(tagId, newName) {
+    function handleRenameTag(tagId, newName, onError) {
         if (!onTagRename) {
             return;
         }
 
-        // Optimistic update in catalog and current tags.
+        const prevCatalog = teamCatalog;
+        const prevTags = currentTags;
+
         teamCatalog = teamCatalog.map((t) => t.id === tagId ? { ...t, name: newName } : t);
         currentTags = currentTags.map((t) => t.id === tagId ? { ...t, name: newName } : t);
         renderManageTagsList();
         renderTagBadges();
 
-        onTagRename(tagId, newName).catch(() => {
-            // Revert isn't straightforward without the old name — just re-fetch is handled by caller.
+        onTagRename(tagId, newName).catch((err) => {
+            teamCatalog = prevCatalog;
+            currentTags = prevTags;
+            renderManageTagsList();
+            renderTagBadges();
+            if (onError) {
+                onError(err?.message || 'Rename failed.');
+            }
         });
     }
 
