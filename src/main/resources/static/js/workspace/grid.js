@@ -7,6 +7,18 @@ const TAG_COLORS = [
     { color: '#22d3ee', bg: 'rgba(34,211,238,0.18)' },   // cyan
     { color: '#f87171', bg: 'rgba(248,113,113,0.18)' },  // red
     { color: '#a3e635', bg: 'rgba(163,230,53,0.18)' },   // lime
+    { color: '#fbbf24', bg: 'rgba(251,191,36,0.18)' },   // amber
+    { color: '#818cf8', bg: 'rgba(129,140,248,0.18)' },  // indigo
+    { color: '#34d399', bg: 'rgba(52,211,153,0.18)' },   // emerald
+    { color: '#f43f5e', bg: 'rgba(244,63,94,0.18)' },    // rose
+    { color: '#38bdf8', bg: 'rgba(56,189,248,0.18)' },   // sky
+    { color: '#c084fc', bg: 'rgba(192,132,252,0.18)' },  // purple
+    { color: '#fdba74', bg: 'rgba(253,186,116,0.18)' },  // peach
+    { color: '#86efac', bg: 'rgba(134,239,172,0.18)' },  // sage
+    { color: '#67e8f9', bg: 'rgba(103,232,249,0.18)' },  // light-cyan
+    { color: '#fda4af', bg: 'rgba(253,164,175,0.18)' },  // light-rose
+    { color: '#d9f99d', bg: 'rgba(217,249,157,0.18)' },  // yellow-green
+    { color: '#93c5fd', bg: 'rgba(147,197,253,0.18)' },  // light-blue
 ];
 
 export function tagColor(tagName) {
