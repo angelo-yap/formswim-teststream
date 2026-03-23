@@ -287,12 +287,21 @@ export function createDrawer(options) {
             if (event.key === 'Escape') {
                 hideDropdown();
                 drawerTagInput.blur();
+            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (!drawerTagDropdown || drawerTagDropdown.classList.contains('hidden')) return;
+                const btns = drawerTagDropdown.querySelectorAll('button');
+                if (btns.length === 0) return;
+                const next = event.key === 'ArrowDown'
+                    ? Math.min(dropdownIndex + 1, btns.length - 1)
+                    : Math.max(dropdownIndex - 1, 0);
+                setDropdownHighlight(next);
             } else if (event.key === 'Enter') {
                 event.preventDefault();
-                const firstBtn = drawerTagDropdown && drawerTagDropdown.querySelector('button');
-                if (firstBtn) {
-                    firstBtn.click();
-                }
+                if (!drawerTagDropdown || drawerTagDropdown.classList.contains('hidden')) return;
+                const btns = drawerTagDropdown.querySelectorAll('button');
+                const target = dropdownIndex >= 0 ? btns[dropdownIndex] : btns[0];
+                if (target) target.click();
             }
         });
     }
