@@ -710,6 +710,13 @@ export function createDrawer(options) {
         updateManageBtn();
     }
 
+    function refreshTagCounts(countMap) {
+        teamCatalog = teamCatalog.map((t) => ({ ...t, count: countMap.get(t.id) || 0 }));
+        if (drawerManageTagsPanel && !drawerManageTagsPanel.classList.contains('hidden')) {
+            renderManageTagsList();
+        }
+    }
+
     function setCallbacks(callbacks) {
         if (callbacks.onTagAdd) { onTagAdd = callbacks.onTagAdd; }
         if (callbacks.onTagRemove) { onTagRemove = callbacks.onTagRemove; }
@@ -732,6 +739,7 @@ export function createDrawer(options) {
         close: closeDrawer,
         openByWorkKey,
         setTeamCatalog,
+        refreshTagCounts,
         setCallbacks
     };
 }
