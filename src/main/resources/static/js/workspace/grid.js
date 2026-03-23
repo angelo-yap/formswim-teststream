@@ -9,10 +9,9 @@ const TAG_COLORS = [
     { color: '#a3e635', bg: 'rgba(163,230,53,0.18)' },   // lime
 ];
 
-export function tagColor(tagId) {
-    const n = typeof tagId === 'number'
-        ? Math.abs(tagId)
-        : Math.abs(String(tagId).split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0));
+export function tagColor(tagName) {
+    const s = String(tagName || '');
+    const n = Math.abs(s.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0));
     return TAG_COLORS[n % TAG_COLORS.length];
 }
 
