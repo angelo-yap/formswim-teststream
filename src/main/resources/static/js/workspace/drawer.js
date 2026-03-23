@@ -326,6 +326,17 @@ export function createDrawer(options) {
 
     // --- Manage panel ---
 
+    function showManageError(msg) {
+        if (!drawerManageTagsList) return;
+        const existing = drawerManageTagsList.parentElement && drawerManageTagsList.parentElement.querySelector('.ws-manage-error');
+        if (existing) existing.remove();
+        const el = document.createElement('p');
+        el.className = 'ws-manage-error mt-2 text-xs text-red-400';
+        el.textContent = msg;
+        drawerManageTagsList.after(el);
+        setTimeout(() => el.remove(), 4000);
+    }
+
     function updateManageBtn() {
         if (!drawerManageTagsBtn) return;
         const n = teamCatalog.length;
@@ -413,19 +424,49 @@ export function createDrawer(options) {
         cancelBtn.setAttribute('aria-label', 'Cancel rename');
         cancelBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/></svg>';
 
-        row.appendChild(input);
+        const errorEl = document.createElement('span');
+        errorEl.className = 'hidden absolute left-0 top-full mt-0.5 text-xs text-red-400 whitespace-nowrap';
+        const inputWrap = document.createElement('div');
+        inputWrap.className = 'relative min-w-0 flex-1';
+        inputWrap.appendChild(input);
+        inputWrap.appendChild(errorEl);
+
+        row.appendChild(inputWrap);
         row.appendChild(confirmBtn);
         row.appendChild(cancelBtn);
         input.focus();
         input.select();
 
+        const showError = (msg) => {
+            errorEl.textContent = msg;
+            errorEl.classList.remove('hidden');
+            input.classList.add('border-red-400/70');
+        };
+
+        const clearError = () => {
+            errorEl.classList.add('hidden');
+            input.classList.remove('border-red-400/70');
+        };
+
+        input.addEventListener('input', clearError);
+
         const commit = () => {
             const newName = input.value.trim();
-            if (!newName || newName === tag.name || !onTagRename) {
+            if (!newName || !onTagRename) {
                 renderManageTagsList();
                 return;
             }
-            handleRenameTag(tag.id, newName);
+            if (newName === tag.name) {
+                renderManageTagsList();
+                return;
+            }
+            const normalized = newName.toLowerCase();
+            const conflict = teamCatalog.some((t) => t.id !== tag.id && t.name.toLowerCase() === normalized);
+            if (conflict) {
+                showError('A tag with this name already exists.');
+                return;
+            }
+            handleRenameTag(tag.id, newName, (errMsg) => showManageError(errMsg));
         };
 
         confirmBtn.addEventListener('click', commit);
