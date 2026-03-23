@@ -325,6 +325,12 @@ export function createDrawer(options) {
 
     // --- Manage panel ---
 
+    function updateManageBtn() {
+        if (!drawerManageTagsBtn) return;
+        const n = teamCatalog.length;
+        drawerManageTagsBtn.textContent = n > 0 ? 'Manage (' + n + ')' : 'Manage';
+    }
+
     function renderManageTagsList() {
         if (!drawerManageTagsList) {
             return;
