@@ -191,7 +191,7 @@ export function createGrid(tbody) {
                 : '';
             const tagsTabIndex = encodedTags ? '0' : '-1';
             const overflowBadge = tagModel.hiddenCount > 0
-                ? '<span class="shrink-0 text-xs text-white/40">+' + tagModel.hiddenCount + '</span>'
+                ? '<span class="shrink-0 px-1.5 py-0.5 text-xs text-white/40 border border-white/15 rounded-full">+' + tagModel.hiddenCount + '</span>'
                 : '';
             const tagsCell = tagModel.html
                 ? '<div class="min-w-0 flex flex-nowrap gap-1.5 overflow-hidden">' + tagModel.html + '</div>' + overflowBadge
