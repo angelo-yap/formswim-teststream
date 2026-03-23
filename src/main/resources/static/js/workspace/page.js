@@ -1126,6 +1126,12 @@ if (filterStatus) {
 if (filterTag) {
     filterTag.addEventListener('change', applyFilters);
 }
+if (activeTagChipClear) {
+    activeTagChipClear.addEventListener('click', () => {
+        if (filterTag) filterTag.value = '';
+        applyFilters();
+    });
+}
 
 if (bulkOrganize) {
     bulkOrganize.addEventListener('click', openOrganizeModal);
