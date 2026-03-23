@@ -408,7 +408,7 @@ function applyFilters() {
     if (activeTagChip && activeTagChipName) {
         if (tag) {
             const c = tagColor(tag);
-            activeTagChipName.textContent = filterTag ? filterTag.value : tag;
+            if (activeTagChipLabel) activeTagChipLabel.textContent = filterTag ? filterTag.value : tag;
             activeTagChipName.style.color = c.color;
             activeTagChipName.style.backgroundColor = c.bg;
             activeTagChip.classList.remove('hidden');
