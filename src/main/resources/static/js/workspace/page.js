@@ -188,9 +188,8 @@ if (tbody) {
         const tagBadge = event.target?.closest?.('.ws-tag-filter');
         if (tagBadge) {
             const tagName = tagBadge.dataset.tagFilter || '';
-            if (filterTag && tagName) {
-                filterTag.value = filterTag.value === tagName ? '' : tagName;
-                applyFilters();
+            if (tagName) {
+                document.dispatchEvent(new CustomEvent('ws:tagfilter', { detail: { name: tagName } }));
             }
             return;
         }
@@ -1126,6 +1125,13 @@ if (filterStatus) {
 if (filterTag) {
     filterTag.addEventListener('change', applyFilters);
 }
+document.addEventListener('ws:tagfilter', (e) => {
+    const name = e.detail?.name || '';
+    if (filterTag) {
+        filterTag.value = filterTag.value === name ? '' : name;
+    }
+    applyFilters();
+});
 if (activeTagChipClear) {
     activeTagChipClear.addEventListener('click', () => {
         if (filterTag) filterTag.value = '';

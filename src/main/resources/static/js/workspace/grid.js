@@ -41,6 +41,18 @@ function buildTagBadges(testCase, maxVisible = 3) {
 
 let tagTooltipEl = null;
 let tagTooltipAnchor = null;
+let tagTooltipHideTimer = null;
+
+function scheduleHideTagTooltip() {
+    tagTooltipHideTimer = setTimeout(hideTagTooltip, 120);
+}
+
+function cancelHideTagTooltip() {
+    if (tagTooltipHideTimer) {
+        clearTimeout(tagTooltipHideTimer);
+        tagTooltipHideTimer = null;
+    }
+}
 
 function ensureTagTooltip() {
     if (tagTooltipEl) {
@@ -50,9 +62,11 @@ function ensureTagTooltip() {
     const el = document.createElement('div');
     el.className = 'fixed z-50 border border-white/20 bg-black px-3 py-2 text-xs text-white/80';
     el.style.display = 'none';
-    el.style.pointerEvents = 'none';
     el.style.maxWidth = '22rem';
     document.body.appendChild(el);
+
+    el.addEventListener('mouseenter', cancelHideTagTooltip);
+    el.addEventListener('mouseleave', scheduleHideTagTooltip);
 
     const hide = () => hideTagTooltip();
     window.addEventListener('scroll', hide, true);
@@ -63,6 +77,7 @@ function ensureTagTooltip() {
 }
 
 function hideTagTooltip() {
+    cancelHideTagTooltip();
     if (!tagTooltipEl) {
         return;
     }
@@ -107,12 +122,22 @@ function showTagTooltip(anchorEl, tags) {
     let html = '<div class="flex flex-wrap gap-2">';
     for (const tag of tags) {
         const c = tagColor(tag.name);
-        html += '<span class="whitespace-nowrap px-2 py-0.5 text-xs font-medium rounded-full" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</span>';
+        html += '<button type="button" class="ws-tag-filter whitespace-nowrap px-2 py-0.5 text-xs font-medium rounded-full hover:opacity-75 transition-opacity" data-tag-filter="' + escHtml(tag.name) + '" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</button>';
     }
     html += '</div>';
 
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
+
+    tooltip.querySelectorAll('.ws-tag-filter').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const name = btn.dataset.tagFilter || '';
+            if (name) {
+                document.dispatchEvent(new CustomEvent('ws:tagfilter', { detail: { name } }));
+            }
+            hideTagTooltip();
+        });
+    });
 
     const anchorRect = anchorEl.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
@@ -222,10 +247,10 @@ export function createGrid(tbody) {
             if (tagsEl) {
                 const tags = decodeTagsFromDataset(tagsEl.getAttribute('data-ws-tags'));
                 if (tags.length > 0) {
-                    tagsEl.addEventListener('mouseenter', () => showTagTooltip(tagsEl, tags));
+                    tagsEl.addEventListener('mouseenter', () => { cancelHideTagTooltip(); showTagTooltip(tagsEl, tags); });
                     tagsEl.addEventListener('mouseleave', () => {
                         if (tagTooltipAnchor === tagsEl) {
-                            hideTagTooltip();
+                            scheduleHideTagTooltip();
                         }
                     });
                     tagsEl.addEventListener('focusin', () => showTagTooltip(tagsEl, tags));
