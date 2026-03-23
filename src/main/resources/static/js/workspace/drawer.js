@@ -455,6 +455,31 @@ export function createDrawer(options) {
         });
     }
 
+    function startDeleteConfirm(row, tag) {
+        row.innerHTML = '';
+
+        const msg = document.createElement('span');
+        msg.className = 'flex-1 min-w-0 text-xs text-white/60';
+        msg.innerHTML = 'Delete <span class="text-white/85 font-medium">' + escHtml(tag.name) + '</span>? Used on ' + (tag.count || 0) + ' test case' + ((tag.count || 0) === 1 ? '' : 's') + '.';
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'shrink-0 px-2 py-0.5 text-xs border border-red-400/50 text-red-400 hover:bg-red-400/10 transition-colors focus:outline-none';
+        confirmBtn.textContent = 'Delete';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'shrink-0 px-2 py-0.5 text-xs border border-white/20 text-white/50 hover:text-white/80 transition-colors focus:outline-none';
+        cancelBtn.textContent = 'Cancel';
+
+        row.appendChild(msg);
+        row.appendChild(cancelBtn);
+        row.appendChild(confirmBtn);
+
+        confirmBtn.addEventListener('click', () => handleDeleteTag(tag.id));
+        cancelBtn.addEventListener('click', () => renderManageTagsList());
+    }
+
     function handleDeleteTag(tagId) {
         if (!onTagDelete) {
             return;
