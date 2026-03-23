@@ -383,7 +383,13 @@ export function createDrawer(options) {
             drawerManageTagsList.appendChild(row);
 
             renameBtn.addEventListener('click', () => startRename(row, tag));
-            deleteBtn.addEventListener('click', () => handleDeleteTag(tag.id));
+            deleteBtn.addEventListener('click', () => {
+                if ((tag.count || 0) > 0) {
+                    startDeleteConfirm(row, tag);
+                } else {
+                    handleDeleteTag(tag.id);
+                }
+            });
         }
     }
 
