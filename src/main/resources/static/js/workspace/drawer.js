@@ -38,6 +38,7 @@ export function createDrawer(options) {
     let currentTags = []; // [{id, name}] assigned to the open test case
     let teamCatalog = []; // [{id, name}] full team tag list
     let isReadOnly = false;
+    let dropdownIndex = -1; // -1 = no item highlighted
 
     // --- Tag badge rendering ---
 
@@ -84,12 +85,25 @@ export function createDrawer(options) {
 
     // --- Dropdown ---
 
+    function setDropdownHighlight(index) {
+        if (!drawerTagDropdown) return;
+        const btns = drawerTagDropdown.querySelectorAll('button');
+        btns.forEach((btn, i) => {
+            btn.classList.toggle('bg-white/10', i === index);
+        });
+        dropdownIndex = index;
+        if (index >= 0 && index < btns.length) {
+            btns[index].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
     function showDropdown(items) {
         if (!drawerTagDropdown) {
             return;
         }
 
         drawerTagDropdown.innerHTML = '';
+        dropdownIndex = -1;
 
         if (items.length === 0) {
             drawerTagDropdown.classList.add('hidden');
@@ -126,6 +140,7 @@ export function createDrawer(options) {
         if (drawerTagDropdown) {
             drawerTagDropdown.classList.add('hidden');
         }
+        dropdownIndex = -1;
     }
 
     function buildDropdownItems(query) {
