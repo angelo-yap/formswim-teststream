@@ -134,6 +134,12 @@ export function createDrawer(options) {
         }
 
         drawerTagDropdown.classList.remove('hidden');
+
+        // Keyboard hint footer.
+        const hint = document.createElement('div');
+        hint.className = 'px-3 py-1.5 text-white/25 text-xs border-t border-white/10 select-none';
+        hint.textContent = '↑↓ navigate · ↵ select · Esc close';
+        drawerTagDropdown.appendChild(hint);
     }
 
     function hideDropdown() {
