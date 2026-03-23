@@ -1134,8 +1134,8 @@ document.addEventListener('ws:tagfilter', (e) => {
     }
     applyFilters();
 });
-if (activeTagChipClear) {
-    activeTagChipClear.addEventListener('click', () => {
+if (activeTagChipName) {
+    activeTagChipName.addEventListener('click', () => {
         if (filterTag) filterTag.value = '';
         applyFilters();
     });
