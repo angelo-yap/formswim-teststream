@@ -1,6 +1,6 @@
 import { createDrawer } from './drawer.js';
 import { bindSelectedExport } from './export-selected.js';
-import { createGrid } from './grid.js';
+import { createGrid, tagColor } from './grid.js';
 import { createSelection } from './selection.js';
 
 const importBtn = document.getElementById('importBtn');
