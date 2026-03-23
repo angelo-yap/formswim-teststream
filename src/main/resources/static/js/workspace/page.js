@@ -406,6 +406,18 @@ function applyFilters() {
         totalCount.textContent = String(filtered.length);
     }
 
+    if (activeTagChip && activeTagChipName) {
+        if (tag) {
+            const c = tagColor(tag);
+            activeTagChipName.textContent = filterTag ? filterTag.value : tag;
+            activeTagChipName.style.color = c.color;
+            activeTagChipName.style.backgroundColor = c.bg;
+            activeTagChip.classList.remove('hidden');
+        } else {
+            activeTagChip.classList.add('hidden');
+        }
+    }
+
     grid.renderRows(filtered, new Set(selection.getSelectedIds()));
     selection.setVisibleIds(filtered.map((testCase) => testCase.workKey).filter(Boolean));
     selection.bindRowCheckboxes(tbody);
