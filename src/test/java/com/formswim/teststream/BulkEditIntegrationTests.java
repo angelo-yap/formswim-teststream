@@ -198,6 +198,28 @@ class BulkEditIntegrationTests {
     }
 
     @Test
+    void bulkEditAcceptsEmptyReplacementTextForDeletion() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "Click");
+        payload.put("replaceText", "");
+        payload.put("fields", List.of("summary"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedCaseCount").value(1))
+            .andExpect(jsonPath("$.updatedStepCount").value(0))
+            .andExpect(jsonPath("$.totalReplacements").value(2));
+
+        TestCase edited = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn("TEAM1", List.of("TC-101")).get(0);
+        assertThat(edited.getSummary()).isEqualTo("Please  the button.  once.");
+    }
+
+    @Test
     void bulkEditReturnsBadRequestForUnsupportedFieldAndDoesNotMutate() throws Exception {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("workKeys", List.of("TC-101"));

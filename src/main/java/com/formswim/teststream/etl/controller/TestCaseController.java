@@ -137,8 +137,60 @@ public class TestCaseController {
         model.addAttribute("filterComponent", component != null ? component : "");
         model.addAttribute("importErrorMessage", importError);
         model.addAttribute("importSuccessMessage", importSuccess);
+        model.addAttribute("bulkEditEnabled", bulkEditEnabled);
 
         return "workspace";
+    }
+
+    @GetMapping("/workspace/test-cases/{id}")
+    public String testCaseDetails(@PathVariable String id,
+                                  HttpSession session,
+                                  Authentication authentication,
+                                  Model model) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return "redirect:/login?error=Please+log+in+first";
+        }
+
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return "redirect:/login?error=No+team+assigned";
+        }
+
+        String safeId = id == null ? "" : id.trim();
+        if (safeId.isBlank()) {
+            return "redirect:/workspace?importError=" + encodeMessage("Test case id is required");
+        }
+
+        List<TestCase> matches = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn(user.getTeamKey(), List.of(safeId));
+        if (matches.isEmpty()) {
+            return "redirect:/workspace?importError=" + encodeMessage("Test case not found");
+        }
+
+        TestCase testCase = matches.get(0);
+
+        model.addAttribute("detailsCaseId", testCase.getWorkKey());
+        model.addAttribute("detailsPageTitle", "Test case details");
+        model.addAttribute("detailsSummary", testCase.getSummary());
+        model.addAttribute("detailsDescription", testCase.getDescription());
+        model.addAttribute("detailsPrecondition", testCase.getPrecondition());
+        model.addAttribute("detailsFolder", testCase.getFolder());
+        model.addAttribute("detailsFolderSegments", parseFolderSegments(testCase.getFolder()));
+        model.addAttribute("detailsStatus", testCase.getStatus());
+        model.addAttribute("detailsPriority", testCase.getPriority());
+        model.addAttribute("detailsComponents", testCase.getComponents());
+        model.addAttribute("detailsTestCaseType", testCase.getTestCaseType());
+        model.addAttribute("detailsLabels", testCase.getLabels());
+        model.addAttribute("detailsSprint", testCase.getSprint());
+        model.addAttribute("detailsFixVersions", testCase.getFixVersions());
+        model.addAttribute("detailsVersion", testCase.getVersion());
+        model.addAttribute("detailsEstimatedTime", testCase.getEstimatedTime());
+        model.addAttribute("detailsCreatedOn", testCase.getCreatedOn());
+        model.addAttribute("detailsUpdatedOn", testCase.getUpdatedOn());
+        model.addAttribute("detailsStoryLinkages", testCase.getStoryLinkages());
+        model.addAttribute("detailsSteps", testCase.getSteps());
+
+        return "test-case-details";
     }
 
     @PostMapping("/workspace/import")
@@ -261,27 +313,63 @@ public class TestCaseController {
 
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 200);
-        Pageable pageable = PageRequest.of(safePage, safeSize);
+        String normalizedSearch = normalizeQueryParam(search);
+        String normalizedStatus = normalizeQueryParam(status);
+        String normalizedComponent = normalizeQueryParam(component);
+        String normalizedTag = normalizeQueryParam(tag);
+        String normalizedFolder = normalizeFolderQueryParam(folder);
 
-        Page<Long> idPage = testCaseRepository.findWorkspaceCaseIdsByFilters(
+        if (normalizedFolder == null) {
+            Pageable pageable = PageRequest.of(safePage, safeSize);
+            Page<Long> idPage = testCaseRepository.findWorkspaceCaseIdsByFilters(
+                user.getTeamKey(),
+                normalizedSearch,
+                normalizedStatus,
+                normalizedComponent,
+                normalizedTag,
+                null,
+                pageable
+            );
+
+            List<TestCase> cases = findCasesByOrderedIds(idPage.getContent());
+            return ResponseEntity.ok()
+                .header("X-Total-Count", String.valueOf(idPage.getTotalElements()))
+                .header("X-Total-Pages", String.valueOf(idPage.getTotalPages()))
+                .header("X-Page", String.valueOf(idPage.getNumber()))
+                .header("X-Page-Size", String.valueOf(idPage.getSize()))
+                .header("X-Has-Next", String.valueOf(idPage.hasNext()))
+                .body(cases);
+        }
+
+        Page<Long> allIdsPage = testCaseRepository.findWorkspaceCaseIdsByFilters(
             user.getTeamKey(),
-            normalizeQueryParam(search),
-            normalizeQueryParam(status),
-            normalizeQueryParam(component),
-            normalizeQueryParam(tag),
-            normalizeQueryParam(folder),
-            pageable
+            normalizedSearch,
+            normalizedStatus,
+            normalizedComponent,
+            normalizedTag,
+            null,
+            Pageable.unpaged()
         );
 
-        List<TestCase> cases = findCasesByOrderedIds(idPage.getContent());
+        List<TestCase> matchingCases = findCasesByOrderedIds(allIdsPage.getContent())
+            .stream()
+            .filter(testCase -> folderMatchesFilter(testCase.getFolder(), normalizedFolder))
+            .toList();
+
+        int totalCount = matchingCases.size();
+        int fromIndex = Math.min(safePage * safeSize, totalCount);
+        int toIndex = Math.min(fromIndex + safeSize, totalCount);
+        List<TestCase> pageCases = matchingCases.subList(fromIndex, toIndex);
+        int totalPages = safeSize <= 0 ? 0 : (int) Math.ceil(totalCount / (double) safeSize);
+        boolean hasNext = toIndex < totalCount;
 
         return ResponseEntity.ok()
-            .header("X-Total-Count", String.valueOf(idPage.getTotalElements()))
-            .header("X-Total-Pages", String.valueOf(idPage.getTotalPages()))
-            .header("X-Page", String.valueOf(idPage.getNumber()))
-            .header("X-Page-Size", String.valueOf(idPage.getSize()))
-            .header("X-Has-Next", String.valueOf(idPage.hasNext()))
-            .body(cases);
+            .header("X-Total-Count", String.valueOf(totalCount))
+            .header("X-Total-Pages", String.valueOf(totalPages))
+            .header("X-Page", String.valueOf(safePage))
+            .header("X-Page-Size", String.valueOf(safeSize))
+            .header("X-Has-Next", String.valueOf(hasNext))
+            .body(pageCases);
     }
 
     @GetMapping("/workspace/export")
@@ -519,6 +607,37 @@ public class TestCaseController {
         return normalized.isEmpty() ? null : normalized;
     }
 
+    private String normalizeFolderQueryParam(String value) {
+        String normalized = normalizeFolderPath(value);
+        if (normalized.isEmpty()) {
+            return null;
+        }
+
+        return normalized;
+    }
+
+    private String normalizeFolderPath(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        String withSlashSeparators = value.trim().replace('\\', '/').replaceAll("/+", "/");
+        String trimmedBounds = withSlashSeparators.replaceAll("^/+", "").replaceAll("/+$", "").trim();
+        return trimmedBounds;
+    }
+
+    private boolean folderMatchesFilter(String folderValue, String normalizedFilter) {
+        String normalizedFolder = normalizeFolderPath(folderValue);
+        if (normalizedFolder.isEmpty() || normalizedFilter == null || normalizedFilter.isEmpty()) {
+            return false;
+        }
+
+        String folderLower = normalizedFolder.toLowerCase();
+        String filterLower = normalizedFilter.toLowerCase();
+        return folderLower.equals(filterLower)
+            || folderLower.startsWith(filterLower + "/");
+    }
+
     private List<TestCase> findCasesByOrderedIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
@@ -541,5 +660,16 @@ public class TestCaseController {
             .map(String::trim)
             .filter(value -> !value.isEmpty())
             .forEach(tags::add);
+    }
+
+    private List<String> parseFolderSegments(String folder) {
+        if (folder == null || folder.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(folder.split("/"))
+            .map(String::trim)
+            .filter(segment -> !segment.isBlank())
+            .collect(Collectors.toList());
     }
 }

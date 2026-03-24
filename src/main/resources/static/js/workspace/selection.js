@@ -63,6 +63,28 @@ export function createSelection(selectAll, bulkBar, bulkCount) {
         updateBulkBar();
     }
 
+    function retainSelectedIds(workKeys) {
+        const allowed = new Set((Array.isArray(workKeys) ? workKeys : []).filter(Boolean));
+        let changed = false;
+
+        for (const workKey of Array.from(selectedIds)) {
+            if (allowed.has(workKey)) {
+                continue;
+            }
+            selectedIds.delete(workKey);
+            changed = true;
+        }
+
+        if (!changed) {
+            syncMasterCheckbox();
+            updateBulkBar();
+            return;
+        }
+
+        syncMasterCheckbox();
+        updateBulkBar();
+    }
+
     function bindRowCheckboxes(root) {
         if (!root) {
             return;
@@ -132,6 +154,7 @@ export function createSelection(selectAll, bulkBar, bulkCount) {
         getSelectedIds,
         isSelected,
         removeSelectedIds,
+        retainSelectedIds,
         setSelected,
         setSelectionChangeHandler,
         setVisibleIds,
