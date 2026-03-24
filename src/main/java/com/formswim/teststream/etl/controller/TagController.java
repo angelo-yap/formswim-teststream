@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -195,6 +196,7 @@ public class TagController {
 
         List<TagResponse> updatedTags = testCase.getTags().stream()
             .map(TagResponse::new)
+            .sorted(Comparator.comparing(t -> t.getName().toLowerCase()))
             .collect(Collectors.toList());
         return ResponseEntity.ok(updatedTags);
     }
@@ -227,6 +229,7 @@ public class TagController {
 
         List<TagResponse> updatedTags = testCase.getTags().stream()
             .map(TagResponse::new)
+            .sorted(Comparator.comparing(t -> t.getName().toLowerCase()))
             .collect(Collectors.toList());
         return ResponseEntity.ok(updatedTags);
     }

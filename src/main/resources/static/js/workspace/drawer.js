@@ -560,9 +560,11 @@ export function createDrawer(options) {
             if (drawerManageTagsPanel) {
                 drawerManageTagsPanel.classList.toggle('hidden', !manageOpen);
             }
-            drawerManageTagsBtn.textContent = manageOpen ? 'Done' : 'Manage';
             if (manageOpen) {
+                drawerManageTagsBtn.textContent = 'Done';
                 renderManageTagsList();
+            } else {
+                updateManageBtn();
             }
         });
     }

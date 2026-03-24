@@ -109,6 +109,9 @@ public class TestCase {
     @OrderBy("stepNumber ASC")
     private List<TestStep> steps = new ArrayList<>();
 
+
+
+    // revisit after search-refactor
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "test_case_tag",
