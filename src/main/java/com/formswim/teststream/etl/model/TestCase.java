@@ -66,13 +66,13 @@ public class TestCase {
     @Column(columnDefinition = "TEXT")
     private String labels;
 
-    @Column(name = "components", length = 255)
+    @Column(name = "components", columnDefinition = "TEXT")
     private String components;
 
-    @Column(name = "sprint", length = 255)
+    @Column(name = "sprint", columnDefinition = "TEXT")
     private String sprint;
 
-    @Column(name = "fix_versions", length = 255)
+    @Column(name = "fix_versions", columnDefinition = "TEXT")
     private String fixVersions;
 
     @Column(name = "version", length = 100)

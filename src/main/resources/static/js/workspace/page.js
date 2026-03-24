@@ -742,6 +742,15 @@ function loadFolders() {
 }
 
 function refreshTagFilterDropdown() {
+    fetch(tagsBaseUrl + '/catalog')
+        .then((r) => r.ok ? r.json() : [])
+        .then((data) => {
+            const catalog = Array.isArray(data) ? data : [];
+            const usageCounts = buildTagUsageCounts();
+            drawer.setTeamCatalog(catalog.map((t) => ({ ...t, count: usageCounts.get(t.id) || 0 })));
+        })
+        .catch(() => {});
+
     fetch(tagsBaseUrl)
         .then((r) => r.ok ? r.json() : Promise.reject())
         .then((data) => {
@@ -757,6 +766,24 @@ function refreshTagFilterDropdown() {
 }
 
 function loadFilterOptions() {
+    // Fetch tag entities for the drawer catalog (needs IDs for assign/rename/delete).
+    fetch(tagsBaseUrl + '/catalog')
+        .then((r) => r.ok ? r.json() : [])
+        .then((data) => {
+            const catalog = Array.isArray(data) ? data : [];
+            const usageCounts = buildTagUsageCounts();
+            const enrichedCatalog = catalog.map((t) => ({ ...t, count: usageCounts.get(t.id) || 0 }));
+            drawer.setTeamCatalog(enrichedCatalog);
+            drawer.setCallbacks({
+                onTagAdd: apiAddTag,
+                onTagRemove: apiRemoveTag,
+                onTagCreate: apiCreateTag,
+                onTagRename: apiRenameTag,
+                onTagDelete: apiDeleteTag
+            });
+        })
+        .catch(() => {});
+
     const tagRequest = fetch(tagsBaseUrl)
         .then((r) => {
             if (!r.ok) {
@@ -765,15 +792,7 @@ function loadFilterOptions() {
             return r.json();
         })
         .then((data) => {
-            const tagNames = Array.isArray(data) ? data : [];
-            drawer.setCallbacks({
-                onTagAdd: apiAddTag,
-                onTagRemove: apiRemoveTag,
-                onTagCreate: apiCreateTag,
-                onTagRename: apiRenameTag,
-                onTagDelete: apiDeleteTag
-            });
-            return uniqueSorted(tagNames);
+            return uniqueSorted(Array.isArray(data) ? data : []);
         });
 
     Promise.all([

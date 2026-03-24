@@ -65,14 +65,43 @@ public class TagController {
 
         String teamKey = user.getTeamKey();
         Set<String> seen = new HashSet<>();
-        Set<String> tags = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        List<String> result = new ArrayList<>();
 
         testCaseRepository.findDistinctTestCaseTypeByTeamKey(teamKey)
-            .forEach(v -> addDelimitedValues(tags, seen, v));
-        testCaseRepository.findDistinctComponentsByTeamKey(teamKey)
-            .forEach(v -> addDelimitedValues(tags, seen, v));
+            .stream()
+            .map(String::trim)
+            .filter(v -> !v.isEmpty() && seen.add(v.toLowerCase()))
+            .forEach(result::add);
 
-        return ResponseEntity.ok(new ArrayList<>(tags));
+        testCaseRepository.findDistinctComponentsByTeamKey(teamKey)
+            .stream()
+            .flatMap(v -> Arrays.stream(v.split(",")))
+            .map(String::trim)
+            .filter(v -> !v.isEmpty() && seen.add(v.toLowerCase()))
+            .forEach(result::add);
+
+        result.sort(String.CASE_INSENSITIVE_ORDER);
+        return ResponseEntity.ok(result);
+    }
+
+    /** GET /api/tags/catalog — list tag entities (with IDs) for the drawer manage panel */
+    @GetMapping("/api/tags/catalog")
+    @ResponseBody
+    public ResponseEntity<List<TagResponse>> listTagCatalog(HttpSession session, Authentication authentication) {
+        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(401).build();
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(403).build();
+        }
+
+        List<TagResponse> catalog = tagRepository.findByTeamKeyOrderByNameAsc(user.getTeamKey())
+            .stream()
+            .map(TagResponse::new)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(catalog);
     }
 
     /** POST /api/tags — create a new custom tag for the team */
@@ -257,13 +286,4 @@ public class TagController {
         return Optional.empty();
     }
 
-    private void addDelimitedValues(Set<String> tags, Set<String> seen, String rawValue) {
-        if (rawValue == null) {
-            return;
-        }
-        Arrays.stream(rawValue.split(","))
-            .map(String::trim)
-            .filter(v -> !v.isEmpty() && seen.add(v.toLowerCase()))
-            .forEach(tags::add);
-    }
 }
