@@ -49,10 +49,10 @@ public class TagController {
         this.userRepository = userRepository;
     }
 
-    /** GET /api/tags — list all custom tags for the team */
+    /** GET /api/tags — list filter tag options derived from testCaseType and components for the team */
     @GetMapping("/api/tags")
     @ResponseBody
-    public ResponseEntity<List<TagResponse>> listTags(HttpSession session, Authentication authentication) {
+    public ResponseEntity<List<String>> listTags(HttpSession session, Authentication authentication) {
         Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(401).build();
@@ -63,29 +63,15 @@ public class TagController {
         }
 
         String teamKey = user.getTeamKey();
-
         Set<String> seen = new HashSet<>();
-        List<TagResponse> tags = new ArrayList<>();
+        Set<String> tags = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
-        // Real tag entities first (preserve their IDs for the manage panel).
-        for (Tag tag : tagRepository.findByTeamKeyOrderByNameAsc(teamKey)) {
-            if (seen.add(tag.getNormalizedName())) {
-                tags.add(new TagResponse(tag));
-            }
-        }
+        testCaseRepository.findDistinctTestCaseTypeByTeamKey(teamKey)
+            .forEach(v -> addDelimitedValues(tags, seen, v));
+        testCaseRepository.findDistinctComponentsByTeamKey(teamKey)
+            .forEach(v -> addDelimitedValues(tags, seen, v));
 
-        // Derived values from testCaseType and components (for the filter dropdown).
-        List<String> derived = new ArrayList<>();
-        derived.addAll(testCaseRepository.findDistinctTestCaseTypeByTeamKey(teamKey));
-        derived.addAll(testCaseRepository.findDistinctComponentsByTeamKey(teamKey));
-        for (String value : derived) {
-            if (value != null && !value.isBlank() && seen.add(value.trim().toLowerCase())) {
-                tags.add(new TagResponse(value.trim()));
-            }
-        }
-
-        tags.sort(Comparator.comparing(t -> t.getName().toLowerCase()));
-        return ResponseEntity.ok(tags);
+        return ResponseEntity.ok(new ArrayList<>(tags));
     }
 
     /** POST /api/tags — create a new custom tag for the team */
