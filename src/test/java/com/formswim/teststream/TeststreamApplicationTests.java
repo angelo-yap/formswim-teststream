@@ -93,6 +93,21 @@ class TeststreamApplicationTests {
 	}
 
 	@Test
+	void getFoldersNormalizesWindowsPathSeparatorsForSidebarTree() throws Exception {
+		testCaseRepository.deleteAll();
+		testCaseRepository.saveAll(List.of(
+				TestCaseFixtures.basicCase("TEAM1", "TC-351", "Auth\\Login\\Mfa"),
+				TestCaseFixtures.basicCase("TEAM1", "TC-352", "Auth/Login/Mfa")
+		));
+
+		mockMvc.perform(get("/api/folders")
+					.with(user("team1.user@example.com").roles("USER")))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(1)))
+				.andExpect(jsonPath("$[0]").value("Auth/Login/Mfa"));
+	}
+
+	@Test
 	void getTagsReturnsCombinedSortedDistinctValuesForTeam() throws Exception {
 		testCaseRepository.deleteAll();
 

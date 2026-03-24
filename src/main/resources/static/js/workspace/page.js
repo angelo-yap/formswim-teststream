@@ -1,4 +1,5 @@
 import { createDrawer } from './drawer.js';
+import { createBulkEdit } from './bulk-edit.js';
 import { bindSelectedExport } from './export-selected.js';
 import { createGrid } from './grid.js';
 import { createSelection } from './selection.js';
@@ -16,7 +17,11 @@ const filterTag = document.getElementById('wsFilterTag');
 const bulkBar = document.getElementById('bulkBar');
 const bulkCount = document.getElementById('bulkCount');
 const bulkExportSelected = document.getElementById('bulkExportSelected');
+const bulkEditOpen = document.getElementById('bulkEditOpen');
 const bulkOrganize = document.getElementById('bulkOrganize');
+const pageInfo = document.getElementById('wsPageInfo');
+const prevPageButton = document.getElementById('wsPrevPage');
+const nextPageButton = document.getElementById('wsNextPage');
 const importNoticeContainer = document.getElementById('importNoticeContainer');
 const importNotice = document.getElementById('importNotice');
 const importNoticeBadge = document.getElementById('importNoticeBadge');
@@ -50,6 +55,8 @@ const exportBaseUrl = document.querySelector('meta[name="workspace-export-base"]
 const componentsBaseUrl = document.querySelector('meta[name="workspace-components-base"]')?.content || '/api/components';
 const statusesBaseUrl = document.querySelector('meta[name="workspace-statuses-base"]')?.content || '/api/statuses';
 const tagsBaseUrl = document.querySelector('meta[name="workspace-tags-base"]')?.content || '/api/tags';
+const bulkEditEnabled = String(document.querySelector('meta[name="workspace-bulk-edit-enabled"]')?.content || '').toLowerCase() === 'true';
+const initialParams = new URLSearchParams(window.location.search);
 
 const grid = createGrid(tbody);
 const selection = createSelection(selectAll, bulkBar, bulkCount);
@@ -74,15 +81,55 @@ const drawer = createDrawer({
     drawerFooterHint: document.getElementById('drawerFooterHint'),
     getTestCaseById: grid.getTestCaseById
 });
+const bulkEdit = createBulkEdit({
+    bulkEditButton: bulkEditOpen,
+    openCasePreview: (workKey) => {
+        drawer.openByWorkKey(workKey, { readOnly: true });
+    },
+    getCurrentPageCases: () => currentPageCases.slice(),
+    getCsrf: () => ({
+        headerName: document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN',
+        token: document.querySelector('meta[name="_csrf"]')?.content || ''
+    }),
+    getSelectedIds: () => selection.getSelectedIds(),
+    isEnabled: () => bulkEditEnabled,
+    refreshCurrentPage: async () => {
+        await loadCurrentPage();
+    },
+    showNotice: showImportNotice
+});
 
-let allTestCases = [];
-let selectedFolder = '';
+if (searchInput) {
+    searchInput.value = initialParams.get('search') || '';
+}
+if (filterComponent) {
+    filterComponent.dataset.pendingValue = initialParams.get('component') || '';
+}
+if (filterStatus) {
+    filterStatus.dataset.pendingValue = initialParams.get('status') || '';
+}
+if (filterTag) {
+    filterTag.dataset.pendingValue = initialParams.get('tag') || '';
+}
+
+let currentPageCases = [];
+let selectedFolder = normalizeFolder(initialParams.get('folder') || '');
 
 let folderTreeModel = null;
 let isSidebarExpanded = true;
 let activeDragPayload = null;
 let activeDropTargetEl = null;
 let activeDragImageHolder = null;
+let searchDebounceHandle = 0;
+let activePageRequestId = 0;
+const pageState = {
+    page: Math.max(Number.parseInt(initialParams.get('page') || '0', 10) || 0, 0),
+    size: Math.min(Math.max(Number.parseInt(initialParams.get('size') || '50', 10) || 50, 1), 200),
+    totalCount: 0,
+    totalPages: 1,
+    hasNext: false,
+    isLoading: false
+};
 
 function setSidebarExpanded(expanded) {
     isSidebarExpanded = Boolean(expanded);
@@ -152,6 +199,7 @@ if (sidebarToggle) {
 selection.setSelectionChangeHandler((selectedIds) => {
     exportSelected.updateButtonState(selectedIds);
     syncRowSelectionUi();
+    bulkEdit.onSelectionChanged(selectedIds);
 });
 
 if (drawer && typeof drawer.bind === 'function') {
@@ -360,38 +408,195 @@ function showImportNotice(type, message) {
     }
 }
 
-function applyFilters() {
-    const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
-    const component = filterComponent ? filterComponent.value.trim().toLowerCase() : '';
-    const status = filterStatus ? filterStatus.value.trim().toLowerCase() : '';
-    const tag = filterTag ? filterTag.value.trim().toLowerCase() : '';
-    const selectedFolderLower = selectedFolder ? selectedFolder.toLowerCase() : '';
-
-    const filtered = allTestCases.filter((testCase) => {
-        const workKey = (testCase.workKey || '').toLowerCase();
-        const summary = (testCase.summary || '').toLowerCase();
-        const components = (testCase.components || '').toLowerCase();
-        const testCaseType = (testCase.testCaseType || '').toLowerCase();
-        const testCaseStatus = (testCase.status || '').toLowerCase();
-        const folder = normalizeFolder(testCase.folder || '').toLowerCase();
-
-        const matchesQuery = !query || workKey.includes(query) || summary.includes(query) || components.includes(query);
-        const matchesComponent = !component || components.includes(component);
-        const matchesStatus = !status || testCaseStatus === status;
-        const matchesTag = !tag || components.includes(tag) || testCaseType.includes(tag);
-
-        const matchesFolder = !selectedFolderLower || folder === selectedFolderLower || folder.startsWith(selectedFolderLower + '/');
-        return matchesQuery && matchesComponent && matchesStatus && matchesTag && matchesFolder;
-    });
-
-    if (totalCount) {
-        totalCount.textContent = String(filtered.length);
+function getActiveFilterValue(selectEl) {
+    if (!selectEl) {
+        return '';
     }
 
-    grid.renderRows(filtered, new Set(selection.getSelectedIds()));
-    selection.setVisibleIds(filtered.map((testCase) => testCase.workKey).filter(Boolean));
+    return String(selectEl.value || selectEl.dataset.pendingValue || '').trim();
+}
+
+function updatePageControls() {
+    const resolvedTotalPages = Math.max(pageState.totalPages, 1);
+    const resolvedCurrentPage = Math.min(pageState.page + 1, resolvedTotalPages);
+
+    if (pageInfo) {
+        pageInfo.textContent = 'Page ' + resolvedCurrentPage + ' of ' + resolvedTotalPages;
+    }
+    if (prevPageButton) {
+        prevPageButton.disabled = pageState.isLoading || pageState.page <= 0;
+    }
+    if (nextPageButton) {
+        nextPageButton.disabled = pageState.isLoading || !pageState.hasNext;
+    }
+}
+
+function syncWorkspaceUrl() {
+    const params = new URLSearchParams();
+    const search = searchInput ? searchInput.value.trim() : '';
+    const component = getActiveFilterValue(filterComponent);
+    const status = getActiveFilterValue(filterStatus);
+    const tag = getActiveFilterValue(filterTag);
+
+    if (search) {
+        params.set('search', search);
+    }
+    if (status) {
+        params.set('status', status);
+    }
+    if (component) {
+        params.set('component', component);
+    }
+    if (tag) {
+        params.set('tag', tag);
+    }
+    if (selectedFolder) {
+        params.set('folder', selectedFolder);
+    }
+    if (pageState.page > 0) {
+        params.set('page', String(pageState.page));
+    }
+    if (pageState.size !== 50) {
+        params.set('size', String(pageState.size));
+    }
+
+    const nextQuery = params.toString();
+    const nextUrl = nextQuery ? '/workspace?' + nextQuery : '/workspace';
+    window.history.replaceState({}, '', nextUrl);
+}
+
+function showWorkspaceLoading(message) {
+    if (!tbody) {
+        return;
+    }
+
+    const detail = message || 'Loading test cases...';
+    tbody.innerHTML =
+        '<tr class="border-b border-white/10">' +
+            '<td class="px-6 sm:px-8 py-6" colspan="7">' +
+                '<p class="text-sm text-white/45">' + detail + '</p>' +
+            '</td>' +
+        '</tr>';
+}
+
+function renderCurrentPage() {
+    if (totalCount) {
+        totalCount.textContent = String(pageState.totalCount);
+    }
+
+    const visibleIds = currentPageCases.map((testCase) => testCase.workKey).filter(Boolean);
+    selection.retainSelectedIds(visibleIds);
+    grid.renderRows(currentPageCases, new Set(selection.getSelectedIds()));
+    selection.setVisibleIds(visibleIds);
     selection.bindRowCheckboxes(tbody);
     syncRowSelectionUi();
+    updatePageControls();
+    syncWorkspaceUrl();
+}
+
+function buildPageRequestParams() {
+    const params = new URLSearchParams();
+    params.set('page', String(pageState.page));
+    params.set('size', String(pageState.size));
+
+    const search = searchInput ? searchInput.value.trim() : '';
+    const component = getActiveFilterValue(filterComponent);
+    const status = getActiveFilterValue(filterStatus);
+    const tag = getActiveFilterValue(filterTag);
+
+    if (search) {
+        params.set('search', search);
+    }
+    if (status) {
+        params.set('status', status);
+    }
+    if (component) {
+        params.set('component', component);
+    }
+    if (tag) {
+        params.set('tag', tag);
+    }
+    if (selectedFolder) {
+        params.set('folder', selectedFolder);
+    }
+
+    return params;
+}
+
+function loadCurrentPage(options) {
+    const loadOptions = options || {};
+    if (loadOptions.resetPage) {
+        pageState.page = 0;
+    }
+    if (loadOptions.page != null) {
+        pageState.page = Math.max(Number(loadOptions.page) || 0, 0);
+    }
+
+    const requestId = ++activePageRequestId;
+    pageState.isLoading = true;
+    updatePageControls();
+    showWorkspaceLoading(loadOptions.loadingMessage || 'Loading test cases...');
+
+    const url = apiBaseUrl + '?' + buildPageRequestParams().toString();
+    return fetch(url)
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Test cases failed with status ' + response.status);
+            }
+
+            const nextTotalCount = Number(response.headers.get('X-Total-Count'));
+            const nextTotalPages = Number(response.headers.get('X-Total-Pages'));
+            const nextPage = Number(response.headers.get('X-Page'));
+            const nextHasNext = String(response.headers.get('X-Has-Next')).toLowerCase() === 'true';
+
+            return response.json().then((data) => ({
+                cases: Array.isArray(data) ? data : [],
+                hasNext: nextHasNext,
+                page: Number.isFinite(nextPage) ? nextPage : pageState.page,
+                totalCount: Number.isFinite(nextTotalCount) ? nextTotalCount : 0,
+                totalPages: Number.isFinite(nextTotalPages) && nextTotalPages > 0 ? nextTotalPages : 1
+            }));
+        })
+        .then((payload) => {
+            if (requestId !== activePageRequestId) {
+                return;
+            }
+
+            if (payload.totalPages > 0 && payload.page >= payload.totalPages) {
+                pageState.page = Math.max(payload.totalPages - 1, 0);
+                return loadCurrentPage({ loadingMessage: 'Loading test cases...' });
+            }
+
+            currentPageCases = payload.cases;
+            pageState.page = payload.page;
+            pageState.totalCount = payload.totalCount;
+            pageState.totalPages = payload.totalPages;
+            pageState.hasNext = payload.hasNext;
+            renderCurrentPage();
+        })
+        .catch((error) => {
+            if (requestId !== activePageRequestId) {
+                return;
+            }
+
+            console.error('Failed to load test cases', error);
+            currentPageCases = [];
+            pageState.totalCount = 0;
+            pageState.totalPages = 1;
+            pageState.hasNext = false;
+            renderCurrentPage();
+        })
+        .finally(() => {
+            if (requestId !== activePageRequestId) {
+                return;
+            }
+            pageState.isLoading = false;
+            updatePageControls();
+        });
+}
+
+function applyFilters(options) {
+    return loadCurrentPage(options);
 }
 
 function syncRowSelectionUi() {
@@ -567,7 +772,7 @@ function renderFolderTree() {
         }
         selectedFolder = '';
         renderFolderTree();
-        applyFilters();
+        applyFilters({ resetPage: true });
     };
 
     showAllButton.addEventListener('click', activateShowAll);
@@ -645,7 +850,7 @@ function renderFolderTree() {
             const next = selectedFolder === node.path ? '' : node.path;
             selectedFolder = next;
             renderFolderTree();
-            applyFilters();
+            applyFilters({ resetPage: true });
         };
 
         selectButton.addEventListener('click', activateFolder);
@@ -676,7 +881,7 @@ function loadFolders() {
         folderEmpty.textContent = 'No folders found.';
     }
 
-    fetch('/api/folders')
+    return fetch('/api/folders')
         .then((response) => {
             if (!response.ok) {
                 throw new Error('Folders failed with status ' + response.status);
@@ -726,9 +931,9 @@ function loadFilterOptions() {
             populateSelect(filterTag, tags);
         })
         .catch(() => {
-            const components = uniqueSorted(allTestCases.map((item) => item?.components));
-            const statuses = uniqueSorted(allTestCases.map((item) => item?.status));
-            const tags = uniqueSorted(allTestCases.flatMap((item) => [item?.components, item?.testCaseType]));
+            const components = uniqueSorted(currentPageCases.map((item) => item?.components));
+            const statuses = uniqueSorted(currentPageCases.map((item) => item?.status));
+            const tags = uniqueSorted(currentPageCases.flatMap((item) => [item?.components, item?.testCaseType]));
             populateSelect(filterComponent, components);
             populateSelect(filterStatus, statuses);
             populateSelect(filterTag, tags);
@@ -763,18 +968,24 @@ function populateSelect(selectEl, values) {
         return;
     }
 
-    const previous = selectEl.value || '';
+    const previous = String(selectEl.value || selectEl.dataset.pendingValue || '').trim();
+    const nextValues = Array.isArray(values) ? values.slice() : [];
+    if (previous && !nextValues.includes(previous)) {
+        nextValues.push(previous);
+    }
+
     selectEl.innerHTML = '<option value="">All</option>';
-    for (const value of values) {
+    for (const value of uniqueSorted(nextValues)) {
         const option = document.createElement('option');
         option.value = String(value || '');
         option.textContent = String(value || '');
         selectEl.appendChild(option);
     }
 
-    if (previous && values.includes(previous)) {
+    if (previous) {
         selectEl.value = previous;
     }
+    selectEl.dataset.pendingValue = '';
 }
 
 function collectFolderPaths(node, output) {
@@ -792,7 +1003,7 @@ function collectFolderPaths(node, output) {
 
 function listKnownFolders() {
     const folders = new Set();
-    for (const testCase of allTestCases) {
+    for (const testCase of currentPageCases) {
         const folder = normalizeFolder(testCase?.folder || '');
         if (folder) {
             folders.add(folder);
@@ -906,19 +1117,11 @@ async function handleBulkMove(input) {
 
     const failedKeys = new Set((result.failures || []).map(f => f.workKey));
     const movedKeys = new Set(uniqueKeys.filter(k => !failedKeys.has(k)));
-
-    allTestCases = allTestCases.map(tc =>
-        movedKeys.has(tc.workKey) ? { ...tc, folder: targetFolder } : tc
-    );
     selection.removeSelectedIds(Array.from(movedKeys));
-
-    const knownFolders = listKnownFolders();
-    if (!knownFolders.includes(targetFolder)) {
-        knownFolders.push(targetFolder);
-    }
-    folderTreeModel = createFolderTreeModel(knownFolders);
-    renderFolderTree();
-    applyFilters();
+    await Promise.all([
+        loadFolders(),
+        loadCurrentPage()
+    ]);
 
     if (result.movedCount < uniqueKeys.length) {
         showImportNotice('error',
@@ -928,69 +1131,38 @@ async function handleBulkMove(input) {
     return true;
 }
 
-function loadAllTestCases() {
-    const pageSize = 200;
-    const maxPages = 500;
-
-    const fetchPage = (page, collected) => {
-        if (page >= maxPages) {
-            return Promise.resolve(collected);
-        }
-
-        const params = new URLSearchParams();
-        params.set('page', String(page));
-        params.set('size', String(pageSize));
-
-        const url = apiBaseUrl + '?' + params.toString();
-        return fetch(url)
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error('Test cases failed with status ' + response.status);
-                }
-
-                const hasNext = String(response.headers.get('X-Has-Next')).toLowerCase() === 'true';
-                const totalPages = Number(response.headers.get('X-Total-Pages'));
-                return response.json().then((data) => {
-                    const pageItems = Array.isArray(data) ? data : [];
-                    const nextCollected = collected.concat(pageItems);
-                    const hasKnownMorePages = Number.isFinite(totalPages) && totalPages > 0 && (page + 1) < totalPages;
-                    const likelyHasMoreBySize = pageItems.length === pageSize;
-                    if (hasNext || hasKnownMorePages || likelyHasMoreBySize) {
-                        return fetchPage(page + 1, nextCollected);
-                    }
-                    return nextCollected;
-                });
-            });
-    };
-
-    fetchPage(0, [])
-        .then((allRows) => {
-            allTestCases = allRows;
-            if (totalCount) {
-                totalCount.textContent = String(allTestCases.length);
-            }
-            loadFilterOptions();
-            applyFilters();
-        })
-        .catch((error) => {
-            console.error('Failed to load test cases', error);
-            allTestCases = [];
-            loadFilterOptions();
-            applyFilters();
-        });
-}
-
 if (searchInput) {
-    searchInput.addEventListener('input', applyFilters);
+    searchInput.addEventListener('input', () => {
+        window.clearTimeout(searchDebounceHandle);
+        searchDebounceHandle = window.setTimeout(() => {
+            applyFilters({ resetPage: true });
+        }, 180);
+    });
 }
 if (filterComponent) {
-    filterComponent.addEventListener('change', applyFilters);
+    filterComponent.addEventListener('change', () => applyFilters({ resetPage: true }));
 }
 if (filterStatus) {
-    filterStatus.addEventListener('change', applyFilters);
+    filterStatus.addEventListener('change', () => applyFilters({ resetPage: true }));
 }
 if (filterTag) {
-    filterTag.addEventListener('change', applyFilters);
+    filterTag.addEventListener('change', () => applyFilters({ resetPage: true }));
+}
+if (prevPageButton) {
+    prevPageButton.addEventListener('click', () => {
+        if (pageState.page <= 0 || pageState.isLoading) {
+            return;
+        }
+        loadCurrentPage({ page: pageState.page - 1 });
+    });
+}
+if (nextPageButton) {
+    nextPageButton.addEventListener('click', () => {
+        if (!pageState.hasNext || pageState.isLoading) {
+            return;
+        }
+        loadCurrentPage({ page: pageState.page + 1 });
+    });
 }
 
 if (bulkOrganize) {
@@ -1120,7 +1292,8 @@ if (importBtn && importFile) {
                     showImportNotice('success', json.message);
                 }
 
-                loadAllTestCases();
+                loadCurrentPage({ page: 0 });
+                loadFilterOptions();
                 loadFolders();
             })
             .catch((error) => {
@@ -1133,5 +1306,6 @@ if (importBtn && importFile) {
     });
 }
 
-loadAllTestCases();
+loadCurrentPage();
+loadFilterOptions();
 loadFolders();

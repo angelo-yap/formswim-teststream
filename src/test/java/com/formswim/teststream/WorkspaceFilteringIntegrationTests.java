@@ -73,13 +73,20 @@ class WorkspaceFilteringIntegrationTests {
         team1Other.setTestCaseType("Regression");
         team1Other.addStep(new TestStep(1, "Generate report", "", ""));
 
+        TestCase team1NestedWindowsFolder = TestCaseFixtures.basicCase("TEAM1", "TC-104", "Auth//Login\\Mfa /");
+        team1NestedWindowsFolder.setSummary("MFA scenario");
+        team1NestedWindowsFolder.setComponents("Backend");
+        team1NestedWindowsFolder.setStatus("Blocked");
+        team1NestedWindowsFolder.setTestCaseType("Exploratory");
+        team1NestedWindowsFolder.addStep(new TestStep(1, "Complete MFA", "", ""));
+
         TestCase team2Login = TestCaseFixtures.basicCase("TEAM2", "TC-201", "Auth/Login");
         team2Login.setSummary("Other team login");
         team2Login.setComponents("UI");
         team2Login.setStatus("Draft");
         team2Login.addStep(new TestStep(1, "Open login page", "", ""));
 
-        testCaseRepository.saveAll(List.of(team1Login, team1Refund, team1Other, team2Login));
+        testCaseRepository.saveAll(List.of(team1Login, team1Refund, team1Other, team1NestedWindowsFolder, team2Login));
     }
 
     @Test
@@ -167,6 +174,17 @@ class WorkspaceFilteringIntegrationTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].workKey").value("TC-101"))
             .andExpect(jsonPath("$[1]").doesNotExist());
+    }
+
+    @Test
+    void apiTestCasesFolderFilterMatchesNestedWindowsStyleFolders() throws Exception {
+        mockMvc.perform(get("/api/testcases")
+                .with(user("team1.user@example.com").roles("USER"))
+                .param("folder", "Auth/Login"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].workKey").value("TC-104"))
+            .andExpect(jsonPath("$[1].workKey").value("TC-101"))
+            .andExpect(jsonPath("$[2]").doesNotExist());
     }
 
     @SuppressWarnings("unchecked")
