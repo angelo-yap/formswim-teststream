@@ -137,6 +137,7 @@ public class TestCaseController {
         model.addAttribute("filterComponent", component != null ? component : "");
         model.addAttribute("importErrorMessage", importError);
         model.addAttribute("importSuccessMessage", importSuccess);
+        model.addAttribute("bulkEditEnabled", bulkEditEnabled);
 
         return "workspace";
     }

@@ -9,6 +9,7 @@
 	<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;700;900&display=swap" rel="stylesheet">
 	<meta name="workspace-api-base" content="/api/testcases">
 	<meta name="workspace-export-base" content="/workspace/export">
+	<meta name="workspace-bulk-edit-enabled" th:content="${bulkEditEnabled}">
 	<meta name="_csrf" th:content="${_csrf.token}">
 	<meta name="_csrf_header" th:content="${_csrf.headerName}">
 	<style>
@@ -318,18 +319,25 @@
 					<div class="w-2 h-2 rounded-full" style="background-color: #E7FF02;"></div>
 					<p class="text-sm text-white/80">
 						<span id="bulkCount" class="font-bold" style="color: #E7FF02;">0</span>
-						items selected
+						items selected on this page
 					</p>
 				</div>
 				<div class="flex items-center gap-3">
 					<button id="bulkExportSelected" type="button" class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
 						Export selected
 					</button>
+					<button
+						th:if="${bulkEditEnabled}"
+						id="bulkEditOpen"
+						type="button"
+						class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
+						Bulk edit
+					</button>
 					<button id="bulkOrganize" type="button" class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
 						Organize
 					</button>
 					<p class="text-xs text-white/45">
-						Export selected or move into a folder.
+						Export, bulk edit, or move the current-page selection.
 					</p>
 				</div>
 			</div>
@@ -376,6 +384,8 @@
 			</div>
 		</div>
 	</div>
+
+	<th:block th:if="${bulkEditEnabled}" th:replace="~{workspace-bulk-edit-modal :: bulkEditModal}"></th:block>
 
 	<!-- Slide-out drawer for single edits -->
 	<div id="drawer" class="fixed inset-0 z-50 hidden" aria-hidden="true">
