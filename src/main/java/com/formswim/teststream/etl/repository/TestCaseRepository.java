@@ -28,9 +28,9 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                        or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :tag, '%')))
                         and (
                                 :folder is null or :folder = ''
-                                or lower(coalesce(testCase.folder, '')) = lower(:folder)
-                                or lower(coalesce(testCase.folder, '')) like lower(concat(:folder, '/%'))
-                          )
+                                or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) = lower(:folder)
+                                or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) like lower(concat(:folder, '/%'))
+                        )
                   and (
                         :search is null or :search = ''
                         or lower(coalesce(testCase.workKey, '')) like lower(concat('%', :search, '%'))
@@ -58,9 +58,9 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                        or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :tag, '%')))
                         and (
                                 :folder is null or :folder = ''
-                                or lower(coalesce(testCase.folder, '')) = lower(:folder)
-                                or lower(coalesce(testCase.folder, '')) like lower(concat(:folder, '/%'))
-                          )
+                                or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) = lower(:folder)
+                                or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) like lower(concat(:folder, '/%'))
+                        )
                   and (
                         :search is null or :search = ''
                         or lower(coalesce(testCase.workKey, '')) like lower(concat('%', :search, '%'))
@@ -133,12 +133,12 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                                                          Collection<String> workKeys);
 
     @Query("""
-            select distinct trim(testCase.folder)
+                                                select distinct trim(function('replace', testCase.folder, '\\', '/'))
             from TestCase testCase
             where testCase.teamKey = :teamKey
               and testCase.folder is not null
-              and trim(testCase.folder) <> ''
-            order by trim(testCase.folder)
+                                                        and trim(function('replace', testCase.folder, '\\', '/')) <> ''
+                                                order by trim(function('replace', testCase.folder, '\\', '/'))
             """)
     List<String> findDistinctFolderByTeamKey(String teamKey);
 
