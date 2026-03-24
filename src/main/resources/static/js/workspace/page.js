@@ -741,6 +741,21 @@ function loadFolders() {
         });
 }
 
+function refreshTagFilterDropdown() {
+    fetch(tagsBaseUrl)
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then((data) => {
+            const tagNames = uniqueSorted((Array.isArray(data) ? data : []).map((t) => t.name));
+            populateSelect(filterTag, tagNames);
+        })
+        .catch(() => {
+            const tagNames = uniqueSorted(
+                allTestCases.flatMap((item) => (item?.tags || []).map((t) => t?.name))
+            );
+            populateSelect(filterTag, tagNames);
+        });
+}
+
 function loadFilterOptions() {
     const tagRequest = fetch(tagsBaseUrl)
         .then((r) => {
@@ -1056,7 +1071,7 @@ function apiRenameTag(tagId, name) {
             ...tc,
             tags: (tc.tags || []).map((t) => t.id === tagId ? { ...t, name: updatedTag.name } : t)
         }));
-        applyFilters();
+        refreshTagFilterDropdown();
         return updatedTag;
     });
 }
@@ -1074,7 +1089,7 @@ function apiDeleteTag(tagId) {
             ...tc,
             tags: (tc.tags || []).filter((t) => t.id !== tagId)
         }));
-        applyFilters();
+        refreshTagFilterDropdown();
     });
 }
 
@@ -1088,6 +1103,9 @@ function apiCreateTag(name) {
             throw new Error('Tag create failed: ' + response.status);
         }
         return response.json();
+    }).then((createdTag) => {
+        refreshTagFilterDropdown();
+        return createdTag;
     });
 }
 

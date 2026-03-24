@@ -247,7 +247,7 @@ export function createDrawer(options) {
     }
 
     function handleRemoveTag(tagId) {
-        if (!currentWorkKey || !onTagRemove) {
+        if (!currentWorkKey || !onTagRemove || String(tagId).startsWith('tmp_')) {
             return;
         }
 
