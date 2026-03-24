@@ -745,7 +745,7 @@ function refreshTagFilterDropdown() {
     fetch(tagsBaseUrl)
         .then((r) => r.ok ? r.json() : Promise.reject())
         .then((data) => {
-            const tagNames = uniqueSorted((Array.isArray(data) ? data : []).map((t) => t.name));
+            const tagNames = uniqueSorted(Array.isArray(data) ? data : []);
             populateSelect(filterTag, tagNames);
         })
         .catch(() => {
@@ -765,10 +765,7 @@ function loadFilterOptions() {
             return r.json();
         })
         .then((data) => {
-            const catalog = Array.isArray(data) ? data : [];
-            const usageCounts = buildTagUsageCounts();
-            const enrichedCatalog = catalog.map((t) => ({ ...t, count: usageCounts.get(t.id) || 0 }));
-            drawer.setTeamCatalog(enrichedCatalog);
+            const tagNames = Array.isArray(data) ? data : [];
             drawer.setCallbacks({
                 onTagAdd: apiAddTag,
                 onTagRemove: apiRemoveTag,
@@ -776,7 +773,7 @@ function loadFilterOptions() {
                 onTagRename: apiRenameTag,
                 onTagDelete: apiDeleteTag
             });
-            return uniqueSorted(catalog.map((t) => t.name));
+            return uniqueSorted(tagNames);
         });
 
     Promise.all([
