@@ -1009,6 +1009,117 @@ function loadFilterOptions() {
         });
 }
 
+function buildTagUsageCounts() {
+    const counts = new Map();
+    for (const tc of currentPageCases) {
+        for (const tag of (tc.tags || [])) {
+            counts.set(tag.id, (counts.get(tag.id) || 0) + 1);
+        }
+    }
+    return counts;
+}
+
+function apiAddTag(workKey, tagId) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return fetch(apiBaseUrl + '/' + encodeURIComponent(workKey) + '/tags/' + tagId, {
+        method: 'POST',
+        headers: { [csrfHeader]: csrfToken }
+    })
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Tag assign failed: ' + response.status);
+            }
+            return response.json();
+        })
+        .then((updatedTags) => {
+            currentPageCases = currentPageCases.map((tc) =>
+                tc.workKey === workKey ? { ...tc, tags: updatedTags } : tc
+            );
+            renderCurrentPage();
+            drawer.refreshTagCounts(buildTagUsageCounts());
+            return updatedTags;
+        });
+}
+
+function apiRemoveTag(workKey, tagId) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return fetch(apiBaseUrl + '/' + encodeURIComponent(workKey) + '/tags/' + tagId, {
+        method: 'DELETE',
+        headers: { [csrfHeader]: csrfToken }
+    })
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Tag unassign failed: ' + response.status);
+            }
+            return response.json();
+        })
+        .then((updatedTags) => {
+            currentPageCases = currentPageCases.map((tc) =>
+                tc.workKey === workKey ? { ...tc, tags: updatedTags } : tc
+            );
+            renderCurrentPage();
+            drawer.refreshTagCounts(buildTagUsageCounts());
+            return updatedTags;
+        });
+}
+
+function apiRenameTag(tagId, name) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return fetch(tagsBaseUrl + '/' + tagId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', [csrfHeader]: csrfToken },
+        body: JSON.stringify({ name })
+    }).then((response) => {
+        if (!response.ok) {
+            throw new Error('Rename failed: ' + response.status);
+        }
+        return response.json();
+    }).then((updatedTag) => {
+        currentPageCases = currentPageCases.map((tc) => ({
+            ...tc,
+            tags: (tc.tags || []).map((t) => t.id === tagId ? { ...t, name: updatedTag.name } : t)
+        }));
+        renderCurrentPage();
+        return updatedTag;
+    });
+}
+
+function apiDeleteTag(tagId) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return fetch(tagsBaseUrl + '/' + tagId, {
+        method: 'DELETE',
+        headers: { [csrfHeader]: csrfToken }
+    }).then((response) => {
+        if (!response.ok) {
+            throw new Error('Delete failed: ' + response.status);
+        }
+        currentPageCases = currentPageCases.map((tc) => ({
+            ...tc,
+            tags: (tc.tags || []).filter((t) => t.id !== tagId)
+        }));
+        renderCurrentPage();
+    });
+}
+
+function apiCreateTag(name) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return fetch(tagsBaseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', [csrfHeader]: csrfToken },
+        body: JSON.stringify({ name })
+    }).then((response) => {
+        if (!response.ok && response.status !== 409) {
+            throw new Error('Tag create failed: ' + response.status);
+        }
+        return response.json();
+    });
+}
+
 function fetchOptionValues(url) {
     return fetch(url)
         .then((response) => {
