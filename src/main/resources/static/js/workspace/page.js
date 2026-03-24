@@ -83,6 +83,9 @@ const drawer = createDrawer({
 });
 const bulkEdit = createBulkEdit({
     bulkEditButton: bulkEditOpen,
+    openCasePreview: (workKey) => {
+        drawer.openByWorkKey(workKey, { readOnly: true });
+    },
     getCurrentPageCases: () => currentPageCases.slice(),
     getCsrf: () => ({
         headerName: document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN',

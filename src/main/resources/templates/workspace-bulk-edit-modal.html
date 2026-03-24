@@ -3,9 +3,9 @@
 <body>
 	<th:block th:fragment="bulkEditModal">
 		<div id="bulkEditModal" class="fixed inset-0 z-50 hidden" aria-hidden="true">
-			<div id="bulkEditBackdrop" class="absolute inset-0 bg-zinc-950/65 backdrop-blur-sm"></div>
-			<div class="absolute inset-0 flex items-center justify-center p-4 sm:p-6">
-				<div id="bulkEditPanel" class="w-full max-w-4xl border border-[#E7FF02]/25 bg-zinc-900/96 shadow-[0_0_0_1px_rgba(231,255,2,0.08),0_30px_80px_rgba(15,23,42,0.45)] p-6 sm:p-7 transition-all duration-150 translate-y-3 opacity-0 rounded-xl">
+			<div id="bulkEditBackdrop" class="absolute inset-0 bg-zinc-950"></div>
+			<div class="absolute inset-0 flex items-center justify-center overflow-hidden p-3 sm:p-4 lg:p-6">
+				<div id="bulkEditPanel" class="flex max-h-[calc(100vh-1.5rem)] w-[min(96vw,78rem)] max-w-none flex-col overflow-hidden rounded-2xl border border-zinc-700/70 bg-zinc-900 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_32px_90px_rgba(0,0,0,0.7)] transition-all duration-150 translate-y-3 opacity-0 sm:p-6 lg:p-7">
 					<div class="flex items-start justify-between gap-4">
 						<div class="min-w-0">
 							<p class="text-[11px] uppercase tracking-[0.18em] text-[#E7FF02]/80" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Bulk Edit</p>
@@ -17,16 +17,16 @@
 						</button>
 					</div>
 
-					<div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-						<section class="space-y-5">
-							<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div class="mt-6 grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-hidden lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+						<section class="min-h-0 space-y-5 overflow-auto pr-1">
+							<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 no-scrollbar">
 								<div>
 									<label for="bulkEditFindText" class="block text-[11px] uppercase tracking-[0.14em] text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Find</label>
-									<input id="bulkEditFindText" type="text" placeholder="e.g. Click" class="mt-2 w-full bg-zinc-800 border border-white/20 px-4 py-3.5 text-sm text-white/90 placeholder:text-white/35 focus:outline-none focus:border-[#E7FF02] focus:ring-2 focus:ring-[#E7FF02]/20" />
+									<input id="bulkEditFindText" type="text" placeholder="e.g. Click" class="mt-2 w-full border border-zinc-600 bg-zinc-800/95 px-4 py-3.5 text-sm text-white/90 placeholder:text-white/35 focus:outline-none focus:border-[#E7FF02] focus:ring-2 focus:ring-[#E7FF02]/20" />
 								</div>
 								<div>
 									<label for="bulkEditReplaceText" class="block text-[11px] uppercase tracking-[0.14em] text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Replace</label>
-									<input id="bulkEditReplaceText" type="text" placeholder="e.g. Tap" class="mt-2 w-full bg-zinc-800 border border-white/20 px-4 py-3.5 text-sm text-white/90 placeholder:text-white/35 focus:outline-none focus:border-[#E7FF02] focus:ring-2 focus:ring-[#E7FF02]/20" />
+									<input id="bulkEditReplaceText" type="text" placeholder="e.g. Tap" class="mt-2 w-full border border-zinc-600 bg-zinc-800/95 px-4 py-3.5 text-sm text-white/90 placeholder:text-white/35 focus:outline-none focus:border-[#E7FF02] focus:ring-2 focus:ring-[#E7FF02]/20" />
 								</div>
 							</div>
 
@@ -44,21 +44,21 @@
 							<p id="bulkEditInlineError" class="hidden text-xs text-rose-300" aria-live="polite">A search term is required.</p>
 						</section>
 
-						<section class="border border-white/10 bg-white/5 p-4 sm:p-5">
+						<section class="flex min-h-0 flex-col border border-zinc-700/70 bg-zinc-800/60 p-4 sm:p-5">
 							<div class="flex items-center justify-between gap-3">
 								<div>
 									<p class="text-[11px] uppercase tracking-[0.14em] text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Preview</p>
 									<p id="bulkEditPreviewInfo" class="text-xs text-white/45 mt-2">Review selected cases on the current page before applying.</p>
 								</div>
-								<span class="inline-flex items-center px-2 py-1 border border-white/15 text-[11px] text-white/55">Current page</span>
+								<span class="no-scrollbar inline-flex items-center px-2 py-1 border border-white/15 text-[11px] text-white/55">Current page</span>
 							</div>
-							<div id="bulkEditPreviewList" class="mt-4 space-y-3 max-h-[24rem] overflow-auto">
+							<div id="bulkEditPreviewList" class="mt-4 min-h-0 flex-1 space-y-3 overflow-auto pr-1">
 								<p class="text-xs text-white/45">Select test cases to preview their targeted fields.</p>
 							</div>
 						</section>
 					</div>
 
-					<div class="mt-7 flex items-center justify-end gap-3 border-t border-white/10 pt-5">
+					<div class="mt-6 flex shrink-0 items-center justify-end gap-3 border-t border-zinc-700/70 pt-5">
 						<button id="bulkEditCancel" type="button" class="px-4 py-2.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm text-white/80">
 							Cancel
 						</button>

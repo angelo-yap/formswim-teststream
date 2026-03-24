@@ -57,6 +57,34 @@ function buildHighlightedSnippet(text, token) {
         + suffix;
 }
 
+function buildHighlightedHtml(text, token) {
+    const source = String(text || '');
+    const needle = String(token || '');
+    if (!source) {
+        return '';
+    }
+    if (!needle) {
+        return escapeHtml(source);
+    }
+
+    let html = '';
+    let searchIndex = 0;
+
+    while (searchIndex < source.length) {
+        const matchIndex = source.indexOf(needle, searchIndex);
+        if (matchIndex < 0) {
+            html += escapeHtml(source.slice(searchIndex));
+            break;
+        }
+
+        html += escapeHtml(source.slice(searchIndex, matchIndex));
+        html += '<mark class="bg-[#E7FF02] text-black px-0.5">' + escapeHtml(needle) + '</mark>';
+        searchIndex = matchIndex + needle.length;
+    }
+
+    return html;
+}
+
 function buildFieldValues(testCase, fieldKey) {
     if (!testCase) {
         return [];
@@ -84,7 +112,7 @@ function buildFieldValues(testCase, fieldKey) {
     }];
 }
 
-function buildCasePreviewRows(testCase, fieldKeys, findText) {
+function buildCasePreviewRows(testCase, fieldKeys, findText, isExpanded) {
     const allRows = [];
     const matchingRows = [];
     const searchText = String(findText || '');
@@ -98,16 +126,24 @@ function buildCasePreviewRows(testCase, fieldKeys, findText) {
         }
     }
 
-    const preferredRows = searchText && matchingRows.length > 0 ? matchingRows : allRows;
-    const visibleRows = preferredRows.slice(0, MAX_PREVIEW_ROWS_PER_CASE).map((row) => ({
+    const compactRows = searchText && matchingRows.length > 0 ? matchingRows : allRows;
+    const sourceRows = isExpanded ? allRows : compactRows.slice(0, MAX_PREVIEW_ROWS_PER_CASE);
+    const visibleRows = sourceRows.map((row) => ({
         label: row.label,
-        valueHtml: searchText ? buildHighlightedSnippet(row.value, searchText) : escapeHtml(row.value)
+        valueHtml: isExpanded
+            ? buildHighlightedHtml(row.value, searchText)
+            : (searchText ? buildHighlightedSnippet(row.value, searchText) : escapeHtml(row.value))
     }));
+    const canToggleExpanded = allRows.length > sourceRows.length
+        || (searchText && matchingRows.length > 0 && allRows.length > compactRows.length)
+        || (Boolean(isExpanded) && allRows.length > 0);
 
     return {
         hasAnyContent: allRows.length > 0,
         hasMatch: matchingRows.length > 0,
-        hiddenCount: Math.max(0, preferredRows.length - visibleRows.length),
+        canToggleExpanded,
+        hiddenCount: isExpanded ? 0 : Math.max(0, compactRows.length - visibleRows.length),
+        totalCount: allRows.length,
         rows: visibleRows
     };
 }
@@ -168,10 +204,35 @@ export function createBulkEdit(options) {
     }
 
     const state = {
+        expandedCaseIds: new Set(),
         isOpen: false,
         isSubmitting: false,
+        scrollLock: null,
         selectedIds: []
     };
+
+    function lockBackgroundScroll() {
+        if (state.scrollLock) {
+            return;
+        }
+
+        state.scrollLock = {
+            bodyOverflow: document.body.style.overflow,
+            docOverflow: document.documentElement.style.overflow
+        };
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function unlockBackgroundScroll() {
+        if (!state.scrollLock) {
+            return;
+        }
+
+        document.documentElement.style.overflow = state.scrollLock.docOverflow || '';
+        document.body.style.overflow = state.scrollLock.bodyOverflow || '';
+        state.scrollLock = null;
+    }
 
     function renderFieldOptions() {
         fieldsContainer.innerHTML = '';
@@ -243,6 +304,18 @@ export function createBulkEdit(options) {
         }
     }
 
+    function toggleExpandedCase(workKey) {
+        if (!workKey) {
+            return;
+        }
+
+        if (state.expandedCaseIds.has(workKey)) {
+            state.expandedCaseIds.delete(workKey);
+        } else {
+            state.expandedCaseIds.add(workKey);
+        }
+    }
+
     function renderPreview() {
         const pageCases = typeof config.getCurrentPageCases === 'function' ? config.getCurrentPageCases() : [];
         const cases = Array.isArray(pageCases) ? pageCases : [];
@@ -264,7 +337,9 @@ export function createBulkEdit(options) {
             : 'Showing ' + selectedCases.length + ' selected case' + (selectedCases.length === 1 ? '' : 's') + ' on this page. Enter find text to highlight exact matches.';
 
         previewList.innerHTML = selectedCases.map((testCase) => {
-            const preview = buildCasePreviewRows(testCase, fieldKeys, findText);
+            const workKey = String(testCase.workKey || '');
+            const isExpanded = state.expandedCaseIds.has(workKey);
+            const preview = buildCasePreviewRows(testCase, fieldKeys, findText, isExpanded);
             let stateHtml = '';
 
             if (!preview.hasAnyContent) {
@@ -274,21 +349,34 @@ export function createBulkEdit(options) {
             }
 
             const rowsHtml = preview.rows.map((row) =>
-                '<div class="mt-2 rounded-lg border border-white/10 bg-zinc-800/70 px-3 py-2.5">'
+                '<div class="mt-2 rounded-lg border border-zinc-700/80 bg-zinc-800/85 px-3 py-3">'
                     + '<p class="text-[11px] uppercase tracking-[0.12em] text-white/50">' + escapeHtml(row.label) + '</p>'
-                    + '<p class="mt-1 text-sm text-white/85 leading-6">' + row.valueHtml + '</p>'
+                    + '<p class="mt-1 text-sm text-white/85 leading-6 whitespace-pre-wrap break-words">' + row.valueHtml + '</p>'
                 + '</div>'
             ).join('');
 
-            const hiddenHtml = preview.hiddenCount > 0
-                ? '<p class="mt-3 text-xs text-white/45">+' + preview.hiddenCount + ' more targeted value' + (preview.hiddenCount === 1 ? '' : 's') + ' hidden for brevity.</p>'
+            const hiddenCount = Math.max(preview.totalCount - preview.rows.length, 0);
+            const hiddenHtml = !isExpanded && hiddenCount > 0
+                ? '<p class="mt-3 text-xs text-white/45">+' + hiddenCount + ' more targeted value' + (hiddenCount === 1 ? '' : 's') + ' available for this case.</p>'
+                : '';
+            const expandButtonHtml = preview.hasAnyContent && preview.canToggleExpanded
+                ? '<button type="button" class="px-3 py-2 border border-white/15 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs text-white/70" data-action="toggle-expand" data-work-key="' + escapeHtml(workKey) + '">'
+                    + (isExpanded ? 'Show less' : 'Show more')
+                + '</button>'
+                : '';
+            const previewButtonHtml = workKey
+                ? '<button type="button" class="px-3 py-2 border border-white/15 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs text-white/70" data-action="open-case-preview" data-work-key="' + escapeHtml(workKey) + '">Open full case</button>'
                 : '';
 
-            return '<article class="rounded-xl border border-white/10 bg-zinc-900/75 px-4 py-3.5">'
+            return '<article class="rounded-xl border border-zinc-700/80 bg-zinc-900/85 px-4 py-4">'
                 + '<div class="flex items-start justify-between gap-3">'
                     + '<div class="min-w-0">'
-                        + '<p class="text-xs text-[#E7FF02] font-bold">' + escapeHtml(String(testCase.workKey || '-')) + '</p>'
-                        + '<h4 class="mt-1 text-sm text-white/92 truncate">' + escapeHtml(String(testCase.summary || 'Untitled test case')) + '</h4>'
+                        + '<p class="text-xs text-[#E7FF02] font-bold">' + escapeHtml(workKey || '-') + '</p>'
+                        + '<h4 class="mt-1 text-sm text-white/92 leading-6 break-words">' + escapeHtml(String(testCase.summary || 'Untitled test case')) + '</h4>'
+                    + '</div>'
+                    + '<div class="flex shrink-0 items-center gap-2">'
+                        + previewButtonHtml
+                        + expandButtonHtml
                     + '</div>'
                 + '</div>'
                 + stateHtml
@@ -300,6 +388,7 @@ export function createBulkEdit(options) {
 
     function open() {
         state.selectedIds = getSelectedIds();
+        state.expandedCaseIds.clear();
         syncSelectedCount();
 
         if (state.selectedIds.length === 0) {
@@ -312,6 +401,7 @@ export function createBulkEdit(options) {
         setInlineError('');
         modal.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
+        lockBackgroundScroll();
         state.isOpen = true;
         requestAnimationFrame(() => {
             panel.classList.remove('translate-y-3', 'opacity-0');
@@ -333,6 +423,7 @@ export function createBulkEdit(options) {
         state.isOpen = false;
         window.setTimeout(() => {
             modal.classList.add('hidden');
+            unlockBackgroundScroll();
         }, 160);
     }
 
@@ -431,6 +522,12 @@ export function createBulkEdit(options) {
 
     function onSelectionChanged(selectedIds) {
         state.selectedIds = Array.from(new Set((Array.isArray(selectedIds) ? selectedIds : []).filter(Boolean)));
+        const selectedSet = new Set(state.selectedIds);
+        for (const workKey of Array.from(state.expandedCaseIds)) {
+            if (!selectedSet.has(workKey)) {
+                state.expandedCaseIds.delete(workKey);
+            }
+        }
         syncSelectedCount();
         if (state.isOpen) {
             renderPreview();
@@ -467,6 +564,24 @@ export function createBulkEdit(options) {
     fieldsContainer.addEventListener('change', () => {
         if (state.isOpen) {
             renderPreview();
+        }
+    });
+    previewList.addEventListener('click', (event) => {
+        const actionButton = event.target?.closest?.('button[data-action]');
+        if (!actionButton || state.isSubmitting) {
+            return;
+        }
+
+        const action = String(actionButton.dataset.action || '');
+        const workKey = String(actionButton.dataset.workKey || '');
+        if (action === 'toggle-expand') {
+            toggleExpandedCase(workKey);
+            renderPreview();
+            return;
+        }
+
+        if (action === 'open-case-preview' && workKey && typeof config.openCasePreview === 'function') {
+            config.openCasePreview(workKey);
         }
     });
     document.addEventListener('keydown', (event) => {
