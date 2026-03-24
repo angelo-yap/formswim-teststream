@@ -255,4 +255,14 @@ public class TagController {
         }
         return Optional.empty();
     }
+
+    private void addDelimitedValues(Set<String> tags, Set<String> seen, String rawValue) {
+        if (rawValue == null) {
+            return;
+        }
+        Arrays.stream(rawValue.split(","))
+            .map(String::trim)
+            .filter(v -> !v.isEmpty() && seen.add(v.toLowerCase()))
+            .forEach(tags::add);
+    }
 }
