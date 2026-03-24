@@ -69,15 +69,13 @@ export function createDrawer(options) {
             label.textContent = tag.name;
             badge.appendChild(label);
 
-            if (!isReadOnly) {
-                const removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.className = 'ml-0.5 opacity-50 hover:opacity-100 focus:outline-none';
-                removeBtn.setAttribute('aria-label', 'Remove tag ' + tag.name);
-                removeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/></svg>';
-                removeBtn.addEventListener('click', () => handleRemoveTag(tag.id));
-                badge.appendChild(removeBtn);
-            }
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'ml-0.5 opacity-50 hover:opacity-100 focus:outline-none';
+            removeBtn.setAttribute('aria-label', 'Remove tag ' + tag.name);
+            removeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/></svg>';
+            removeBtn.addEventListener('click', () => handleRemoveTag(tag.id));
+            badge.appendChild(removeBtn);
 
             drawerTagBadges.appendChild(badge);
         }
@@ -272,9 +270,6 @@ export function createDrawer(options) {
 
     if (drawerTagInput) {
         drawerTagInput.addEventListener('input', () => {
-            if (isReadOnly) {
-                return;
-            }
             const query = drawerTagInput.value;
             if (!query.trim()) {
                 // Show all unassigned tags when input is empty and focused.
@@ -285,9 +280,7 @@ export function createDrawer(options) {
         });
 
         drawerTagInput.addEventListener('focus', () => {
-            if (!isReadOnly) {
-                showDropdown(buildDropdownItems(drawerTagInput.value));
-            }
+            showDropdown(buildDropdownItems(drawerTagInput.value));
         });
 
         drawerTagInput.addEventListener('keydown', (event) => {
@@ -619,14 +612,14 @@ export function createDrawer(options) {
 
         if (drawerFooterHint) {
             drawerFooterHint.textContent = isReadOnly
-                ? 'Preview mode is read-only.'
+                ? 'Preview mode — tags can be added or removed.'
                 : 'Save updates and return to grid.';
         }
 
-        // Show/hide tag input based on mode.
-        const tagInputWrap = drawerTagInput ? drawerTagInput.parentElement : null;
-        if (tagInputWrap) {
-            tagInputWrap.classList.toggle('hidden', isReadOnly);
+        // Tag management stays active in both preview and edit modes.
+        if (drawerTagInput) {
+            drawerTagInput.disabled = false;
+            drawerTagInput.classList.remove('opacity-70');
         }
 
         renderTagBadges();
