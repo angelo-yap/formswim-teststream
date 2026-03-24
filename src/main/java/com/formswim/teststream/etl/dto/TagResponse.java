@@ -12,6 +12,11 @@ public class TagResponse {
         this.name = tag.getName();
     }
 
+    public TagResponse(String name) {
+        this.id = null;
+        this.name = name;
+    }
+
     public Long getId() {
         return id;
     }

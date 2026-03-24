@@ -25,9 +25,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Controller
@@ -59,10 +62,29 @@ public class TagController {
             return ResponseEntity.status(403).build();
         }
 
-        List<TagResponse> tags = tagRepository.findByTeamKeyOrderByNameAsc(user.getTeamKey())
-            .stream()
-            .map(TagResponse::new)
-            .collect(Collectors.toList());
+        String teamKey = user.getTeamKey();
+
+        Set<String> seen = new HashSet<>();
+        List<TagResponse> tags = new ArrayList<>();
+
+        // Real tag entities first (preserve their IDs for the manage panel).
+        for (Tag tag : tagRepository.findByTeamKeyOrderByNameAsc(teamKey)) {
+            if (seen.add(tag.getNormalizedName())) {
+                tags.add(new TagResponse(tag));
+            }
+        }
+
+        // Derived values from testCaseType and components (for the filter dropdown).
+        List<String> derived = new ArrayList<>();
+        derived.addAll(testCaseRepository.findDistinctTestCaseTypeByTeamKey(teamKey));
+        derived.addAll(testCaseRepository.findDistinctComponentsByTeamKey(teamKey));
+        for (String value : derived) {
+            if (value != null && !value.isBlank() && seen.add(value.trim().toLowerCase())) {
+                tags.add(new TagResponse(value.trim()));
+            }
+        }
+
+        tags.sort(Comparator.comparing(t -> t.getName().toLowerCase()));
         return ResponseEntity.ok(tags);
     }
 
