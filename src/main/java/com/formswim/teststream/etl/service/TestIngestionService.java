@@ -142,6 +142,8 @@ public class TestIngestionService {
         for (TestCase testCase : parsedCases) {
             TestCase existing = existingByWorkKey.get(testCase.getWorkKey());
             if (existing == null) {
+                tagResolutionService.resolveTagsFromImplicitFields(teamKey, testCase.getTestCaseType(), testCase.getComponents())
+                    .forEach(testCase::addTag);
                 newCasesToSave.add(testCase);
                 stagedNewCases.add(uploadDiffService.toSnapshot(testCase));
                 continue;

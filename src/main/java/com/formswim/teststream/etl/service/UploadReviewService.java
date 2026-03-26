@@ -34,17 +34,20 @@ public class UploadReviewService {
     private final UploadReviewSessionRepository uploadReviewSessionRepository;
     private final UploadHistoryRepository uploadHistoryRepository;
     private final TestCaseRepository testCaseRepository;
+    private final TagResolutionService tagResolutionService;
 
     public UploadReviewService(ObjectMapper objectMapper,
                                UploadDiffService uploadDiffService,
                                UploadReviewSessionRepository uploadReviewSessionRepository,
                                UploadHistoryRepository uploadHistoryRepository,
-                               TestCaseRepository testCaseRepository) {
+                               TestCaseRepository testCaseRepository,
+                               TagResolutionService tagResolutionService) {
         this.objectMapper = objectMapper;
         this.uploadDiffService = uploadDiffService;
         this.uploadReviewSessionRepository = uploadReviewSessionRepository;
         this.uploadHistoryRepository = uploadHistoryRepository;
         this.testCaseRepository = testCaseRepository;
+        this.tagResolutionService = tagResolutionService;
     }
 
     @Transactional
@@ -256,6 +259,8 @@ public class UploadReviewService {
             ));
 
         applySnapshot(existing, snapshot);
+        tagResolutionService.resolveTagsFromImplicitFields(teamKey, snapshot.getTestCaseType(), snapshot.getComponents())
+            .forEach(existing::addTag);
         testCaseRepository.save(existing);
     }
 
