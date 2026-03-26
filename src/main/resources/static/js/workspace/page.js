@@ -1025,6 +1025,13 @@ function apiAddTag(workKey, tagId) {
 }
 
 function apiRemoveTag(workKey, tagId) {
+    const originalTags = (currentPageCases.find((tc) => tc.workKey === workKey)?.tags || []);
+    const optimisticTags = originalTags.filter((t) => t.id !== tagId);
+    currentPageCases = currentPageCases.map((tc) =>
+        tc.workKey === workKey ? { ...tc, tags: optimisticTags } : tc
+    );
+    grid.updateRowTags(workKey, optimisticTags);
+
     const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
     const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
     return fetch(apiBaseUrl + '/' + encodeURIComponent(workKey) + '/tags/' + tagId, {
@@ -1043,6 +1050,12 @@ function apiRemoveTag(workKey, tagId) {
             );
             grid.updateRowTags(workKey, updatedTags);
             return updatedTags;
+        })
+        .catch(() => {
+            currentPageCases = currentPageCases.map((tc) =>
+                tc.workKey === workKey ? { ...tc, tags: originalTags } : tc
+            );
+            grid.updateRowTags(workKey, originalTags);
         });
 }
 
