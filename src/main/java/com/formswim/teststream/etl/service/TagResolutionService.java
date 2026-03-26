@@ -29,22 +29,76 @@ public class TagResolutionService {
      * Tag entities, finding existing ones or creating new ones as needed.
      */
     public List<Tag> resolveTagsFromImplicitFields(String teamKey, String testCaseType, String components) {
-        // Collect raw name tokens, preserving first-seen display casing per normalized key.
+        Map<String, String> normalizedToDisplay = collectTokens(testCaseType, components);
+        if (normalizedToDisplay.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Tag> existingByNormalized = new LinkedHashMap<>();
+        for (Tag tag : tagRepository.findByTeamKeyOrderByNameAsc(teamKey)) {
+            existingByNormalized.put(tag.getNormalizedName(), tag);
+        }
+
+        List<Tag> result = new ArrayList<>();
+        for (Map.Entry<String, String> entry : normalizedToDisplay.entrySet()) {
+            Tag tag = existingByNormalized.get(entry.getKey());
+            if (tag == null) {
+                tag = tagRepository.save(new Tag(teamKey, entry.getValue()));
+                existingByNormalized.put(tag.getNormalizedName(), tag);
+            }
+            result.add(tag);
+        }
+        return result;
+    }
+
+    /**
+     * Batch variant for resolving implicit tags across many test cases in one operation.
+     * Loads existing tags once and reuses them across all resolutions.
+     */
+    public BatchResolver batchResolverFor(String teamKey) {
+        Map<String, Tag> existingByNormalized = new LinkedHashMap<>();
+        for (Tag tag : tagRepository.findByTeamKeyOrderByNameAsc(teamKey)) {
+            existingByNormalized.put(tag.getNormalizedName(), tag);
+        }
+        return new BatchResolver(teamKey, existingByNormalized);
+    }
+
+    public class BatchResolver {
+        private final String teamKey;
+        private final Map<String, Tag> cache;
+
+        private BatchResolver(String teamKey, Map<String, Tag> cache) {
+            this.teamKey = teamKey;
+            this.cache = cache;
+        }
+
+        public List<Tag> resolve(String testCaseType, String components) {
+            Map<String, String> tokens = collectTokens(testCaseType, components);
+            if (tokens.isEmpty()) {
+                return List.of();
+            }
+            List<Tag> result = new ArrayList<>();
+            for (Map.Entry<String, String> entry : tokens.entrySet()) {
+                Tag tag = cache.get(entry.getKey());
+                if (tag == null) {
+                    tag = tagRepository.save(new Tag(teamKey, entry.getValue()));
+                    cache.put(tag.getNormalizedName(), tag);
+                }
+                result.add(tag);
+            }
+            return result;
+        }
+    }
+
+    private Map<String, String> collectTokens(String testCaseType, String components) {
         Map<String, String> normalizedToDisplay = new LinkedHashMap<>();
-
         addToken(normalizedToDisplay, testCaseType);
-
         if (components != null && !components.isBlank()) {
             for (String part : components.split(",")) {
                 addToken(normalizedToDisplay, part);
             }
         }
-
-        List<Tag> result = new ArrayList<>();
-        for (Map.Entry<String, String> entry : normalizedToDisplay.entrySet()) {
-            result.add(findOrCreate(teamKey, entry.getKey(), entry.getValue()));
-        }
-        return result;
+        return normalizedToDisplay;
     }
 
     private void addToken(Map<String, String> map, String raw) {
@@ -56,10 +110,5 @@ public class TagResolutionService {
         if (!normalized.isEmpty()) {
             map.putIfAbsent(normalized, display);
         }
-    }
-
-    private Tag findOrCreate(String teamKey, String normalizedName, String displayName) {
-        return tagRepository.findByTeamKeyAndNormalizedName(teamKey, normalizedName)
-            .orElseGet(() -> tagRepository.save(new Tag(teamKey, displayName)));
     }
 }
