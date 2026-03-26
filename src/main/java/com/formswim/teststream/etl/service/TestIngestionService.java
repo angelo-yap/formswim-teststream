@@ -37,6 +37,7 @@ public class TestIngestionService {
     private final FileHashService fileHashService;
     private final UploadDiffService uploadDiffService;
     private final UploadReviewService uploadReviewService;
+    private final TagResolutionService tagResolutionService;
     private final TransactionTemplate transactionTemplate;
 
     public TestIngestionService(ExcelParserService excelParserService,
@@ -47,6 +48,7 @@ public class TestIngestionService {
                                 FileHashService fileHashService,
                                 UploadDiffService uploadDiffService,
                                 UploadReviewService uploadReviewService,
+                                TagResolutionService tagResolutionService,
                                 PlatformTransactionManager transactionManager) {
         this.excelParserService = excelParserService;
         this.csvParserService = csvParserService;
@@ -56,6 +58,7 @@ public class TestIngestionService {
         this.fileHashService = fileHashService;
         this.uploadDiffService = uploadDiffService;
         this.uploadReviewService = uploadReviewService;
+        this.tagResolutionService = tagResolutionService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -139,6 +142,8 @@ public class TestIngestionService {
         for (TestCase testCase : parsedCases) {
             TestCase existing = existingByWorkKey.get(testCase.getWorkKey());
             if (existing == null) {
+                tagResolutionService.resolveTagsFromImplicitFields(teamKey, testCase.getTestCaseType(), testCase.getComponents())
+                    .forEach(testCase::addTag);
                 newCasesToSave.add(testCase);
                 stagedNewCases.add(uploadDiffService.toSnapshot(testCase));
                 continue;

@@ -3,13 +3,18 @@ package com.formswim.teststream.etl.model;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import org.hibernate.annotations.BatchSize;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -61,13 +66,13 @@ public class TestCase {
     @Column(columnDefinition = "TEXT")
     private String labels;
 
-    @Column(name = "components", length = 255)
+    @Column(name = "components", columnDefinition = "TEXT")
     private String components;
 
-    @Column(name = "sprint", length = 255)
+    @Column(name = "sprint", columnDefinition = "TEXT")
     private String sprint;
 
-    @Column(name = "fix_versions", length = 255)
+    @Column(name = "fix_versions", columnDefinition = "TEXT")
     private String fixVersions;
 
     @Column(name = "version", length = 100)
@@ -103,6 +108,19 @@ public class TestCase {
     @OneToMany(mappedBy = "testCase", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("stepNumber ASC")
     private List<TestStep> steps = new ArrayList<>();
+
+
+
+    // revisit after search-refactor
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "test_case_tag",
+        joinColumns = @JoinColumn(name = "test_case_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    @BatchSize(size = 50)
+    @OrderBy("name ASC")
+    private List<Tag> tags = new ArrayList<>();
 
     protected TestCase() {
     }
@@ -350,5 +368,19 @@ public class TestCase {
 
     public List<TestStep> getSteps() {
         return steps;
+    }
+
+    public List<Tag> getTags() {
+        return tags;
+    }
+
+    public void addTag(Tag tag) {
+        if (!tags.contains(tag)) {
+            tags.add(tag);
+        }
+    }
+
+    public void removeTag(Tag tag) {
+        tags.remove(tag);
     }
 }

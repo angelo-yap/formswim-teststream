@@ -1,3 +1,32 @@
+const TAG_COLORS = [
+    { color: '#60a5fa', bg: 'rgba(96,165,250,0.18)' },   // blue
+    { color: '#a78bfa', bg: 'rgba(167,139,250,0.18)' },  // violet
+    { color: '#4ade80', bg: 'rgba(74,222,128,0.18)' },   // green
+    { color: '#fb923c', bg: 'rgba(251,146,60,0.18)' },   // orange
+    { color: '#f472b6', bg: 'rgba(244,114,182,0.18)' },  // pink
+    { color: '#22d3ee', bg: 'rgba(34,211,238,0.18)' },   // cyan
+    { color: '#f87171', bg: 'rgba(248,113,113,0.18)' },  // red
+    { color: '#a3e635', bg: 'rgba(163,230,53,0.18)' },   // lime
+    { color: '#fbbf24', bg: 'rgba(251,191,36,0.18)' },   // amber
+    { color: '#818cf8', bg: 'rgba(129,140,248,0.18)' },  // indigo
+    { color: '#34d399', bg: 'rgba(52,211,153,0.18)' },   // emerald
+    { color: '#f43f5e', bg: 'rgba(244,63,94,0.18)' },    // rose
+    { color: '#38bdf8', bg: 'rgba(56,189,248,0.18)' },   // sky
+    { color: '#c084fc', bg: 'rgba(192,132,252,0.18)' },  // purple
+    { color: '#fdba74', bg: 'rgba(253,186,116,0.18)' },  // peach
+    { color: '#86efac', bg: 'rgba(134,239,172,0.18)' },  // sage
+    { color: '#67e8f9', bg: 'rgba(103,232,249,0.18)' },  // light-cyan
+    { color: '#fda4af', bg: 'rgba(253,164,175,0.18)' },  // light-rose
+    { color: '#d9f99d', bg: 'rgba(217,249,157,0.18)' },  // yellow-green
+    { color: '#93c5fd', bg: 'rgba(147,197,253,0.18)' },  // light-blue
+];
+
+export function tagColor(tagName) {
+    const s = String(tagName || '');
+    const n = Math.abs(s.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0));
+    return TAG_COLORS[n % TAG_COLORS.length];
+}
+
 export function escHtml(value) {
     return String(value)
         .replace(/&/g, '&amp;')
@@ -6,65 +35,40 @@ export function escHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
-function parseTagList(value) {
-    if (!value) {
-        return [];
-    }
 
-    if (Array.isArray(value)) {
-        return value
-            .map((item) => String(item || '').trim())
-            .filter(Boolean);
-    }
-
-    const raw = String(value || '').trim();
-    if (!raw) {
-        return [];
-    }
-
-    // Support comma/semicolon/pipe separated tag strings.
-    return raw
-        .split(/[,;|]/)
-        .map((item) => item.trim())
-        .filter(Boolean);
-}
-
-function buildTagBadges(testCase, maxVisible = 3) {
-    // Today, tags live in `components` (often a string). `testCaseType` is shown as an additional badge.
-    // This helper keeps the future “real tags” implementation isolated.
-    const list = [];
-    list.push(...parseTagList(testCase?.components));
-    list.push(...parseTagList(testCase?.testCaseType));
-
-    // De-dupe (case-insensitive) while preserving the first-seen casing.
-    const byLower = new Map();
-    for (const tag of list) {
-        const key = tag.toLowerCase();
-        if (!byLower.has(key)) {
-            byLower.set(key, tag);
-        }
-    }
-
-    const tags = Array.from(byLower.values());
-    const visible = tags.slice(0, Math.max(0, maxVisible));
-    const hiddenCount = Math.max(0, tags.length - visible.length);
+function buildTagBadges(testCase, maxVisible = 3, workKey = '') {
+    const rawTags = Array.isArray(testCase?.tags) ? testCase.tags : [];
+    const validTags = rawTags.filter((t) => t?.name && String(t.name).trim());
+    const tagObjects = validTags.map((t) => ({ id: t.id, name: String(t.name).trim() }));
+    const visible = tagObjects.slice(0, Math.max(0, maxVisible));
+    const hiddenCount = Math.max(0, tagObjects.length - visible.length);
 
     let html = '';
-    for (const tag of visible) {
-        html += '<span class="max-w-full truncate px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(tag) + '</span>';
-    }
-    if (hiddenCount > 0) {
-        html += '<span class="max-w-full truncate px-2 py-1 text-xs border border-white/15 text-white/60">+' + escHtml(hiddenCount) + '</span>';
+    for (const t of visible) {
+        const c = tagColor(t.name);
+        const removeBtn = workKey && t.id != null
+            ? '<button type="button" class="ws-row-action ws-interactive shrink-0 leading-none opacity-60 hover:opacity-100" data-action="remove-tag" data-work-key="' + escHtml(workKey) + '" data-tag-id="' + escHtml(String(t.id)) + '" aria-label="Remove tag">&#x2715;</button>'
+            : '';
+        html += '<span class="inline-flex items-center gap-1 max-w-full px-2 py-0.5 text-xs border" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '"><span class="truncate">' + escHtml(t.name) + '</span>' + removeBtn + '</span>';
     }
 
-    return {
-        tags,
-        html
-    };
+    return { tags: tagObjects, html, hiddenCount };
 }
 
 let tagTooltipEl = null;
 let tagTooltipAnchor = null;
+let tagTooltipHideTimer = null;
+
+function scheduleHideTagTooltip() {
+    tagTooltipHideTimer = setTimeout(hideTagTooltip, 120);
+}
+
+function cancelHideTagTooltip() {
+    if (tagTooltipHideTimer) {
+        clearTimeout(tagTooltipHideTimer);
+        tagTooltipHideTimer = null;
+    }
+}
 
 function ensureTagTooltip() {
     if (tagTooltipEl) {
@@ -74,9 +78,21 @@ function ensureTagTooltip() {
     const el = document.createElement('div');
     el.className = 'fixed z-50 border border-white/20 bg-black px-3 py-2 text-xs text-white/80';
     el.style.display = 'none';
-    el.style.pointerEvents = 'none';
     el.style.maxWidth = '22rem';
     document.body.appendChild(el);
+
+    el.addEventListener('mouseenter', cancelHideTagTooltip);
+    el.addEventListener('mouseleave', scheduleHideTagTooltip);
+    el.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ws-tooltip-remove');
+        if (!btn) return;
+        const wk = btn.dataset.workKey;
+        const tagId = parseInt(btn.dataset.tagId, 10);
+        if (wk && tagId) {
+            document.dispatchEvent(new CustomEvent('ws-remove-tag', { detail: { workKey: wk, tagId } }));
+            hideTagTooltip();
+        }
+    });
 
     const hide = () => hideTagTooltip();
     window.addEventListener('scroll', hide, true);
@@ -87,6 +103,7 @@ function ensureTagTooltip() {
 }
 
 function hideTagTooltip() {
+    cancelHideTagTooltip();
     if (!tagTooltipEl) {
         return;
     }
@@ -120,7 +137,7 @@ function positionTooltip(anchorRect, tooltipRect) {
     return { left, top };
 }
 
-function showTagTooltip(anchorEl, tags) {
+function showTagTooltip(anchorEl, tags, workKey) {
     if (!anchorEl || !tags || tags.length === 0) {
         return;
     }
@@ -128,10 +145,15 @@ function showTagTooltip(anchorEl, tags) {
     const tooltip = ensureTagTooltip();
     tagTooltipAnchor = anchorEl;
 
-    // Render each tag as a badge so future per-tag colors are visible here.
     let html = '<div class="flex flex-wrap gap-2">';
     for (const tag of tags) {
-        html += '<span class="max-w-full truncate px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(tag) + '</span>';
+        const name = typeof tag === 'string' ? tag : tag.name;
+        const tagId = typeof tag === 'string' ? null : tag.id;
+        const c = tagColor(name);
+        const removeBtn = workKey && tagId != null
+            ? '<button class="ws-tooltip-remove shrink-0 opacity-60 hover:opacity-100 leading-none ml-1" data-work-key="' + escHtml(workKey) + '" data-tag-id="' + escHtml(String(tagId)) + '" aria-label="Remove">&#x2715;</button>'
+            : '';
+        html += '<span class="inline-flex items-center whitespace-nowrap px-2 py-1 text-xs border" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '">' + escHtml(name) + removeBtn + '</span>';
     }
     html += '</div>';
 
@@ -152,7 +174,7 @@ function decodeTagsFromDataset(value) {
 
     try {
         const parsed = JSON.parse(decodeURIComponent(String(value)));
-        return Array.isArray(parsed) ? parsed.map((item) => String(item)) : [];
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
     } catch (e) {
         return [];
     }
@@ -189,10 +211,9 @@ export function createGrid(tbody) {
             const title = testCase.summary || '—';
             const folder = testCase.folder || '';
             const status = testCase.status || '—';
-            const tagModel = buildTagBadges(testCase, 3);
+            const tagModel = buildTagBadges(testCase, 2, workKey);
             const updated = testCase.updatedOn || '—';
-            const idFontSize = workKey.length > 14 ? '10px' : (workKey.length > 10 ? '11px' : '12px');
-            const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
+const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
 
             testCaseMap[workKey] = testCase;
 
@@ -211,11 +232,16 @@ export function createGrid(tbody) {
                     (folder ? '<div class="text-white/45 text-xs mt-0.5 truncate">' + escHtml(folder) + '</div>' : '') +
                 '</div>';
 
-            const tagsCell = tagModel.html || '<span class="text-white/45">—</span>';
             const encodedTags = tagModel.tags && tagModel.tags.length > 0
                 ? encodeURIComponent(JSON.stringify(tagModel.tags))
                 : '';
             const tagsTabIndex = encodedTags ? '0' : '-1';
+            const overflowBadge = tagModel.hiddenCount > 0
+                ? '<span class="shrink-0 px-1.5 py-0.5 text-xs text-white/40 border border-white/15 rounded-full">+' + tagModel.hiddenCount + '</span>'
+                : '';
+            const tagsCell = tagModel.html
+                ? '<div class="min-w-0 flex flex-nowrap gap-1.5 overflow-hidden">' + tagModel.html + '</div>' + overflowBadge
+                : '<span class="text-white/45">—</span>';
 
             row.innerHTML =
                 '<td class="px-2 sm:px-4 py-2.5 text-white/45">' +
@@ -229,7 +255,7 @@ export function createGrid(tbody) {
                 '</td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
-                '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 flex flex-wrap gap-2" data-ws-tags="' + escHtml(encodedTags) + '" tabindex="' + tagsTabIndex + '">' + tagsCell + '</div></td>' +
+                '<td class="px-3 sm:px-6 py-2.5"><div class="flex items-center gap-1.5"><div class="min-w-0 flex flex-nowrap items-center gap-1.5" data-ws-tags="' + escHtml(encodedTags) + '" tabindex="' + tagsTabIndex + '">' + tagsCell + '</div><button type="button" class="ws-row-action ws-interactive shrink-0 h-5 w-5 inline-flex items-center justify-center rounded-full border border-white/15 text-white/40 hover:border-white/40 hover:text-white/70 text-xs leading-none" data-action="add-tag" data-work-key="' + escHtml(workKey) + '" aria-label="Add tag">+</button></div></td>' +
                 '<td class="pl-3 pr-6 sm:pl-6 sm:pr-4 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>' +
                 '<td class="px-2 sm:px-4 py-2.5 text-right">' +
                     '<div class="inline-flex items-center gap-2" data-work-key="' + escHtml(workKey) + '">' +
@@ -242,13 +268,13 @@ export function createGrid(tbody) {
             if (tagsEl) {
                 const tags = decodeTagsFromDataset(tagsEl.getAttribute('data-ws-tags'));
                 if (tags.length > 0) {
-                    tagsEl.addEventListener('mouseenter', () => showTagTooltip(tagsEl, tags));
+                    tagsEl.addEventListener('mouseenter', () => { cancelHideTagTooltip(); showTagTooltip(tagsEl, tags, workKey); });
                     tagsEl.addEventListener('mouseleave', () => {
                         if (tagTooltipAnchor === tagsEl) {
-                            hideTagTooltip();
+                            scheduleHideTagTooltip();
                         }
                     });
-                    tagsEl.addEventListener('focusin', () => showTagTooltip(tagsEl, tags));
+                    tagsEl.addEventListener('focusin', () => showTagTooltip(tagsEl, tags, workKey));
                     tagsEl.addEventListener('focusout', () => {
                         if (tagTooltipAnchor === tagsEl) {
                             hideTagTooltip();
@@ -265,8 +291,39 @@ export function createGrid(tbody) {
         return testCaseMap[workKey] || null;
     }
 
+    function updateRowTags(workKey, updatedTags) {
+        const tc = testCaseMap[workKey];
+        if (!tc) return;
+        tc.tags = updatedTags;
+        const row = tbody.querySelector('tr[data-work-key="' + CSS.escape(workKey) + '"]');
+        if (!row) return;
+        const tagModel = buildTagBadges(tc, 2, workKey);
+        const encodedTags = tagModel.tags.length > 0 ? encodeURIComponent(JSON.stringify(tagModel.tags)) : '';
+        const overflowBadge = tagModel.hiddenCount > 0
+            ? '<span class="shrink-0 px-1.5 py-0.5 text-xs text-white/40 border border-white/15 rounded-full">+' + tagModel.hiddenCount + '</span>'
+            : '';
+        const tagsCell = tagModel.html
+            ? '<div class="min-w-0 flex flex-nowrap gap-1.5 overflow-hidden">' + tagModel.html + '</div>' + overflowBadge
+            : '<span class="text-white/45">—</span>';
+        const tagsEl = row.querySelector('[data-ws-tags]');
+        if (!tagsEl) return;
+        // Clone to drop all old event listeners, then replace.
+        const fresh = tagsEl.cloneNode(false);
+        fresh.setAttribute('data-ws-tags', escHtml(encodedTags));
+        fresh.setAttribute('tabindex', encodedTags ? '0' : '-1');
+        fresh.innerHTML = tagsCell;
+        tagsEl.parentNode.replaceChild(fresh, tagsEl);
+        if (tagModel.tags.length > 0) {
+            fresh.addEventListener('mouseenter', () => { cancelHideTagTooltip(); showTagTooltip(fresh, tagModel.tags, workKey); });
+            fresh.addEventListener('mouseleave', () => { if (tagTooltipAnchor === fresh) { scheduleHideTagTooltip(); } });
+            fresh.addEventListener('focusin', () => showTagTooltip(fresh, tagModel.tags, workKey));
+            fresh.addEventListener('focusout', () => { if (tagTooltipAnchor === fresh) { hideTagTooltip(); } });
+        }
+    }
+
     return {
         renderRows,
-        getTestCaseById
+        getTestCaseById,
+        updateRowTags
     };
 }

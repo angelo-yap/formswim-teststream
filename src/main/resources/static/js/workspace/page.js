@@ -14,6 +14,7 @@ const searchInput = document.getElementById('wsSearch');
 const filterComponent = document.getElementById('wsFilterComponent');
 const filterStatus = document.getElementById('wsFilterStatus');
 const filterTag = document.getElementById('wsFilterTag');
+const activeTagChipName = document.getElementById('wsActiveTagChipName');
 const bulkBar = document.getElementById('bulkBar');
 const bulkCount = document.getElementById('bulkCount');
 const bulkExportSelected = document.getElementById('bulkExportSelected');
@@ -76,7 +77,13 @@ const drawer = createDrawer({
     drawerAssignee: document.getElementById('drawerAssignee'),
     drawerReporter: document.getElementById('drawerReporter'),
     drawerCreatedOn: document.getElementById('drawerCreatedOn'),
-    drawerTags: document.getElementById('drawerTags'),
+    drawerTagBadges: document.getElementById('drawerTagBadges'),
+    drawerTagInput: document.getElementById('drawerTagInput'),
+    drawerTagDropdown: document.getElementById('drawerTagDropdown'),
+    drawerManageTagsBtn: document.getElementById('drawerManageTagsBtn'),
+    drawerManageTagsPanel: document.getElementById('drawerManageTagsPanel'),
+    drawerManageTagsList: document.getElementById('drawerManageTagsList'),
+    drawerManageTagsEmpty: document.getElementById('drawerManageTagsEmpty'),
     drawerModeLabel: document.getElementById('drawerModeLabel'),
     drawerFooterHint: document.getElementById('drawerFooterHint'),
     getTestCaseById: grid.getTestCaseById
@@ -202,13 +209,13 @@ selection.setSelectionChangeHandler((selectedIds) => {
     bulkEdit.onSelectionChanged(selectedIds);
 });
 
-if (drawer && typeof drawer.bind === 'function') {
-    drawer.bind(tbody);
-}
-
 if (importNoticeClose) {
     importNoticeClose.addEventListener('click', clearImportNotice);
 }
+
+document.addEventListener('ws-remove-tag', (e) => {
+    apiRemoveTag(e.detail.workKey, e.detail.tagId);
+});
 
 if (tbody) {
     tbody.addEventListener('change', (event) => {
@@ -232,6 +239,13 @@ if (tbody) {
             const action = actionButton.dataset.action;
             if (action === 'preview') {
                 drawer.openByWorkKey(workKey, { readOnly: false });
+            } else if (action === 'add-tag') {
+                drawer.openByWorkKey(workKey, { readOnly: false, focusTags: true });
+            } else if (action === 'remove-tag') {
+                const tagId = parseInt(actionButton.dataset.tagId, 10);
+                if (tagId && workKey) {
+                    apiRemoveTag(workKey, tagId);
+                }
             } else if (action === 'edit') {
                 // Edit is rendered as an anchor; keep a defensive fallback for non-anchor actions.
                 if (actionButton.tagName !== 'A') {
@@ -917,27 +931,192 @@ function loadFolders() {
         });
 }
 
+function refreshTagFilterDropdown() {
+    fetch(tagsBaseUrl + '/catalog')
+        .then((r) => r.ok ? r.json() : [])
+        .then((data) => {
+            const catalog = Array.isArray(data) ? data : [];
+            drawer.setTeamCatalog(catalog);
+        })
+        .catch(() => {});
+
+    fetch(tagsBaseUrl)
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then((data) => {
+            const tagNames = uniqueSorted(Array.isArray(data) ? data : []);
+            populateSelect(filterTag, tagNames);
+        })
+        .catch(() => {
+            const tagNames = uniqueSorted(
+                currentPageCases.flatMap((item) => (item?.tags || []).map((t) => t?.name))
+            );
+            populateSelect(filterTag, tagNames);
+        });
+}
+
 function loadFilterOptions() {
-    const requests = [
+    // Fetch tag entities for the drawer catalog (needs IDs for assign/rename/delete).
+    fetch(tagsBaseUrl + '/catalog')
+        .then((r) => r.ok ? r.json() : [])
+        .then((data) => {
+            const catalog = Array.isArray(data) ? data : [];
+            drawer.setTeamCatalog(catalog);
+            drawer.setCallbacks({
+                onTagAdd: apiAddTag,
+                onTagRemove: apiRemoveTag,
+                onTagCreate: apiCreateTag,
+                onTagRename: apiRenameTag,
+                onTagDelete: apiDeleteTag
+            });
+        })
+        .catch(() => {});
+
+    const tagRequest = fetch(tagsBaseUrl)
+        .then((r) => {
+            if (!r.ok) {
+                throw new Error('Tags failed');
+            }
+            return r.json();
+        })
+        .then((data) => {
+            return uniqueSorted(Array.isArray(data) ? data : []);
+        });
+
+    Promise.all([
         fetchOptionValues(componentsBaseUrl),
         fetchOptionValues(statusesBaseUrl),
-        fetchOptionValues(tagsBaseUrl)
-    ];
-
-    Promise.all(requests)
-        .then(([components, statuses, tags]) => {
+        tagRequest
+    ])
+        .then(([components, statuses, tagNames]) => {
             populateSelect(filterComponent, components);
             populateSelect(filterStatus, statuses);
-            populateSelect(filterTag, tags);
+            populateSelect(filterTag, tagNames);
         })
         .catch(() => {
             const components = uniqueSorted(currentPageCases.map((item) => item?.components));
             const statuses = uniqueSorted(currentPageCases.map((item) => item?.status));
-            const tags = uniqueSorted(currentPageCases.flatMap((item) => [item?.components, item?.testCaseType]));
+            const tags = uniqueSorted(currentPageCases.flatMap((item) => (item?.tags || []).map((t) => t?.name)));
             populateSelect(filterComponent, components);
             populateSelect(filterStatus, statuses);
             populateSelect(filterTag, tags);
         });
+}
+
+function apiAddTag(workKey, tagId) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return fetch(apiBaseUrl + '/' + encodeURIComponent(workKey) + '/tags/' + tagId, {
+        method: 'POST',
+        headers: { [csrfHeader]: csrfToken }
+    })
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Tag assign failed: ' + response.status);
+            }
+            return response.json();
+        })
+        .then((updatedTags) => {
+            currentPageCases = currentPageCases.map((tc) =>
+                tc.workKey === workKey ? { ...tc, tags: updatedTags } : tc
+            );
+            grid.updateRowTags(workKey, updatedTags);
+            return updatedTags;
+        });
+}
+
+function apiRemoveTag(workKey, tagId) {
+    const originalTags = (currentPageCases.find((tc) => tc.workKey === workKey)?.tags || []);
+    const optimisticTags = originalTags.filter((t) => t.id !== tagId);
+    currentPageCases = currentPageCases.map((tc) =>
+        tc.workKey === workKey ? { ...tc, tags: optimisticTags } : tc
+    );
+    grid.updateRowTags(workKey, optimisticTags);
+
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return fetch(apiBaseUrl + '/' + encodeURIComponent(workKey) + '/tags/' + tagId, {
+        method: 'DELETE',
+        headers: { [csrfHeader]: csrfToken }
+    })
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error('Tag unassign failed: ' + response.status);
+            }
+            return response.json();
+        })
+        .then((updatedTags) => {
+            currentPageCases = currentPageCases.map((tc) =>
+                tc.workKey === workKey ? { ...tc, tags: updatedTags } : tc
+            );
+            grid.updateRowTags(workKey, updatedTags);
+            return updatedTags;
+        })
+        .catch(() => {
+            currentPageCases = currentPageCases.map((tc) =>
+                tc.workKey === workKey ? { ...tc, tags: originalTags } : tc
+            );
+            grid.updateRowTags(workKey, originalTags);
+        });
+}
+
+function apiRenameTag(tagId, name) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return fetch(tagsBaseUrl + '/' + tagId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', [csrfHeader]: csrfToken },
+        body: JSON.stringify({ name })
+    }).then((response) => {
+        if (!response.ok) {
+            throw new Error('Rename failed: ' + response.status);
+        }
+        return response.json();
+    }).then((updatedTag) => {
+        currentPageCases = currentPageCases.map((tc) => ({
+            ...tc,
+            tags: (tc.tags || []).map((t) => t.id === tagId ? { ...t, name: updatedTag.name } : t)
+        }));
+        refreshTagFilterDropdown();
+        renderCurrentPage();
+        return updatedTag;
+    });
+}
+
+function apiDeleteTag(tagId) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return fetch(tagsBaseUrl + '/' + tagId, {
+        method: 'DELETE',
+        headers: { [csrfHeader]: csrfToken }
+    }).then((response) => {
+        if (!response.ok) {
+            throw new Error('Delete failed: ' + response.status);
+        }
+        currentPageCases = currentPageCases.map((tc) => ({
+            ...tc,
+            tags: (tc.tags || []).filter((t) => t.id !== tagId)
+        }));
+        refreshTagFilterDropdown();
+        renderCurrentPage();
+    });
+}
+
+function apiCreateTag(name) {
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return fetch(tagsBaseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', [csrfHeader]: csrfToken },
+        body: JSON.stringify({ name })
+    }).then((response) => {
+        if (!response.ok && response.status !== 409) {
+            throw new Error('Tag create failed: ' + response.status);
+        }
+        return response.json();
+    }).then((tag) => {
+        refreshTagFilterDropdown();
+        return tag;
+    });
 }
 
 function fetchOptionValues(url) {
@@ -1162,6 +1341,12 @@ if (nextPageButton) {
             return;
         }
         loadCurrentPage({ page: pageState.page + 1 });
+    });
+}
+if (activeTagChipName) {
+    activeTagChipName.addEventListener('click', () => {
+        if (filterTag) filterTag.value = '';
+        applyFilters();
     });
 }
 

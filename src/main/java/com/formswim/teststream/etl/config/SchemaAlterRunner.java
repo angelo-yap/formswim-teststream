@@ -1,6 +1,7 @@
 package com.formswim.teststream.etl.config;
 
 import java.sql.Connection;
+import java.util.List;
 import java.util.Locale;
 
 import org.slf4j.Logger;
@@ -9,6 +10,12 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import com.formswim.teststream.etl.model.Tag;
+import com.formswim.teststream.etl.repository.TestCaseRepository;
+import com.formswim.teststream.etl.service.TagResolutionService;
 
 /**
  * Runs once on startup to widen any varchar(255) columns that need to be TEXT.
@@ -22,9 +29,18 @@ public class SchemaAlterRunner implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(SchemaAlterRunner.class);
 
     private final JdbcTemplate jdbc;
+    private final TestCaseRepository testCaseRepository;
+    private final TagResolutionService tagResolutionService;
+    private final TransactionTemplate transactionTemplate;
 
-    public SchemaAlterRunner(JdbcTemplate jdbc) {
+    public SchemaAlterRunner(JdbcTemplate jdbc,
+                             TestCaseRepository testCaseRepository,
+                             TagResolutionService tagResolutionService,
+                             PlatformTransactionManager transactionManager) {
         this.jdbc = jdbc;
+        this.testCaseRepository = testCaseRepository;
+        this.tagResolutionService = tagResolutionService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Override
@@ -42,6 +58,45 @@ public class SchemaAlterRunner implements ApplicationRunner {
         // Older schemas enforced work_key uniqueness globally. The application model is
         // (team_key, work_key) unique, so migrate the constraint for Postgres.
         ensureTestCaseWorkKeyUniquePerTeam();
+
+        backfillImplicitTags();
+    }
+
+    private void backfillImplicitTags() {
+        try {
+            // Fast gate: skip entirely if no test cases with implicit fields are missing tags.
+            Integer pending = jdbc.queryForObject(
+                """
+                SELECT COUNT(*) FROM test_case tc
+                WHERE ((tc.test_case_type IS NOT NULL AND trim(tc.test_case_type) <> '')
+                    OR (tc.components IS NOT NULL AND trim(tc.components) <> ''))
+                AND NOT EXISTS (SELECT 1 FROM test_case_tag tct WHERE tct.test_case_id = tc.id)
+                """, Integer.class);
+            if (pending == null || pending == 0) {
+                return;
+            }
+
+            List<String> teamKeys = jdbc.queryForList(
+                "SELECT DISTINCT team_key FROM test_case WHERE team_key IS NOT NULL", String.class);
+            for (String teamKey : teamKeys) {
+                transactionTemplate.execute(status -> {
+                    TagResolutionService.BatchResolver resolver = tagResolutionService.batchResolverFor(teamKey);
+                    testCaseRepository.findByTeamKey(teamKey).forEach(tc -> {
+                        if (tc.getTags().isEmpty()) {
+                            List<Tag> resolved = resolver.resolve(tc.getTestCaseType(), tc.getComponents());
+                            if (!resolved.isEmpty()) {
+                                resolved.forEach(tc::addTag);
+                                testCaseRepository.save(tc);
+                            }
+                        }
+                    });
+                    return null;
+                });
+                log.info("Backfilled implicit tags for team: {}", teamKey);
+            }
+        } catch (Exception e) {
+            log.warn("Could not backfill implicit tags: {}", e.getMessage());
+        }
     }
 
     private void ensureTestCaseWorkKeyUniquePerTeam() {
