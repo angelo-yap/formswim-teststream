@@ -25,7 +25,8 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                   and (:component is null or :component = '' or lower(coalesce(testCase.components, '')) like lower(concat('%', :component, '%')))
                   and (:tag is null or :tag = ''
                        or lower(coalesce(testCase.components, '')) like lower(concat('%', :tag, '%'))
-                       or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :tag, '%')))
+                       or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :tag, '%'))
+                       or exists (select 1 from Tag t where t member of testCase.tags and lower(t.name) = lower(:tag)))
                         and (
                                 :folder is null or :folder = ''
                                 or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) = lower(:folder)
@@ -55,7 +56,8 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                   and (:component is null or :component = '' or lower(coalesce(testCase.components, '')) like lower(concat('%', :component, '%')))
                   and (:tag is null or :tag = ''
                        or lower(coalesce(testCase.components, '')) like lower(concat('%', :tag, '%'))
-                       or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :tag, '%')))
+                       or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :tag, '%'))
+                       or exists (select 1 from Tag t where t member of testCase.tags and lower(t.name) = lower(:tag)))
                         and (
                                 :folder is null or :folder = ''
                                 or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) = lower(:folder)

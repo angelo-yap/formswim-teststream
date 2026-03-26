@@ -231,15 +231,6 @@ if (tbody) {
     });
 
     tbody.addEventListener('click', (event) => {
-        const tagBadge = event.target?.closest?.('.ws-tag-filter');
-        if (tagBadge) {
-            const tagName = tagBadge.dataset.tagFilter || '';
-            if (tagName) {
-                document.dispatchEvent(new CustomEvent('ws:tagfilter', { detail: { name: tagName } }));
-            }
-            return;
-        }
-
         const actionButton = event.target?.closest?.('.ws-row-action');
         if (actionButton) {
             const workKey = actionButton.dataset.workKey || actionButton.closest('[data-work-key]')?.dataset.workKey || '';
@@ -953,7 +944,7 @@ function refreshTagFilterDropdown() {
         })
         .catch(() => {
             const tagNames = uniqueSorted(
-                allTestCases.flatMap((item) => (item?.tags || []).map((t) => t?.name))
+                currentPageCases.flatMap((item) => (item?.tags || []).map((t) => t?.name))
             );
             populateSelect(filterTag, tagNames);
         });
@@ -1005,7 +996,7 @@ function loadFilterOptions() {
             const tags = uniqueSorted(currentPageCases.flatMap((item) => [item?.components, item?.testCaseType]));
             populateSelect(filterComponent, components);
             populateSelect(filterStatus, statuses);
-            populateSelect(filterTag, tagNames);
+            populateSelect(filterTag, tags);
         });
 }
 
@@ -1036,7 +1027,6 @@ function apiAddTag(workKey, tagId) {
             currentPageCases = currentPageCases.map((tc) =>
                 tc.workKey === workKey ? { ...tc, tags: updatedTags } : tc
             );
-            renderCurrentPage();
             drawer.refreshTagCounts(buildTagUsageCounts());
             return updatedTags;
         });
@@ -1059,7 +1049,6 @@ function apiRemoveTag(workKey, tagId) {
             currentPageCases = currentPageCases.map((tc) =>
                 tc.workKey === workKey ? { ...tc, tags: updatedTags } : tc
             );
-            renderCurrentPage();
             drawer.refreshTagCounts(buildTagUsageCounts());
             return updatedTags;
         });
@@ -1344,13 +1333,6 @@ if (nextPageButton) {
         loadCurrentPage({ page: pageState.page + 1 });
     });
 }
-document.addEventListener('ws:tagfilter', (e) => {
-    const name = e.detail?.name || '';
-    if (filterTag) {
-        filterTag.value = filterTag.value === name ? '' : name;
-    }
-    applyFilters();
-});
 if (activeTagChipName) {
     activeTagChipName.addEventListener('click', () => {
         if (filterTag) filterTag.value = '';

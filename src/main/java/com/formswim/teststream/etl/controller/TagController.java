@@ -25,10 +25,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -50,7 +49,7 @@ public class TagController {
         this.userRepository = userRepository;
     }
 
-    /** GET /api/tags — list filter tag options derived from testCaseType and components for the team */
+    /** GET /api/tags — list tag options for the filter dropdown (custom tags + derived from components/testCaseType) */
     @GetMapping("/api/tags")
     @ResponseBody
     public ResponseEntity<List<String>> listTags(HttpSession session, Authentication authentication) {
@@ -64,23 +63,31 @@ public class TagController {
         }
 
         String teamKey = user.getTeamKey();
-        Set<String> seen = new HashSet<>();
-        List<String> result = new ArrayList<>();
+        Set<String> combined = new LinkedHashSet<>();
 
+        // Custom tag entities first.
+        tagRepository.findByTeamKeyOrderByNameAsc(teamKey)
+            .stream()
+            .map(Tag::getName)
+            .forEach(combined::add);
+
+        // Derived from testCaseType and comma-split components (main branch approach).
         testCaseRepository.findDistinctTestCaseTypeByTeamKey(teamKey)
             .stream()
             .map(String::trim)
-            .filter(v -> !v.isEmpty() && seen.add(v.toLowerCase()))
-            .forEach(result::add);
+            .filter(v -> !v.isEmpty())
+            .forEach(combined::add);
 
         testCaseRepository.findDistinctComponentsByTeamKey(teamKey)
             .stream()
             .flatMap(v -> Arrays.stream(v.split(",")))
             .map(String::trim)
-            .filter(v -> !v.isEmpty() && seen.add(v.toLowerCase()))
-            .forEach(result::add);
+            .filter(v -> !v.isEmpty())
+            .forEach(combined::add);
 
-        result.sort(String.CASE_INSENSITIVE_ORDER);
+        List<String> result = combined.stream()
+            .sorted(String.CASE_INSENSITIVE_ORDER)
+            .collect(Collectors.toList());
         return ResponseEntity.ok(result);
     }
 

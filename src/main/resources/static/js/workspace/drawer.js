@@ -223,14 +223,18 @@ export function createDrawer(options) {
             if (!newTag) {
                 throw new Error('No tag returned');
             }
-            // Replace temp entry and update catalog.
-            currentTags = currentTags.filter((t) => t.id !== tempId);
+            // Replace temp entry with the real tag so the badge stays visible.
+            currentTags = currentTags
+                .filter((t) => t.id !== tempId)
+                .concat({ id: newTag.id, name: newTag.name })
+                .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
             if (!teamCatalog.some((t) => t.id === newTag.id)) {
                 teamCatalog = [...teamCatalog, newTag].sort((a, b) =>
                     a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
                 );
                 updateManageBtn();
             }
+            renderTagBadges();
             return onTagAdd(currentWorkKey, newTag.id);
         }).then((updatedTags) => {
             if (updatedTags) {

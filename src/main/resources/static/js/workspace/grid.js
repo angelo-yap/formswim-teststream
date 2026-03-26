@@ -36,19 +36,45 @@ export function escHtml(value) {
 }
 
 
+function parseTagList(value) {
+    if (!value) {
+        return [];
+    }
+
+    if (Array.isArray(value)) {
+        return value.map((item) => String(item || '').trim()).filter(Boolean);
+    }
+
+    return String(value).trim().split(/[,;|]/).map((item) => item.trim()).filter(Boolean);
+}
+
 function buildTagBadges(testCase, maxVisible = 3) {
-    const rawTags = Array.isArray(testCase?.tags) ? testCase.tags : [];
-    const tags = rawTags.filter((t) => t && t.name);
+    const list = [];
+    list.push(...parseTagList(testCase?.components));
+    list.push(...parseTagList(testCase?.testCaseType));
+
+    // De-dupe case-insensitively, preserving first-seen casing.
+    const byLower = new Map();
+    for (const tag of list) {
+        const key = tag.toLowerCase();
+        if (!byLower.has(key)) {
+            byLower.set(key, tag);
+        }
+    }
+
+    const tags = Array.from(byLower.values());
     const visible = tags.slice(0, Math.max(0, maxVisible));
     const hiddenCount = Math.max(0, tags.length - visible.length);
 
     let html = '';
     for (const tag of visible) {
-        const c = tagColor(tag.name);
-        html += '<button type="button" class="ws-interactive ws-tag-filter whitespace-nowrap shrink-0 px-2 py-0.5 text-xs font-medium rounded-full hover:opacity-75 transition-opacity" data-tag-filter="' + escHtml(tag.name) + '" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</button>';
+        html += '<span class="max-w-full truncate px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(tag) + '</span>';
+    }
+    if (hiddenCount > 0) {
+        html += '<span class="max-w-full truncate px-2 py-1 text-xs border border-white/15 text-white/60">+' + escHtml(hiddenCount) + '</span>';
     }
 
-    return { tags, html, hiddenCount };
+    return { tags, html };
 }
 
 let tagTooltipEl = null;
@@ -133,23 +159,12 @@ function showTagTooltip(anchorEl, tags) {
 
     let html = '<div class="flex flex-wrap gap-2">';
     for (const tag of tags) {
-        const c = tagColor(tag.name);
-        html += '<button type="button" class="ws-tag-filter whitespace-nowrap px-2 py-0.5 text-xs font-medium rounded-full hover:opacity-75 transition-opacity" data-tag-filter="' + escHtml(tag.name) + '" style="color:' + c.color + ';background-color:' + c.bg + '">' + escHtml(tag.name) + '</button>';
+        html += '<span class="whitespace-nowrap px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(tag) + '</span>';
     }
     html += '</div>';
 
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
-
-    tooltip.querySelectorAll('.ws-tag-filter').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const name = btn.dataset.tagFilter || '';
-            if (name) {
-                document.dispatchEvent(new CustomEvent('ws:tagfilter', { detail: { name } }));
-            }
-            hideTagTooltip();
-        });
-    });
 
     const anchorRect = anchorEl.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
@@ -165,7 +180,7 @@ function decodeTagsFromDataset(value) {
 
     try {
         const parsed = JSON.parse(decodeURIComponent(String(value)));
-        return Array.isArray(parsed) ? parsed.filter((item) => item && item.name) : [];
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
     } catch (e) {
         return [];
     }
