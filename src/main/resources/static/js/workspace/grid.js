@@ -50,7 +50,7 @@ function buildTagBadges(testCase, maxVisible = 3, workKey = '') {
         const removeBtn = workKey && t.id != null
             ? '<button type="button" class="ws-row-action ws-interactive shrink-0 leading-none opacity-60 hover:opacity-100" data-action="remove-tag" data-work-key="' + escHtml(workKey) + '" data-tag-id="' + escHtml(String(t.id)) + '" aria-label="Remove tag">&#x2715;</button>'
             : '';
-        html += '<span class="inline-flex items-center gap-1 max-w-full px-2 py-0.5 text-xs border rounded-full" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '"><span class="truncate">' + escHtml(name) + '</span>' + removeBtn + '</span>';
+        html += '<span class="inline-flex items-center gap-1 max-w-full px-2 py-0.5 text-xs border" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '"><span class="truncate">' + escHtml(name) + '</span>' + removeBtn + '</span>';
     }
 
     return { tags, html, hiddenCount };
@@ -199,8 +199,7 @@ export function createGrid(tbody) {
             const status = testCase.status || '—';
             const tagModel = buildTagBadges(testCase, 2, workKey);
             const updated = testCase.updatedOn || '—';
-            const idFontSize = workKey.length > 14 ? '10px' : (workKey.length > 10 ? '11px' : '12px');
-            const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
+const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
 
             testCaseMap[workKey] = testCase;
 
