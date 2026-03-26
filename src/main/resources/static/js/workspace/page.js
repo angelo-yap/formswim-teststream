@@ -1,7 +1,7 @@
 import { createDrawer } from './drawer.js';
 import { createBulkEdit } from './bulk-edit.js';
 import { bindSelectedExport } from './export-selected.js';
-import { createGrid, tagColor } from './grid.js';
+import { createGrid } from './grid.js';
 import { createSelection } from './selection.js';
 
 const importBtn = document.getElementById('importBtn');
@@ -14,9 +14,7 @@ const searchInput = document.getElementById('wsSearch');
 const filterComponent = document.getElementById('wsFilterComponent');
 const filterStatus = document.getElementById('wsFilterStatus');
 const filterTag = document.getElementById('wsFilterTag');
-const activeTagChip = document.getElementById('wsActiveTagChip');
 const activeTagChipName = document.getElementById('wsActiveTagChipName');
-const activeTagChipLabel = document.getElementById('wsActiveTagChipLabel');
 const bulkBar = document.getElementById('bulkBar');
 const bulkCount = document.getElementById('bulkCount');
 const bulkExportSelected = document.getElementById('bulkExportSelected');
@@ -215,6 +213,10 @@ if (importNoticeClose) {
     importNoticeClose.addEventListener('click', clearImportNotice);
 }
 
+document.addEventListener('ws-remove-tag', (e) => {
+    apiRemoveTag(e.detail.workKey, e.detail.tagId);
+});
+
 if (tbody) {
     tbody.addEventListener('change', (event) => {
         const target = event.target;
@@ -235,8 +237,10 @@ if (tbody) {
             }
 
             const action = actionButton.dataset.action;
-            if (action === 'preview' || action === 'add-tag') {
+            if (action === 'preview') {
                 drawer.openByWorkKey(workKey, { readOnly: false });
+            } else if (action === 'add-tag') {
+                drawer.openByWorkKey(workKey, { readOnly: false, focusTags: true });
             } else if (action === 'remove-tag') {
                 const tagId = parseInt(actionButton.dataset.tagId, 10);
                 if (tagId && workKey) {

@@ -688,6 +688,13 @@ export function createDrawer(options) {
         requestAnimationFrame(() => {
             drawerPanel.classList.remove('translate-x-full');
         });
+
+        if (opts.focusTags && drawerTagInput) {
+            setTimeout(() => {
+                drawerTagInput.scrollIntoView({ block: 'nearest' });
+                drawerTagInput.focus();
+            }, 200);
+        }
     }
 
     function closeDrawer() {

@@ -39,21 +39,20 @@ export function escHtml(value) {
 function buildTagBadges(testCase, maxVisible = 3, workKey = '') {
     const rawTags = Array.isArray(testCase?.tags) ? testCase.tags : [];
     const validTags = rawTags.filter((t) => t?.name && String(t.name).trim());
-    const tags = validTags.map((t) => String(t.name).trim());
-    const visible = validTags.slice(0, Math.max(0, maxVisible));
-    const hiddenCount = Math.max(0, validTags.length - visible.length);
+    const tagObjects = validTags.map((t) => ({ id: t.id, name: String(t.name).trim() }));
+    const visible = tagObjects.slice(0, Math.max(0, maxVisible));
+    const hiddenCount = Math.max(0, tagObjects.length - visible.length);
 
     let html = '';
     for (const t of visible) {
-        const name = String(t.name).trim();
-        const c = tagColor(name);
+        const c = tagColor(t.name);
         const removeBtn = workKey && t.id != null
             ? '<button type="button" class="ws-row-action ws-interactive shrink-0 leading-none opacity-60 hover:opacity-100" data-action="remove-tag" data-work-key="' + escHtml(workKey) + '" data-tag-id="' + escHtml(String(t.id)) + '" aria-label="Remove tag">&#x2715;</button>'
             : '';
-        html += '<span class="inline-flex items-center gap-1 max-w-full px-2 py-0.5 text-xs border" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '"><span class="truncate">' + escHtml(name) + '</span>' + removeBtn + '</span>';
+        html += '<span class="inline-flex items-center gap-1 max-w-full px-2 py-0.5 text-xs border" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '"><span class="truncate">' + escHtml(t.name) + '</span>' + removeBtn + '</span>';
     }
 
-    return { tags, html, hiddenCount };
+    return { tags: tagObjects, html, hiddenCount };
 }
 
 let tagTooltipEl = null;
@@ -84,6 +83,16 @@ function ensureTagTooltip() {
 
     el.addEventListener('mouseenter', cancelHideTagTooltip);
     el.addEventListener('mouseleave', scheduleHideTagTooltip);
+    el.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ws-tooltip-remove');
+        if (!btn) return;
+        const wk = btn.dataset.workKey;
+        const tagId = parseInt(btn.dataset.tagId, 10);
+        if (wk && tagId) {
+            document.dispatchEvent(new CustomEvent('ws-remove-tag', { detail: { workKey: wk, tagId } }));
+            hideTagTooltip();
+        }
+    });
 
     const hide = () => hideTagTooltip();
     window.addEventListener('scroll', hide, true);
@@ -128,7 +137,7 @@ function positionTooltip(anchorRect, tooltipRect) {
     return { left, top };
 }
 
-function showTagTooltip(anchorEl, tags) {
+function showTagTooltip(anchorEl, tags, workKey) {
     if (!anchorEl || !tags || tags.length === 0) {
         return;
     }
@@ -138,8 +147,13 @@ function showTagTooltip(anchorEl, tags) {
 
     let html = '<div class="flex flex-wrap gap-2">';
     for (const tag of tags) {
-        const c = tagColor(tag);
-        html += '<span class="whitespace-nowrap px-2 py-1 text-xs border rounded-full" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '">' + escHtml(tag) + '</span>';
+        const name = typeof tag === 'string' ? tag : tag.name;
+        const tagId = typeof tag === 'string' ? null : tag.id;
+        const c = tagColor(name);
+        const removeBtn = workKey && tagId != null
+            ? '<button class="ws-tooltip-remove shrink-0 opacity-60 hover:opacity-100 leading-none ml-1" data-work-key="' + escHtml(workKey) + '" data-tag-id="' + escHtml(String(tagId)) + '" aria-label="Remove">&#x2715;</button>'
+            : '';
+        html += '<span class="inline-flex items-center whitespace-nowrap px-2 py-1 text-xs border" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '">' + escHtml(name) + removeBtn + '</span>';
     }
     html += '</div>';
 
@@ -254,13 +268,13 @@ const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
             if (tagsEl) {
                 const tags = decodeTagsFromDataset(tagsEl.getAttribute('data-ws-tags'));
                 if (tags.length > 0) {
-                    tagsEl.addEventListener('mouseenter', () => { cancelHideTagTooltip(); showTagTooltip(tagsEl, tags); });
+                    tagsEl.addEventListener('mouseenter', () => { cancelHideTagTooltip(); showTagTooltip(tagsEl, tags, workKey); });
                     tagsEl.addEventListener('mouseleave', () => {
                         if (tagTooltipAnchor === tagsEl) {
                             scheduleHideTagTooltip();
                         }
                     });
-                    tagsEl.addEventListener('focusin', () => showTagTooltip(tagsEl, tags));
+                    tagsEl.addEventListener('focusin', () => showTagTooltip(tagsEl, tags, workKey));
                     tagsEl.addEventListener('focusout', () => {
                         if (tagTooltipAnchor === tagsEl) {
                             hideTagTooltip();
@@ -300,9 +314,9 @@ const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
         fresh.innerHTML = tagsCell;
         tagsEl.parentNode.replaceChild(fresh, tagsEl);
         if (tagModel.tags.length > 0) {
-            fresh.addEventListener('mouseenter', () => { cancelHideTagTooltip(); showTagTooltip(fresh, tagModel.tags); });
+            fresh.addEventListener('mouseenter', () => { cancelHideTagTooltip(); showTagTooltip(fresh, tagModel.tags, workKey); });
             fresh.addEventListener('mouseleave', () => { if (tagTooltipAnchor === fresh) { scheduleHideTagTooltip(); } });
-            fresh.addEventListener('focusin', () => showTagTooltip(fresh, tagModel.tags));
+            fresh.addEventListener('focusin', () => showTagTooltip(fresh, tagModel.tags, workKey));
             fresh.addEventListener('focusout', () => { if (tagTooltipAnchor === fresh) { hideTagTooltip(); } });
         }
     }
