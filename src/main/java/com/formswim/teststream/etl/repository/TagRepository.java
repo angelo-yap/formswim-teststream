@@ -10,6 +10,8 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.repository.query.Param;
+
 @Repository
 public interface TagRepository extends JpaRepository<Tag, Long> {
 
@@ -24,4 +26,7 @@ public interface TagRepository extends JpaRepository<Tag, Long> {
     @Modifying
     @Query(value = "DELETE FROM test_case_tag WHERE tag_id = :tagId", nativeQuery = true)
     void deleteJoinEntriesByTagId(@Param("tagId") Long tagId);
+
+    @Query(value = "SELECT tag_id, COUNT(*) FROM test_case_tag WHERE tag_id IN (SELECT id FROM tag WHERE team_key = :teamKey) GROUP BY tag_id", nativeQuery = true)
+    List<Object[]> countUsageByTeamKey(@Param("teamKey") String teamKey);
 }
