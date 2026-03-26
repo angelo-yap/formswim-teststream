@@ -36,45 +36,19 @@ export function escHtml(value) {
 }
 
 
-function parseTagList(value) {
-    if (!value) {
-        return [];
-    }
-
-    if (Array.isArray(value)) {
-        return value.map((item) => String(item || '').trim()).filter(Boolean);
-    }
-
-    return String(value).trim().split(/[,;|]/).map((item) => item.trim()).filter(Boolean);
-}
-
 function buildTagBadges(testCase, maxVisible = 3) {
-    const list = [];
-    list.push(...parseTagList(testCase?.components));
-    list.push(...parseTagList(testCase?.testCaseType));
-
-    // De-dupe case-insensitively, preserving first-seen casing.
-    const byLower = new Map();
-    for (const tag of list) {
-        const key = tag.toLowerCase();
-        if (!byLower.has(key)) {
-            byLower.set(key, tag);
-        }
-    }
-
-    const tags = Array.from(byLower.values());
+    const rawTags = Array.isArray(testCase?.tags) ? testCase.tags : [];
+    const tags = rawTags.map((t) => String(t?.name || '').trim()).filter(Boolean);
     const visible = tags.slice(0, Math.max(0, maxVisible));
     const hiddenCount = Math.max(0, tags.length - visible.length);
 
     let html = '';
     for (const tag of visible) {
-        html += '<span class="max-w-full truncate px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(tag) + '</span>';
-    }
-    if (hiddenCount > 0) {
-        html += '<span class="max-w-full truncate px-2 py-1 text-xs border border-white/15 text-white/60">+' + escHtml(hiddenCount) + '</span>';
+        const c = tagColor(tag);
+        html += '<span class="max-w-full truncate px-2 py-1 text-xs border" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '">' + escHtml(tag) + '</span>';
     }
 
-    return { tags, html };
+    return { tags, html, hiddenCount };
 }
 
 let tagTooltipEl = null;
@@ -159,7 +133,8 @@ function showTagTooltip(anchorEl, tags) {
 
     let html = '<div class="flex flex-wrap gap-2">';
     for (const tag of tags) {
-        html += '<span class="whitespace-nowrap px-2 py-1 text-xs border border-white/15 text-white/60">' + escHtml(tag) + '</span>';
+        const c = tagColor(tag);
+        html += '<span class="whitespace-nowrap px-2 py-1 text-xs border" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '">' + escHtml(tag) + '</span>';
     }
     html += '</div>';
 
@@ -298,8 +273,39 @@ export function createGrid(tbody) {
         return testCaseMap[workKey] || null;
     }
 
+    function updateRowTags(workKey, updatedTags) {
+        const tc = testCaseMap[workKey];
+        if (!tc) return;
+        tc.tags = updatedTags;
+        const row = tbody.querySelector('tr[data-work-key="' + CSS.escape(workKey) + '"]');
+        if (!row) return;
+        const tagModel = buildTagBadges(tc, 2);
+        const encodedTags = tagModel.tags.length > 0 ? encodeURIComponent(JSON.stringify(tagModel.tags)) : '';
+        const overflowBadge = tagModel.hiddenCount > 0
+            ? '<span class="shrink-0 px-1.5 py-0.5 text-xs text-white/40 border border-white/15 rounded-full">+' + tagModel.hiddenCount + '</span>'
+            : '';
+        const tagsCell = tagModel.html
+            ? '<div class="min-w-0 flex flex-nowrap gap-1.5 overflow-hidden">' + tagModel.html + '</div>' + overflowBadge
+            : '<span class="text-white/45">—</span>';
+        const tagsEl = row.querySelector('[data-ws-tags]');
+        if (!tagsEl) return;
+        // Clone to drop all old event listeners, then replace.
+        const fresh = tagsEl.cloneNode(false);
+        fresh.setAttribute('data-ws-tags', escHtml(encodedTags));
+        fresh.setAttribute('tabindex', encodedTags ? '0' : '-1');
+        fresh.innerHTML = tagsCell;
+        tagsEl.parentNode.replaceChild(fresh, tagsEl);
+        if (tagModel.tags.length > 0) {
+            fresh.addEventListener('mouseenter', () => { cancelHideTagTooltip(); showTagTooltip(fresh, tagModel.tags); });
+            fresh.addEventListener('mouseleave', () => { if (tagTooltipAnchor === fresh) { scheduleHideTagTooltip(); } });
+            fresh.addEventListener('focusin', () => showTagTooltip(fresh, tagModel.tags));
+            fresh.addEventListener('focusout', () => { if (tagTooltipAnchor === fresh) { hideTagTooltip(); } });
+        }
+    }
+
     return {
         renderRows,
-        getTestCaseById
+        getTestCaseById,
+        updateRowTags
     };
 }
