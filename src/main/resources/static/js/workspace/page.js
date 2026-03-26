@@ -211,10 +211,6 @@ selection.setSelectionChangeHandler((selectedIds) => {
     bulkEdit.onSelectionChanged(selectedIds);
 });
 
-if (drawer && typeof drawer.bind === 'function') {
-    drawer.bind(tbody);
-}
-
 if (importNoticeClose) {
     importNoticeClose.addEventListener('click', clearImportNotice);
 }
@@ -931,8 +927,7 @@ function refreshTagFilterDropdown() {
         .then((r) => r.ok ? r.json() : [])
         .then((data) => {
             const catalog = Array.isArray(data) ? data : [];
-            const usageCounts = buildTagUsageCounts();
-            drawer.setTeamCatalog(catalog.map((t) => ({ ...t, count: usageCounts.get(t.id) || 0 })));
+            drawer.setTeamCatalog(catalog);
         })
         .catch(() => {});
 
@@ -956,9 +951,7 @@ function loadFilterOptions() {
         .then((r) => r.ok ? r.json() : [])
         .then((data) => {
             const catalog = Array.isArray(data) ? data : [];
-            const usageCounts = buildTagUsageCounts();
-            const enrichedCatalog = catalog.map((t) => ({ ...t, count: usageCounts.get(t.id) || 0 }));
-            drawer.setTeamCatalog(enrichedCatalog);
+            drawer.setTeamCatalog(catalog);
             drawer.setCallbacks({
                 onTagAdd: apiAddTag,
                 onTagRemove: apiRemoveTag,
@@ -993,21 +986,11 @@ function loadFilterOptions() {
         .catch(() => {
             const components = uniqueSorted(currentPageCases.map((item) => item?.components));
             const statuses = uniqueSorted(currentPageCases.map((item) => item?.status));
-            const tags = uniqueSorted(currentPageCases.flatMap((item) => [item?.components, item?.testCaseType]));
+            const tags = uniqueSorted(currentPageCases.flatMap((item) => (item?.tags || []).map((t) => t?.name)));
             populateSelect(filterComponent, components);
             populateSelect(filterStatus, statuses);
             populateSelect(filterTag, tags);
         });
-}
-
-function buildTagUsageCounts() {
-    const counts = new Map();
-    for (const tc of currentPageCases) {
-        for (const tag of (tc.tags || [])) {
-            counts.set(tag.id, (counts.get(tag.id) || 0) + 1);
-        }
-    }
-    return counts;
 }
 
 function apiAddTag(workKey, tagId) {
@@ -1027,7 +1010,7 @@ function apiAddTag(workKey, tagId) {
             currentPageCases = currentPageCases.map((tc) =>
                 tc.workKey === workKey ? { ...tc, tags: updatedTags } : tc
             );
-            drawer.refreshTagCounts(buildTagUsageCounts());
+            grid.updateRowTags(workKey, updatedTags);
             return updatedTags;
         });
 }
@@ -1049,7 +1032,7 @@ function apiRemoveTag(workKey, tagId) {
             currentPageCases = currentPageCases.map((tc) =>
                 tc.workKey === workKey ? { ...tc, tags: updatedTags } : tc
             );
-            drawer.refreshTagCounts(buildTagUsageCounts());
+            grid.updateRowTags(workKey, updatedTags);
             return updatedTags;
         });
 }
@@ -1071,6 +1054,7 @@ function apiRenameTag(tagId, name) {
             ...tc,
             tags: (tc.tags || []).map((t) => t.id === tagId ? { ...t, name: updatedTag.name } : t)
         }));
+        refreshTagFilterDropdown();
         renderCurrentPage();
         return updatedTag;
     });
@@ -1090,6 +1074,7 @@ function apiDeleteTag(tagId) {
             ...tc,
             tags: (tc.tags || []).filter((t) => t.id !== tagId)
         }));
+        refreshTagFilterDropdown();
         renderCurrentPage();
     });
 }
@@ -1106,6 +1091,9 @@ function apiCreateTag(name) {
             throw new Error('Tag create failed: ' + response.status);
         }
         return response.json();
+    }).then((tag) => {
+        refreshTagFilterDropdown();
+        return tag;
     });
 }
 
