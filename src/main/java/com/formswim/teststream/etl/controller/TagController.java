@@ -25,12 +25,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.util.Arrays;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Controller
@@ -62,31 +61,9 @@ public class TagController {
             return ResponseEntity.status(403).build();
         }
 
-        String teamKey = user.getTeamKey();
-        Set<String> combined = new LinkedHashSet<>();
-
-        // Custom tag entities first.
-        tagRepository.findByTeamKeyOrderByNameAsc(teamKey)
+        List<String> result = tagRepository.findByTeamKeyOrderByNameAsc(user.getTeamKey())
             .stream()
             .map(Tag::getName)
-            .forEach(combined::add);
-
-        // Derived from testCaseType and comma-split components (main branch approach).
-        testCaseRepository.findDistinctTestCaseTypeByTeamKey(teamKey)
-            .stream()
-            .map(String::trim)
-            .filter(v -> !v.isEmpty())
-            .forEach(combined::add);
-
-        testCaseRepository.findDistinctComponentsByTeamKey(teamKey)
-            .stream()
-            .flatMap(v -> Arrays.stream(v.split(",")))
-            .map(String::trim)
-            .filter(v -> !v.isEmpty())
-            .forEach(combined::add);
-
-        List<String> result = combined.stream()
-            .sorted(String.CASE_INSENSITIVE_ORDER)
             .collect(Collectors.toList());
         return ResponseEntity.ok(result);
     }
@@ -104,9 +81,14 @@ public class TagController {
             return ResponseEntity.status(403).build();
         }
 
-        List<TagResponse> catalog = tagRepository.findByTeamKeyOrderByNameAsc(user.getTeamKey())
+        String teamKey = user.getTeamKey();
+        Map<Long, Long> usageCounts = new HashMap<>();
+        for (Object[] row : tagRepository.countUsageByTeamKey(teamKey)) {
+            usageCounts.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+        }
+        List<TagResponse> catalog = tagRepository.findByTeamKeyOrderByNameAsc(teamKey)
             .stream()
-            .map(TagResponse::new)
+            .map(tag -> new TagResponse(tag, usageCounts.getOrDefault(tag.getId(), 0L)))
             .collect(Collectors.toList());
         return ResponseEntity.ok(catalog);
     }
