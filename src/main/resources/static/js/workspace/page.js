@@ -235,8 +235,13 @@ if (tbody) {
             }
 
             const action = actionButton.dataset.action;
-            if (action === 'preview') {
+            if (action === 'preview' || action === 'add-tag') {
                 drawer.openByWorkKey(workKey, { readOnly: false });
+            } else if (action === 'remove-tag') {
+                const tagId = parseInt(actionButton.dataset.tagId, 10);
+                if (tagId && workKey) {
+                    apiRemoveTag(workKey, tagId);
+                }
             } else if (action === 'edit') {
                 // Edit is rendered as an anchor; keep a defensive fallback for non-anchor actions.
                 if (actionButton.tagName !== 'A') {

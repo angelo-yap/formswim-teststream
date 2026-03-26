@@ -36,16 +36,21 @@ export function escHtml(value) {
 }
 
 
-function buildTagBadges(testCase, maxVisible = 3) {
+function buildTagBadges(testCase, maxVisible = 3, workKey = '') {
     const rawTags = Array.isArray(testCase?.tags) ? testCase.tags : [];
-    const tags = rawTags.map((t) => String(t?.name || '').trim()).filter(Boolean);
-    const visible = tags.slice(0, Math.max(0, maxVisible));
-    const hiddenCount = Math.max(0, tags.length - visible.length);
+    const validTags = rawTags.filter((t) => t?.name && String(t.name).trim());
+    const tags = validTags.map((t) => String(t.name).trim());
+    const visible = validTags.slice(0, Math.max(0, maxVisible));
+    const hiddenCount = Math.max(0, validTags.length - visible.length);
 
     let html = '';
-    for (const tag of visible) {
-        const c = tagColor(tag);
-        html += '<span class="max-w-full truncate px-2 py-1 text-xs border" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '">' + escHtml(tag) + '</span>';
+    for (const t of visible) {
+        const name = String(t.name).trim();
+        const c = tagColor(name);
+        const removeBtn = workKey && t.id != null
+            ? '<button type="button" class="ws-row-action ws-interactive shrink-0 leading-none opacity-60 hover:opacity-100" data-action="remove-tag" data-work-key="' + escHtml(workKey) + '" data-tag-id="' + escHtml(String(t.id)) + '" aria-label="Remove tag">&#x2715;</button>'
+            : '';
+        html += '<span class="inline-flex items-center gap-1 max-w-full px-2 py-0.5 text-xs border rounded-full" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '"><span class="truncate">' + escHtml(name) + '</span>' + removeBtn + '</span>';
     }
 
     return { tags, html, hiddenCount };
@@ -134,7 +139,7 @@ function showTagTooltip(anchorEl, tags) {
     let html = '<div class="flex flex-wrap gap-2">';
     for (const tag of tags) {
         const c = tagColor(tag);
-        html += '<span class="whitespace-nowrap px-2 py-1 text-xs border" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '">' + escHtml(tag) + '</span>';
+        html += '<span class="whitespace-nowrap px-2 py-1 text-xs border rounded-full" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '">' + escHtml(tag) + '</span>';
     }
     html += '</div>';
 
@@ -192,7 +197,7 @@ export function createGrid(tbody) {
             const title = testCase.summary || '—';
             const folder = testCase.folder || '';
             const status = testCase.status || '—';
-            const tagModel = buildTagBadges(testCase, 2);
+            const tagModel = buildTagBadges(testCase, 2, workKey);
             const updated = testCase.updatedOn || '—';
             const idFontSize = workKey.length > 14 ? '10px' : (workKey.length > 10 ? '11px' : '12px');
             const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
@@ -237,7 +242,7 @@ export function createGrid(tbody) {
                 '</td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
-                '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 flex flex-nowrap items-center gap-1.5" data-ws-tags="' + escHtml(encodedTags) + '" tabindex="' + tagsTabIndex + '">' + tagsCell + '</div></td>' +
+                '<td class="px-3 sm:px-6 py-2.5"><div class="flex items-center gap-1.5"><div class="min-w-0 flex flex-nowrap items-center gap-1.5" data-ws-tags="' + escHtml(encodedTags) + '" tabindex="' + tagsTabIndex + '">' + tagsCell + '</div><button type="button" class="ws-row-action ws-interactive shrink-0 h-5 w-5 inline-flex items-center justify-center rounded-full border border-white/15 text-white/40 hover:border-white/40 hover:text-white/70 text-xs leading-none" data-action="add-tag" data-work-key="' + escHtml(workKey) + '" aria-label="Add tag">+</button></div></td>' +
                 '<td class="pl-3 pr-6 sm:pl-6 sm:pr-4 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>' +
                 '<td class="px-2 sm:px-4 py-2.5 text-right">' +
                     '<div class="inline-flex items-center gap-2" data-work-key="' + escHtml(workKey) + '">' +
@@ -279,7 +284,7 @@ export function createGrid(tbody) {
         tc.tags = updatedTags;
         const row = tbody.querySelector('tr[data-work-key="' + CSS.escape(workKey) + '"]');
         if (!row) return;
-        const tagModel = buildTagBadges(tc, 2);
+        const tagModel = buildTagBadges(tc, 2, workKey);
         const encodedTags = tagModel.tags.length > 0 ? encodeURIComponent(JSON.stringify(tagModel.tags)) : '';
         const overflowBadge = tagModel.hiddenCount > 0
             ? '<span class="shrink-0 px-1.5 py-0.5 text-xs text-white/40 border border-white/15 rounded-full">+' + tagModel.hiddenCount + '</span>'
