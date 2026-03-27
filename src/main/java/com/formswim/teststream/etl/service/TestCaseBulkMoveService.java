@@ -2,7 +2,7 @@ package com.formswim.teststream.etl.service;
 
 import com.formswim.teststream.etl.dto.BulkMoveRequest;
 import com.formswim.teststream.etl.dto.BulkMoveResult;
-import com.formswim.teststream.etl.repository.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestCaseRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

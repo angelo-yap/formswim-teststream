@@ -2,9 +2,10 @@ package com.formswim.teststream.etl.service;
 
 import com.formswim.teststream.etl.dto.BulkEditRequest;
 import com.formswim.teststream.etl.dto.BulkEditResult;
-import com.formswim.teststream.etl.model.TestCase;
-import com.formswim.teststream.etl.model.TestStep;
-import com.formswim.teststream.etl.repository.TestCaseRepository;
+
+import com.formswim.teststream.shared.domain.TestCase;
+import com.formswim.teststream.shared.domain.TestStep;
+import com.formswim.teststream.shared.domain.TestCaseRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

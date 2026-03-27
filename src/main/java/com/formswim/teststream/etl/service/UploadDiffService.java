@@ -4,8 +4,8 @@ import com.formswim.teststream.etl.dto.FieldDifference;
 import com.formswim.teststream.etl.dto.ReviewCaseSnapshot;
 import com.formswim.teststream.etl.dto.ReviewConflictCandidate;
 import com.formswim.teststream.etl.dto.ReviewStepSnapshot;
-import com.formswim.teststream.etl.model.TestCase;
-import com.formswim.teststream.etl.model.TestStep;
+import com.formswim.teststream.shared.domain.TestCase;
+import com.formswim.teststream.shared.domain.TestStep;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
