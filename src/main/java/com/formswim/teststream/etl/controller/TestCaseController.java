@@ -56,6 +56,8 @@ import com.formswim.teststream.etl.service.TestCaseBulkMoveService;
 import com.formswim.teststream.etl.service.TestIngestionService;
 import com.formswim.teststream.etl.service.UploadReviewService;
 
+import com.formswim.teststream.auth.service.CurrentUserService;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -64,146 +66,39 @@ import jakarta.validation.Valid;
 @RequestMapping
 public class TestCaseController {
 
-    private final TestCaseRepository testCaseRepository;
     private final ExcelExportService excelExportService;
     private final TestCaseBulkEditService testCaseBulkEditService;
     private final TestCaseBulkMoveService testCaseBulkMoveService;
     private final TestIngestionService testIngestionService;
     private final UploadReviewService uploadReviewService;
-    private final UserRepository userRepository;
+    private final CurrentUserService currentUserService;
     private final boolean bulkEditEnabled;
 
-    public TestCaseController(TestCaseRepository testCaseRepository,
+
+    public TestCaseController(
                               ExcelExportService excelExportService,
                               TestCaseBulkEditService testCaseBulkEditService,
                               TestCaseBulkMoveService testCaseBulkMoveService,
                               TestIngestionService testIngestionService,
                               UploadReviewService uploadReviewService,
-                              UserRepository userRepository,
+                                CurrentUserService currentUserService,
                               @Value("${teststream.bulk-edit.enabled:false}") boolean bulkEditEnabled) {
-        this.testCaseRepository = testCaseRepository;
         this.excelExportService = excelExportService;
         this.testCaseBulkEditService = testCaseBulkEditService;
         this.testCaseBulkMoveService = testCaseBulkMoveService;
         this.testIngestionService = testIngestionService;
         this.uploadReviewService = uploadReviewService;
-        this.userRepository = userRepository;
+        this.currentUserService = currentUserService;
         this.bulkEditEnabled = bulkEditEnabled;
     }
 
-    @GetMapping("/workspace")
-    public String workspace(HttpSession session,
-                            Authentication authentication,
-                            @RequestParam(required = false) String search,
-                            @RequestParam(required = false) String status,
-                            @RequestParam(required = false) String component,
-                            @RequestParam(defaultValue = "0") int page,
-                            @RequestParam(defaultValue = "50") int size,
-                            @RequestParam(required = false) String importError,
-                            @RequestParam(required = false) String importSuccess,
-                            Model model) {
-
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
-        if (currentUser.isEmpty()) {
-            return "redirect:/login?error=Please+log+in+first";
-        }
-        AppUser user = currentUser.get();
-        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return "redirect:/login?error=No+team+assigned";
-        }
-
-        String teamKey = user.getTeamKey();
-        int safePage = Math.max(page, 0);
-        int safeSize = Math.min(Math.max(size, 1), 200);
-        Pageable pageable = PageRequest.of(safePage, safeSize);
-
-        Page<Long> idPage = testCaseRepository.findWorkspaceCaseIdsByFilters(
-            teamKey,
-            normalizeQueryParam(search),
-            normalizeQueryParam(status),
-            normalizeQueryParam(component),
-            null,
-            null,
-            pageable
-        );
-
-        List<TestCase> cases = findCasesByOrderedIds(idPage.getContent());
-
-        model.addAttribute("userEmail", user.getEmail());
-        model.addAttribute("teamKey", teamKey);
-        model.addAttribute("testCases", cases);
-        model.addAttribute("testCaseCount", idPage.getTotalElements());
-        model.addAttribute("page", idPage.getNumber());
-        model.addAttribute("pageSize", idPage.getSize());
-        model.addAttribute("totalPages", idPage.getTotalPages());
-        model.addAttribute("hasNext", idPage.hasNext());
-        model.addAttribute("search", search != null ? search : "");
-        model.addAttribute("filterStatus", status != null ? status : "");
-        model.addAttribute("filterComponent", component != null ? component : "");
-        model.addAttribute("importErrorMessage", importError);
-        model.addAttribute("importSuccessMessage", importSuccess);
-        model.addAttribute("bulkEditEnabled", bulkEditEnabled);
-
-        return "workspace";
-    }
-
-    @GetMapping("/workspace/test-cases/{id}")
-    public String testCaseDetails(@PathVariable String id,
-                                  HttpSession session,
-                                  Authentication authentication,
-                                  Model model) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
-        if (currentUser.isEmpty()) {
-            return "redirect:/login?error=Please+log+in+first";
-        }
-
-        AppUser user = currentUser.get();
-        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return "redirect:/login?error=No+team+assigned";
-        }
-
-        String safeId = id == null ? "" : id.trim();
-        if (safeId.isBlank()) {
-            return "redirect:/workspace?importError=" + encodeMessage("Test case id is required");
-        }
-
-        List<TestCase> matches = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn(user.getTeamKey(), List.of(safeId));
-        if (matches.isEmpty()) {
-            return "redirect:/workspace?importError=" + encodeMessage("Test case not found");
-        }
-
-        TestCase testCase = matches.get(0);
-
-        model.addAttribute("detailsCaseId", testCase.getWorkKey());
-        model.addAttribute("detailsPageTitle", "Test case details");
-        model.addAttribute("detailsSummary", testCase.getSummary());
-        model.addAttribute("detailsDescription", testCase.getDescription());
-        model.addAttribute("detailsPrecondition", testCase.getPrecondition());
-        model.addAttribute("detailsFolder", testCase.getFolder());
-        model.addAttribute("detailsFolderSegments", parseFolderSegments(testCase.getFolder()));
-        model.addAttribute("detailsStatus", testCase.getStatus());
-        model.addAttribute("detailsPriority", testCase.getPriority());
-        model.addAttribute("detailsComponents", testCase.getComponents());
-        model.addAttribute("detailsTestCaseType", testCase.getTestCaseType());
-        model.addAttribute("detailsLabels", testCase.getLabels());
-        model.addAttribute("detailsSprint", testCase.getSprint());
-        model.addAttribute("detailsFixVersions", testCase.getFixVersions());
-        model.addAttribute("detailsVersion", testCase.getVersion());
-        model.addAttribute("detailsEstimatedTime", testCase.getEstimatedTime());
-        model.addAttribute("detailsCreatedOn", testCase.getCreatedOn());
-        model.addAttribute("detailsUpdatedOn", testCase.getUpdatedOn());
-        model.addAttribute("detailsStoryLinkages", testCase.getStoryLinkages());
-        model.addAttribute("detailsSteps", testCase.getSteps());
-
-        return "test-case-details";
-    }
 
     @PostMapping("/workspace/import")
     public String importFile(@RequestParam("file") MultipartFile file,
                              HttpSession session,
                              Authentication authentication) {
 
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
             return "redirect:/login?error=Please+log+in+first";
         }
@@ -233,7 +128,7 @@ public class TestCaseController {
                                HttpSession session,
                                Authentication authentication,
                                Model model) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
             return "redirect:/login?error=Please+log+in+first";
         }
@@ -257,7 +152,7 @@ public class TestCaseController {
                               HttpServletRequest request,
                               HttpSession session,
                               Authentication authentication) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
             return "redirect:/login?error=Please+log+in+first";
         }
@@ -279,7 +174,7 @@ public class TestCaseController {
     public String cancelReview(@PathVariable String sessionId,
                                HttpSession session,
                                Authentication authentication) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
             return "redirect:/login?error=Please+log+in+first";
         }
@@ -296,93 +191,13 @@ public class TestCaseController {
         }
     }
 
-    @GetMapping("/api/testcases")
-    @ResponseBody
-    public ResponseEntity<List<TestCase>> apiGetTestCases(HttpSession session,
-                                                          @RequestParam(required = false) String search,
-                                                          @RequestParam(required = false) String status,
-                                                          @RequestParam(required = false) String component,
-                                                          @RequestParam(required = false) String tag,
-                                                          @RequestParam(required = false) String folder,
-                                                          @RequestParam(defaultValue = "0") int page,
-                                                          @RequestParam(defaultValue = "50") int size,
-                                                          Authentication authentication) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
-        if (currentUser.isEmpty()) {
-            return ResponseEntity.status(401).build();
-        }
-        AppUser user = currentUser.get();
-        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return ResponseEntity.status(403).build();
-        }
-
-        int safePage = Math.max(page, 0);
-        int safeSize = Math.min(Math.max(size, 1), 200);
-        String normalizedSearch = normalizeQueryParam(search);
-        String normalizedStatus = normalizeQueryParam(status);
-        String normalizedComponent = normalizeQueryParam(component);
-        String normalizedTag = normalizeQueryParam(tag);
-        String normalizedFolder = normalizeFolderQueryParam(folder);
-
-        if (normalizedFolder == null) {
-            Pageable pageable = PageRequest.of(safePage, safeSize);
-            Page<Long> idPage = testCaseRepository.findWorkspaceCaseIdsByFilters(
-                user.getTeamKey(),
-                normalizedSearch,
-                normalizedStatus,
-                normalizedComponent,
-                normalizedTag,
-                null,
-                pageable
-            );
-
-            List<TestCase> cases = findCasesByOrderedIds(idPage.getContent());
-            return ResponseEntity.ok()
-                .header("X-Total-Count", String.valueOf(idPage.getTotalElements()))
-                .header("X-Total-Pages", String.valueOf(idPage.getTotalPages()))
-                .header("X-Page", String.valueOf(idPage.getNumber()))
-                .header("X-Page-Size", String.valueOf(idPage.getSize()))
-                .header("X-Has-Next", String.valueOf(idPage.hasNext()))
-                .body(cases);
-        }
-
-        Page<Long> allIdsPage = testCaseRepository.findWorkspaceCaseIdsByFilters(
-            user.getTeamKey(),
-            normalizedSearch,
-            normalizedStatus,
-            normalizedComponent,
-            normalizedTag,
-            null,
-            Pageable.unpaged()
-        );
-
-        List<TestCase> matchingCases = findCasesByOrderedIds(allIdsPage.getContent())
-            .stream()
-            .filter(testCase -> folderMatchesFilter(testCase.getFolder(), normalizedFolder))
-            .toList();
-
-        int totalCount = matchingCases.size();
-        int fromIndex = Math.min(safePage * safeSize, totalCount);
-        int toIndex = Math.min(fromIndex + safeSize, totalCount);
-        List<TestCase> pageCases = matchingCases.subList(fromIndex, toIndex);
-        int totalPages = safeSize <= 0 ? 0 : (int) Math.ceil(totalCount / (double) safeSize);
-        boolean hasNext = toIndex < totalCount;
-
-        return ResponseEntity.ok()
-            .header("X-Total-Count", String.valueOf(totalCount))
-            .header("X-Total-Pages", String.valueOf(totalPages))
-            .header("X-Page", String.valueOf(safePage))
-            .header("X-Page-Size", String.valueOf(safeSize))
-            .header("X-Has-Next", String.valueOf(hasNext))
-            .body(pageCases);
-    }
 
     @GetMapping("/workspace/export")
     @ResponseBody
     public ResponseEntity<ByteArrayResource> exportSelected(@RequestParam(required = false) List<String> workKeys,
                                                             HttpSession session,
                                                             Authentication authentication) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -406,7 +221,7 @@ public class TestCaseController {
     public ResponseEntity<EtlResultSummary> apiUpload(@RequestParam("file") MultipartFile file,
                                                       HttpSession session,
                                                       Authentication authentication) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(401).build();
         }
@@ -435,7 +250,7 @@ public class TestCaseController {
     public ResponseEntity<BulkMoveResult> apiBulkMoveTestCases(@Valid @RequestBody BulkMoveRequest request,
                                                                HttpSession session,
                                                                Authentication authentication) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -471,7 +286,7 @@ public class TestCaseController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
 
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
         if (currentUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -500,93 +315,6 @@ public class TestCaseController {
         }
     }
 
-    /**
-     * GET /api/folders
-     * Returns a JSON list of unique folder names 
-     * for populating the workspace folder filter dropdown.
-     * 
-     * @return a JSON string array of unique folder names from the test cases in the database.
-     */
-    @GetMapping("/api/folders")
-    @ResponseBody
-    public ResponseEntity<List<String>> getFoldersByTeamKey(HttpSession session, Authentication authentication) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
-        if (currentUser.isEmpty()) {
-            return ResponseEntity.status(401).build();
-        }
-        AppUser user = currentUser.get();
-        // Currently we have this null team key check, if solo teams in the future this would need to be resolved
-        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return ResponseEntity.status(403).build();
-        }
-        List<String> folders = testCaseRepository.findDistinctFolderByTeamKey(user.getTeamKey())
-            .stream()
-            .sorted()
-            .collect(Collectors.toList());
-        return ResponseEntity.ok(folders);
-    }
-
-    @GetMapping("/api/tags")
-    @ResponseBody
-    public ResponseEntity<List<String>> getTagsByTeamKey(HttpSession session, Authentication authentication) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
-        if (currentUser.isEmpty()) {
-            return ResponseEntity.status(401).build();
-        }
-        AppUser user = currentUser.get();
-        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return ResponseEntity.status(403).build();
-        }
-
-        Set<String> tags = new LinkedHashSet<>();
-        testCaseRepository.findDistinctComponentsByTeamKey(user.getTeamKey()).forEach(value -> addDelimitedTags(tags, value));
-        testCaseRepository.findDistinctTestCaseTypeByTeamKey(user.getTeamKey()).forEach(value -> addDelimitedTags(tags, value));
-
-        List<String> sortedTags = tags.stream()
-            .sorted(String.CASE_INSENSITIVE_ORDER)
-            .collect(Collectors.toList());
-        return ResponseEntity.ok(sortedTags);
-    }
-
-    @GetMapping("/api/components")
-    @ResponseBody
-    public ResponseEntity<List<String>> getComponentsByTeamKey(HttpSession session, Authentication authentication) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
-        if (currentUser.isEmpty()) {
-            return ResponseEntity.status(401).build();
-        }
-        AppUser user = currentUser.get();
-        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return ResponseEntity.status(403).build();
-        }
-
-        Set<String> components = new LinkedHashSet<>();
-        testCaseRepository.findDistinctComponentsByTeamKey(user.getTeamKey()).forEach(value -> addDelimitedTags(components, value));
-
-        List<String> sortedComponents = components.stream()
-            .sorted(String.CASE_INSENSITIVE_ORDER)
-            .collect(Collectors.toList());
-        return ResponseEntity.ok(sortedComponents);
-    }
-
-    @GetMapping("/api/statuses")
-    @ResponseBody
-    public ResponseEntity<List<String>> getStatusesByTeamKey(HttpSession session, Authentication authentication) {
-        Optional<AppUser> currentUser = resolveCurrentUser(session, authentication);
-        if (currentUser.isEmpty()) {
-            return ResponseEntity.status(401).build();
-        }
-        AppUser user = currentUser.get();
-        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return ResponseEntity.status(403).build();
-        }
-
-        List<String> statuses = testCaseRepository.findDistinctStatusByTeamKey(user.getTeamKey())
-            .stream()
-            .sorted(String.CASE_INSENSITIVE_ORDER)
-            .collect(Collectors.toList());
-        return ResponseEntity.ok(statuses);
-    }
 
     /**
      * Builds an export filename with a given prefix and current date.
@@ -598,105 +326,11 @@ public class TestCaseController {
         return prefix + "-" + date + ".xlsx";
     }
 
-    private Optional<AppUser> resolveCurrentUser(HttpSession session, Authentication authentication) {
-        String sessionEmail = (String) session.getAttribute("session_user");
-        if (sessionEmail != null && !sessionEmail.isBlank()) {
-            return userRepository.findByEmailIgnoreCase(sessionEmail.trim());
-        }
-
-        String principalName = resolveAuthenticatedPrincipalName(authentication);
-        if (principalName == null) {
-            return Optional.empty();
-        }
-        return userRepository.findByEmailIgnoreCase(principalName);
-    }
-
-    private String resolveAuthenticatedPrincipalName(Authentication authentication) {
-        if (authentication != null && authentication.isAuthenticated()) {
-            String principalName = authentication.getName();
-            if (principalName != null && !principalName.isBlank() && !"anonymousUser".equals(principalName)) {
-                return principalName;
-            }
-        }
-        return null;
-    }
 
     private String encodeMessage(String message) {
         String value = message == null ? "" : message;
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    private String normalizeQueryParam(String value) {
-        if (value == null) {
-            return null;
-        }
-        String normalized = value.trim();
-        return normalized.isEmpty() ? null : normalized;
-    }
 
-    private String normalizeFolderQueryParam(String value) {
-        String normalized = normalizeFolderPath(value);
-        if (normalized.isEmpty()) {
-            return null;
-        }
-
-        return normalized;
-    }
-
-    private String normalizeFolderPath(String value) {
-        if (value == null) {
-            return "";
-        }
-
-        String withSlashSeparators = value.trim().replace('\\', '/').replaceAll("/+", "/");
-        String trimmedBounds = withSlashSeparators.replaceAll("^/+", "").replaceAll("/+$", "").trim();
-        return trimmedBounds;
-    }
-
-    private boolean folderMatchesFilter(String folderValue, String normalizedFilter) {
-        String normalizedFolder = normalizeFolderPath(folderValue);
-        if (normalizedFolder.isEmpty() || normalizedFilter == null || normalizedFilter.isEmpty()) {
-            return false;
-        }
-
-        String folderLower = normalizedFolder.toLowerCase();
-        String filterLower = normalizedFilter.toLowerCase();
-        return folderLower.equals(filterLower)
-            || folderLower.startsWith(filterLower + "/");
-    }
-
-    private List<TestCase> findCasesByOrderedIds(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return List.of();
-        }
-
-        List<TestCase> cases = testCaseRepository.findAllWithStepsByIdIn(ids);
-        Map<Long, Integer> positionById = new HashMap<>();
-        for (int index = 0; index < ids.size(); index++) {
-            positionById.put(ids.get(index), index);
-        }
-        cases.sort(Comparator.comparingInt(testCase -> positionById.getOrDefault(testCase.getId(), Integer.MAX_VALUE)));
-        return cases;
-    }
-
-    private void addDelimitedTags(Set<String> tags, String rawValue) {
-        if (rawValue == null) {
-            return;
-        }
-        Arrays.stream(rawValue.split(","))
-            .map(String::trim)
-            .filter(value -> !value.isEmpty())
-            .forEach(tags::add);
-    }
-
-    private List<String> parseFolderSegments(String folder) {
-        if (folder == null || folder.isBlank()) {
-            return List.of();
-        }
-
-        return Arrays.stream(folder.split("/"))
-            .map(String::trim)
-            .filter(segment -> !segment.isBlank())
-            .collect(Collectors.toList());
-    }
 }
