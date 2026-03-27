@@ -1,4 +1,4 @@
-package com.formswim.teststream.etl.model;
+package com.formswim.teststream.shared.domain;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;

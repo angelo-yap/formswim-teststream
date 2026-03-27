@@ -1,6 +1,5 @@
 package com.formswim.teststream.etl.dto;
-
-import com.formswim.teststream.etl.model.TestCase;
+import com.formswim.teststream.shared.domain.TestCase;
 
 import java.util.ArrayList;
 import java.util.List;

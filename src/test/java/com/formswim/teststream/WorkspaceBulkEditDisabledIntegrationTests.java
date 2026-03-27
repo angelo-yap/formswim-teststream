@@ -18,7 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
-import com.formswim.teststream.etl.repository.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestCaseRepository;
 
 @SpringBootTest(properties = {
     "teststream.bulk-edit.enabled=false"

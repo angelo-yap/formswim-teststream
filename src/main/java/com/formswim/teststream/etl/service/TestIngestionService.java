@@ -17,10 +17,10 @@ import org.springframework.web.multipart.MultipartFile;
 import com.formswim.teststream.etl.dto.EtlResultSummary;
 import com.formswim.teststream.etl.dto.ReviewCaseSnapshot;
 import com.formswim.teststream.etl.dto.ReviewConflictCandidate;
-import com.formswim.teststream.etl.model.TestCase;
+import com.formswim.teststream.shared.domain.TestCase;
 import com.formswim.teststream.etl.model.UploadHistory;
 import com.formswim.teststream.etl.model.UploadReviewSession;
-import com.formswim.teststream.etl.repository.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestCaseRepository;
 import com.formswim.teststream.etl.repository.UploadHistoryRepository;
 import com.formswim.teststream.etl.repository.UploadReviewSessionRepository;
 

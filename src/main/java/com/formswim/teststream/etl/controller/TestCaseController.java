@@ -34,6 +34,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+
+//Shared Imports
+import com.formswim.teststream.shared.domain.TestCase;
+import com.formswim.teststream.shared.domain.TestCaseRepository;
+
+
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
 import com.formswim.teststream.etl.dto.BulkEditRequest;
@@ -43,8 +49,7 @@ import com.formswim.teststream.etl.dto.BulkMoveResult;
 import com.formswim.teststream.etl.dto.EtlResultSummary;
 import com.formswim.teststream.etl.dto.ReviewApplyResult;
 import com.formswim.teststream.etl.dto.UploadReviewSessionView;
-import com.formswim.teststream.etl.model.TestCase;
-import com.formswim.teststream.etl.repository.TestCaseRepository;
+
 import com.formswim.teststream.etl.service.ExcelExportService;
 import com.formswim.teststream.etl.service.TestCaseBulkEditService;
 import com.formswim.teststream.etl.service.TestCaseBulkMoveService;

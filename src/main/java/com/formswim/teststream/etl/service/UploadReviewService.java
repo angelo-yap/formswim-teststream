@@ -1,5 +1,13 @@
 package com.formswim.teststream.etl.service;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,21 +18,14 @@ import com.formswim.teststream.etl.dto.ReviewConflictCandidate;
 import com.formswim.teststream.etl.dto.ReviewItemView;
 import com.formswim.teststream.etl.dto.ReviewStepSnapshot;
 import com.formswim.teststream.etl.dto.UploadReviewSessionView;
-import com.formswim.teststream.etl.model.TestCase;
-import com.formswim.teststream.etl.model.TestStep;
 import com.formswim.teststream.etl.model.UploadHistory;
 import com.formswim.teststream.etl.model.UploadReviewItem;
 import com.formswim.teststream.etl.model.UploadReviewSession;
-import com.formswim.teststream.etl.repository.TestCaseRepository;
 import com.formswim.teststream.etl.repository.UploadHistoryRepository;
 import com.formswim.teststream.etl.repository.UploadReviewSessionRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import com.formswim.teststream.shared.domain.TestCase;
+import com.formswim.teststream.shared.domain.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestStep;
 
 @Service
 public class UploadReviewService {

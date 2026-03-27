@@ -1,8 +1,8 @@
 package com.formswim.teststream.etl.service;
 
-import com.formswim.teststream.etl.model.TestCase;
-import com.formswim.teststream.etl.model.TestStep;
-import com.formswim.teststream.etl.repository.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestCase;
+import com.formswim.teststream.shared.domain.TestStep;
+import com.formswim.teststream.shared.domain.TestCaseRepository;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Font;

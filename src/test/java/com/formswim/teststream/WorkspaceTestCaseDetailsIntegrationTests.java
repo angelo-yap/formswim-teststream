@@ -21,9 +21,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
-import com.formswim.teststream.etl.model.TestCase;
-import com.formswim.teststream.etl.model.TestStep;
-import com.formswim.teststream.etl.repository.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestCase;
+import com.formswim.teststream.shared.domain.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestStep;
 import com.formswim.teststream.support.TestCaseFixtures;
 
 @SpringBootTest

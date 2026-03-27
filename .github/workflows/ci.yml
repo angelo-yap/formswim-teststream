@@ -2,7 +2,7 @@ name: Spring Boot CI Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "23-folder-refactor-plan-reduce-etl-controllerservice-bloat" ]
   pull_request:
     branches: [ "main" ]
 

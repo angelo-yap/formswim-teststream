@@ -1,6 +1,7 @@
-package com.formswim.teststream.etl.repository;
+package com.formswim.teststream.shared.domain;
 
-import com.formswim.teststream.etl.model.TestCase;
+
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

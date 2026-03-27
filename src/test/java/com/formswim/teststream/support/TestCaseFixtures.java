@@ -1,6 +1,6 @@
 package com.formswim.teststream.support;
 
-import com.formswim.teststream.etl.model.TestCase;
+import com.formswim.teststream.shared.domain.TestCase;
 
 public final class TestCaseFixtures {
 

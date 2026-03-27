@@ -1,9 +1,9 @@
 package com.formswim.teststream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -22,9 +22,9 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
-import com.formswim.teststream.etl.model.TestCase;
-import com.formswim.teststream.etl.model.TestStep;
-import com.formswim.teststream.etl.repository.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestCase;
+import com.formswim.teststream.shared.domain.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestStep;
 import com.formswim.teststream.support.TestCaseFixtures;
 
 @SpringBootTest

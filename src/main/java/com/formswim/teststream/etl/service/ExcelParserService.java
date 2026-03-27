@@ -18,8 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.formswim.teststream.etl.dto.EtlResultSummary;
-import com.formswim.teststream.etl.model.TestCase;
-import com.formswim.teststream.etl.model.TestStep;
+import com.formswim.teststream.shared.domain.TestCase;
+import com.formswim.teststream.shared.domain.TestStep;
 
 /**
  * Extract & Transform – QMetry .xlsx export format.
