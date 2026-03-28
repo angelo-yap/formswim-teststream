@@ -1,8 +1,7 @@
-package com.formswim.teststream.etl.service;
+package com.formswim.teststream.bulk.service;
 
-import com.formswim.teststream.etl.dto.BulkEditRequest;
-import com.formswim.teststream.etl.dto.BulkEditResult;
-
+import com.formswim.teststream.bulk.dto.BulkEditRequest;
+import com.formswim.teststream.bulk.dto.BulkEditResult;
 import com.formswim.teststream.shared.domain.TestCase;
 import com.formswim.teststream.shared.domain.TestStep;
 import com.formswim.teststream.shared.domain.TestCaseRepository;

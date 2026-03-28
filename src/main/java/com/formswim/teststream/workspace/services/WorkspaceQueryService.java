@@ -22,6 +22,9 @@ public class WorkspaceQueryService {
     }
 
       public String normalizeQueryParam(String value) {
+        if (value == null) {
+            return null;
+        }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
     }

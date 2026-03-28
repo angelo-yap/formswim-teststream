@@ -42,21 +42,21 @@ import com.formswim.teststream.shared.domain.TestCaseRepository;
 
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
-import com.formswim.teststream.etl.dto.BulkEditRequest;
-import com.formswim.teststream.etl.dto.BulkEditResult;
-import com.formswim.teststream.etl.dto.BulkMoveRequest;
-import com.formswim.teststream.etl.dto.BulkMoveResult;
 import com.formswim.teststream.etl.dto.EtlResultSummary;
 import com.formswim.teststream.etl.dto.ReviewApplyResult;
 import com.formswim.teststream.etl.dto.UploadReviewSessionView;
 
 import com.formswim.teststream.etl.service.ExcelExportService;
-import com.formswim.teststream.etl.service.TestCaseBulkEditService;
-import com.formswim.teststream.etl.service.TestCaseBulkMoveService;
 import com.formswim.teststream.etl.service.TestIngestionService;
 import com.formswim.teststream.etl.service.UploadReviewService;
 
 import com.formswim.teststream.auth.service.CurrentUserService;
+import com.formswim.teststream.bulk.dto.BulkEditRequest;
+import com.formswim.teststream.bulk.dto.BulkEditResult;
+import com.formswim.teststream.bulk.dto.BulkMoveRequest;
+import com.formswim.teststream.bulk.dto.BulkMoveResult;
+import com.formswim.teststream.bulk.service.TestCaseBulkEditService;
+import com.formswim.teststream.bulk.service.TestCaseBulkMoveService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -235,84 +235,6 @@ public class TestCaseController {
         }
         EtlResultSummary result = testIngestionService.ingestFile(file, user.getTeamKey());
         return ResponseEntity.ok(result);
-    }
-    /**
-     * PATCH /api/testcases/bulk-move
-     * Endpoint accepts a list of test case work keys and a target folder
-     * and moves the specified test cases to the target folder, returning a summary of the results.
-     * @param request
-     * @param session
-     * @param authentication
-     * @return a summary of the bulk move results, including counts of moved, forbidden, not found, and any failures with reasons.
-     */
-    @PatchMapping("/api/testcases/bulk-move")
-    @ResponseBody
-    public ResponseEntity<BulkMoveResult> apiBulkMoveTestCases(@Valid @RequestBody BulkMoveRequest request,
-                                                               HttpSession session,
-                                                               Authentication authentication) {
-        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
-        if (currentUser.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        AppUser user = currentUser.get();
-        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        String targetFolder = request.getTargetFolder() == null ? "" : request.getTargetFolder().trim();
-        if (targetFolder.isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        BulkMoveResult result = testCaseBulkMoveService.bulkMoveByWorkKeys(user.getTeamKey(), request);
-        return ResponseEntity.ok(result);
-    }
-
-    /**
-     * PATCH /api/testcases/bulk-edit
-     *
-     * <p>Runs team-scoped exact text replacement for selected work keys and fields.
-     * Returns 400 for invalid payloads (blank find text, empty work keys, unsupported fields,
-     * or over-limit batch sizes), 503 when disabled by rollout flag,
-     * and 401/403 for authentication or team access failures.</p>
-     */
-    @PatchMapping("/api/testcases/bulk-edit")
-    @ResponseBody
-    public ResponseEntity<BulkEditResult> apiBulkEditTestCases(@Valid @RequestBody BulkEditRequest request,
-                                                               HttpSession session,
-                                                               Authentication authentication) {
-        if (!bulkEditEnabled) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
-        }
-
-        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
-        if (currentUser.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        AppUser user = currentUser.get();
-        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        if (request.getWorkKeys().isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        String findText = request.getFindText() == null ? "" : request.getFindText().trim();
-        if (findText.isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
-        // Use the normalized token for mutation so validation and execution are consistent.
-        request.setFindText(findText);
-
-        try {
-            BulkEditResult result = testCaseBulkEditService.bulkEditByWorkKeys(user.getTeamKey(), request);
-            return ResponseEntity.ok(result);
-        } catch (IllegalArgumentException exception) {
-            return ResponseEntity.badRequest().build();
-        }
     }
 
 

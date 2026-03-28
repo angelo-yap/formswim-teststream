@@ -1,4 +1,4 @@
-package com.formswim.teststream.etl.dto;
+package com.formswim.teststream.bulk.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
