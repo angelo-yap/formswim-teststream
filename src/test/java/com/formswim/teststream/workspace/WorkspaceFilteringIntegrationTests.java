@@ -1,4 +1,4 @@
-package com.formswim.teststream;
+package com.formswim.teststream.workspace;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;

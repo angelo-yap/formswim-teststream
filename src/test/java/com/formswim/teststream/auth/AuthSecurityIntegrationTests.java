@@ -1,4 +1,4 @@
-package com.formswim.teststream;
+package com.formswim.teststream.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;

@@ -1,4 +1,4 @@
-package com.formswim.teststream.etl.service;
+package com.formswim.teststream.export;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

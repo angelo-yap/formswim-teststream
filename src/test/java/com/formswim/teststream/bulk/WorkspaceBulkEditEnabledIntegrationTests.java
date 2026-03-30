@@ -1,4 +1,4 @@
-package com.formswim.teststream;
+package com.formswim.teststream.bulk;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;

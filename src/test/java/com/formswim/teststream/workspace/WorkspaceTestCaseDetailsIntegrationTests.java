@@ -1,4 +1,4 @@
-package com.formswim.teststream;
+package com.formswim.teststream.workspace;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
