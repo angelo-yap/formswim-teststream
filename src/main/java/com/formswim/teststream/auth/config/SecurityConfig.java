@@ -28,7 +28,7 @@ public class SecurityConfig {
             "img-src 'self' data:; " +
             "connect-src 'self'; " +
             "base-uri 'self'; " +
-            "form-action 'self'; " +
+            "form-action 'self' https://teststream.jaydentruong.com; " +
             "frame-ancestors 'none'; " +
             "object-src 'none'";
 
