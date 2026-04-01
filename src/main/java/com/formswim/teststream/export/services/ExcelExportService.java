@@ -1,23 +1,5 @@
 package com.formswim.teststream.export.services;
 
-import com.formswim.teststream.ingestion.services.ExcelParserService;
-import com.formswim.teststream.shared.domain.TestCase;
-import com.formswim.teststream.shared.domain.TestStep;
-import com.formswim.teststream.shared.domain.TestCaseRepository;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.Font;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -30,8 +12,31 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+
+import com.formswim.teststream.ingestion.services.ExcelParserService;
+import com.formswim.teststream.shared.domain.TestCase;
+import com.formswim.teststream.shared.domain.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestStep;
+
 @Service
 public class ExcelExportService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ExcelExportService.class);
 
     private static final String SHEET_NAME = "Test Cases";
     private static final MediaType XLSX_MEDIA_TYPE = MediaType.parseMediaType(
@@ -113,7 +118,11 @@ public class ExcelExportService {
             }
 
             for (int columnIndex = 0; columnIndex < ExcelParserService.CANONICAL_HEADERS.size(); columnIndex++) {
-                sheet.autoSizeColumn(columnIndex);
+                try {
+                    sheet.autoSizeColumn(columnIndex);
+                } catch (RuntimeException exception) {
+                    logger.warn("Skipping auto-size for column {} due to runtime error", columnIndex, exception);
+                }
             }
 
             workbook.write(outputStream);
