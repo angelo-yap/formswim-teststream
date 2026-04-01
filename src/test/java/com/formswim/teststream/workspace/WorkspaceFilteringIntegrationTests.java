@@ -1,11 +1,14 @@
 package com.formswim.teststream.workspace;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -153,6 +156,17 @@ class WorkspaceFilteringIntegrationTests {
 
         List<String> workKeys = extractWorkKeys(result);
         assertThat(workKeys).containsExactly("TC-101");
+    }
+
+    @Test
+    void workspacePageRendersPhaseOneFrontendHooks() throws Exception {
+        mockMvc.perform(get("/workspace")
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isOk())
+            .andExpect(view().name("workspace"))
+            .andExpect(content().string(containsString("id=\"wsTbody\"")))
+            .andExpect(content().string(containsString("id=\"importBtn\"")))
+            .andExpect(content().string(containsString("id=\"bulkOrganize\"")));
     }
 
     @Test
