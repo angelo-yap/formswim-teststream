@@ -1,4 +1,5 @@
 import { renderInlinePreviewRow } from './components/workspace-inline-preview-row.js';
+import { createWorkspaceTooltip } from './components/workspace-tooltip.js';
 
 export function escHtml(value) {
     return String(value)
@@ -69,70 +70,29 @@ function buildPreviewElementId(workKey) {
     return 'ws-preview-' + String(workKey || '').replace(/[^a-zA-Z0-9_-]/g, '-');
 }
 
-let tagTooltipEl = null;
-let tagTooltipAnchor = null;
+const tagTooltip = createWorkspaceTooltip({
+    className: 'fixed z-50 border border-white/20 bg-black px-3 py-2 text-xs text-white/80',
+    maxWidth: '22rem'
+});
+const titleTooltip = createWorkspaceTooltip({
+    className: 'fixed z-50 border border-white/20 bg-black px-3.5 py-2.5 text-sm text-white/90',
+    maxWidth: '42rem',
+    whiteSpace: 'normal',
+    wordBreak: 'break-word'
+});
 
-function ensureTagTooltip() {
-    if (tagTooltipEl) {
-        return tagTooltipEl;
+function isHorizontallyTruncated(element) {
+    if (!element) {
+        return false;
     }
 
-    const el = document.createElement('div');
-    el.className = 'fixed z-50 border border-white/20 bg-black px-3 py-2 text-xs text-white/80';
-    el.style.display = 'none';
-    el.style.pointerEvents = 'none';
-    el.style.maxWidth = '22rem';
-    document.body.appendChild(el);
-
-    const hide = () => hideTagTooltip();
-    window.addEventListener('scroll', hide, true);
-    window.addEventListener('resize', hide);
-
-    tagTooltipEl = el;
-    return el;
-}
-
-function hideTagTooltip() {
-    if (!tagTooltipEl) {
-        return;
-    }
-    tagTooltipEl.style.display = 'none';
-    tagTooltipEl.innerHTML = '';
-    tagTooltipAnchor = null;
-}
-
-function positionTooltip(anchorRect, tooltipRect) {
-    const padding = 8;
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-
-    let left = anchorRect.left;
-    let top = anchorRect.bottom + padding;
-
-    if (left + tooltipRect.width + padding > viewportWidth) {
-        left = Math.max(padding, viewportWidth - tooltipRect.width - padding);
-    }
-
-    if (top + tooltipRect.height + padding > viewportHeight) {
-        // If there's no room below, try above.
-        const above = anchorRect.top - padding - tooltipRect.height;
-        if (above >= padding) {
-            top = above;
-        } else {
-            top = Math.max(padding, viewportHeight - tooltipRect.height - padding);
-        }
-    }
-
-    return { left, top };
+    return element.scrollWidth > element.clientWidth + 1;
 }
 
 function showTagTooltip(anchorEl, tags) {
     if (!anchorEl || !tags || tags.length === 0) {
         return;
     }
-
-    const tooltip = ensureTagTooltip();
-    tagTooltipAnchor = anchorEl;
 
     // Render each tag as a badge so future per-tag colors are visible here.
     let html = '<div class="flex flex-wrap gap-2">';
@@ -141,14 +101,20 @@ function showTagTooltip(anchorEl, tags) {
     }
     html += '</div>';
 
-    tooltip.innerHTML = html;
-    tooltip.style.display = 'block';
+    tagTooltip.show(anchorEl, html);
+}
 
-    const anchorRect = anchorEl.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
-    const pos = positionTooltip(anchorRect, tooltipRect);
-    tooltip.style.left = String(Math.round(pos.left)) + 'px';
-    tooltip.style.top = String(Math.round(pos.top)) + 'px';
+function showTitleTooltip(anchorEl, fullTitle) {
+    if (!anchorEl || !isHorizontallyTruncated(anchorEl)) {
+        return;
+    }
+
+    const normalizedTitle = String(fullTitle || '').trim();
+    if (!normalizedTitle) {
+        return;
+    }
+
+    titleTooltip.show(anchorEl, escHtml(normalizedTitle));
 }
 
 function decodeTagsFromDataset(value) {
@@ -177,8 +143,9 @@ export function createGrid(tbody) {
             ? viewOptions.expandedPreviewKeys
             : new Set();
 
-        // If the grid rerenders while hovering/focused, ensure any tag tooltip is dismissed.
-        hideTagTooltip();
+        // If the grid rerenders while hovering/focused, ensure active tooltips are dismissed.
+        tagTooltip.hide();
+        titleTooltip.hide();
 
         tbody.innerHTML = '';
         testCaseMap = {};
@@ -221,7 +188,7 @@ export function createGrid(tbody) {
 
             const titleCell =
                 '<div class="min-w-0">' +
-                    '<div class="font-semibold text-white/85 truncate">' + escHtml(title) + '</div>' +
+                    '<div class="font-semibold text-white/85 truncate ws-title-text" data-ws-title tabindex="0">' + escHtml(title) + '</div>' +
                     (folder ? '<div class="text-white/45 text-xs mt-0.5 truncate">' + escHtml(folder) + '</div>' : '') +
                 '</div>';
 
@@ -258,17 +225,25 @@ export function createGrid(tbody) {
                 if (tags.length > 0) {
                     tagsEl.addEventListener('mouseenter', () => showTagTooltip(tagsEl, tags));
                     tagsEl.addEventListener('mouseleave', () => {
-                        if (tagTooltipAnchor === tagsEl) {
-                            hideTagTooltip();
-                        }
+                        tagTooltip.hide();
                     });
                     tagsEl.addEventListener('focusin', () => showTagTooltip(tagsEl, tags));
                     tagsEl.addEventListener('focusout', () => {
-                        if (tagTooltipAnchor === tagsEl) {
-                            hideTagTooltip();
-                        }
+                        tagTooltip.hide();
                     });
                 }
+            }
+
+            const titleEl = row.querySelector('[data-ws-title]');
+            if (titleEl) {
+                titleEl.addEventListener('mouseenter', () => showTitleTooltip(titleEl, title));
+                titleEl.addEventListener('mouseleave', () => {
+                    titleTooltip.hide();
+                });
+                titleEl.addEventListener('focusin', () => showTitleTooltip(titleEl, title));
+                titleEl.addEventListener('focusout', () => {
+                    titleTooltip.hide();
+                });
             }
 
             tbody.appendChild(row);
