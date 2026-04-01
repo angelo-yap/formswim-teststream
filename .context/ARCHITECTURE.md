@@ -181,11 +181,10 @@ The frontend is currently the weakest architectural area and should be modulariz
 
 ### Current Pain Points
 
-- flat `templates/` directory
-- inline scripts inside templates
-- template-local styling and repeated head markup
-- large workspace page script
-- upload review behavior embedded in the template
+- most Thymeleaf templates still live in a flat `templates/` directory
+- template-local styling and repeated head markup still exist in places
+- upload review behavior is still embedded in the template
+- some backend workflows are modular, but service/controller cleanup is still in progress
 
 ### Required Folder Creation
 
@@ -225,6 +224,7 @@ src/main/resources/static/
 
 - Each Thymeleaf page should have one small page boot module.
 - Page boot modules compose smaller components and feature modules.
+- Large Thymeleaf screens should be split into feature-aligned fragments once the page behavior seams are clear.
 - DOM rendering should live in components, not in giant page entry files.
 - Network calls should live in small API modules.
 - CSRF, fetch wrappers, flash messages, clipboard helpers, and generic DOM utilities can live in `static/js/shared`.
@@ -233,7 +233,7 @@ src/main/resources/static/
 
 ### Immediate Frontend Refactor Targets
 
-- split the workspace page script into page boot, folder tree, filters, pagination, selection, organize modal, and notices
+- keep the workspace page on the new pattern: small page boot, feature-scoped JS modules, and Thymeleaf fragments under `templates/workspace/`
 - move upload review script out of the template and into `static/js/ingestion`
 - introduce shared Thymeleaf layout fragments for head, flash messages, and common nav elements
 

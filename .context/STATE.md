@@ -1,10 +1,10 @@
 # Current State
 
-Last updated: 2026-03-30
+Last updated: 2026-04-01
 
 ## Summary
 
-TestStream is a working Spring Boot and Thymeleaf application with core authentication, team-scoped workspace access, import/export, upload conflict review, workspace filtering, a dedicated details page, and bulk mutation workflows already in place. Iterations 1 and 2 are largely represented in the codebase. Iteration 3 is now focused on architectural cleanup, frontend modularity, deployment hardening, and undo/redo.
+TestStream is a working Spring Boot and Thymeleaf application with core authentication, team-scoped workspace access, import/export, upload conflict review, workspace filtering, a dedicated details page, and bulk mutation workflows already in place. Iterations 1 and 2 are largely represented in the codebase. Iteration 3 is now focused on architectural cleanup, deployment hardening, and undo/redo, with the workspace frontend modularization now delivered.
 
 ## Delivered So Far
 
@@ -37,9 +37,8 @@ Iteration 3 is in progress.
 
 Primary active goals:
 
-- modularize workspace and ETL code
+- modularize ETL code and finish architectural cleanup around the workspace backend
 - reduce controller and service duplication
-- improve frontend file structure before more UI complexity lands
 - implement undo/redo safely
 - harden Docker and Render deployment readiness
 
@@ -67,15 +66,14 @@ Important state notes:
 
 Current frontend shape:
 
-- flat Thymeleaf templates under `src/main/resources/templates`
-- static JS concentrated under `src/main/resources/static/js/workspace`
-- page-specific behavior is partly modularized and partly still inline in templates
+- the workspace page now uses feature-scoped JS modules under `src/main/resources/static/js/workspace`
+- the workspace template now composes fragments from `src/main/resources/templates/workspace`
+- other pages still use the older flat-template and inline-script patterns
 
 Known frontend hotspots:
 
-- `workspace/page.js` is too large and owns too many concerns
 - `upload-review.html` still embeds significant review logic in the template
-- template folders and shared layout fragments are not established yet
+- shared layout fragments are not established yet across the rest of the app
 
 ### Tests
 
@@ -101,7 +99,7 @@ This is a strength of the current project and should remain part of the definiti
 ## Known Debt And Risks
 
 - repeated auth and team-resolution logic across controllers
-- oversized feature hotspots such as bulk edit logic, upload review orchestration, and the workspace page script
+- oversized feature hotspots such as bulk edit logic and upload review orchestration
 - direct use of shared domain entities across multiple feature boundaries
 - `spring.jpa.hibernate.ddl-auto=update` plus startup schema adjustment is fast for iteration, but risky as production deployment matures
 - bulk edit rollout state is mid-refactor; the workspace page currently forces `bulkEditEnabled` in controller code
@@ -125,7 +123,6 @@ What is still maturing:
 
 - standardize feature package internals
 - reduce repeated controller auth/team checks through a stronger request-context abstraction
-- split workspace frontend behavior into smaller modules
 - move inline template scripts into feature JS files
 - keep new shared abstractions narrow and intentional
 

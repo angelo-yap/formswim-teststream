@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+	<th:block th:fragment="bulkBar">
+		<div id="bulkBar" class="fixed left-0 right-0 bottom-0 z-40 hidden">
+			<div class="w-full px-6 sm:px-8 pb-6">
+				<div class="border border-white/10 bg-black/95 backdrop-blur p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+					style="border-color: rgba(231, 255, 2, 0.25);">
+					<div class="flex items-center gap-3">
+						<div class="w-2 h-2 rounded-full" style="background-color: #E7FF02;"></div>
+						<p class="text-sm text-white/80">
+							<span id="bulkCount" class="font-bold" style="color: #E7FF02;">0</span>
+							items selected on this page
+						</p>
+					</div>
+					<div class="flex items-center gap-3">
+						<button id="bulkExportSelected" type="button" class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
+							Export selected
+						</button>
+						<button
+							id="bulkEditOpen"
+							type="button"
+							class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
+							Bulk edit
+						</button>
+						<button id="bulkOrganize" type="button" class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
+							Organize
+						</button>
+						<p class="text-xs text-white/45">
+							Export, bulk edit, or move the current-page selection.
+						</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</th:block>
+</body>
+</html>
