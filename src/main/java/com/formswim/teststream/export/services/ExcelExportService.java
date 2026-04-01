@@ -19,8 +19,6 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -36,9 +34,8 @@ import com.formswim.teststream.shared.domain.TestStep;
 @Service
 public class ExcelExportService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ExcelExportService.class);
-
     private static final String SHEET_NAME = "Test Cases";
+    private static final int FIXED_COLUMN_WIDTH = 22 * 256;
     private static final MediaType XLSX_MEDIA_TYPE = MediaType.parseMediaType(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
@@ -118,11 +115,7 @@ public class ExcelExportService {
             }
 
             for (int columnIndex = 0; columnIndex < ExcelParserService.CANONICAL_HEADERS.size(); columnIndex++) {
-                try {
-                    sheet.autoSizeColumn(columnIndex);
-                } catch (RuntimeException exception) {
-                    logger.warn("Skipping auto-size for column {} due to runtime error", columnIndex, exception);
-                }
+                sheet.setColumnWidth(columnIndex, FIXED_COLUMN_WIDTH);
             }
 
             workbook.write(outputStream);
