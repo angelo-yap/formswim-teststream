@@ -94,8 +94,6 @@ public class WorkspacePageController {
         model.addAttribute("filterComponent", component != null ? component : "");
         model.addAttribute("importErrorMessage", importError);
         model.addAttribute("importSuccessMessage", importSuccess);
-        // TODO Need to remove bulk edit enabled, leaving in during refactor
-        model.addAttribute("bulkEditEnabled", true);
 
         return "workspace";
     }

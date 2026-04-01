@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -21,14 +22,14 @@ public class WorkspaceQueryService {
         this.testCaseRepository = testCaseRepository;
     }
 
-      public String normalizeQueryParam(String value) {
+    public String normalizeQueryParam(String value) {
         if (value == null) {
             return null;
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
     }
-    
+
     public List<TestCase> findCasesByOrderedIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
@@ -42,7 +43,6 @@ public class WorkspaceQueryService {
         cases.sort(Comparator.comparingInt(testCase -> positionById.getOrDefault(testCase.getId(), Integer.MAX_VALUE)));
         return cases;
     }
-    
 
     public String normalizeFolderQueryParam(String value) {
         String normalized = normalizeFolderPath(value);
@@ -69,21 +69,20 @@ public class WorkspaceQueryService {
             return false;
         }
 
-        String folderLower = normalizedFolder.toLowerCase();
-        String filterLower = normalizedFilter.toLowerCase();
+        String folderLower = normalizedFolder.toLowerCase(Locale.ROOT);
+        String filterLower = normalizedFilter.toLowerCase(Locale.ROOT);
         return folderLower.equals(filterLower)
-            || folderLower.startsWith(filterLower + "/");
+                || folderLower.startsWith(filterLower + "/");
     }
-
 
     public void addDelimitedTags(Set<String> tags, String rawValue) {
         if (rawValue == null) {
             return;
         }
         Arrays.stream(rawValue.split(","))
-            .map(String::trim)
-            .filter(value -> !value.isEmpty())
-            .forEach(tags::add);
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .forEach(tags::add);
     }
 
     public List<String> parseFolderSegments(String folder) {
@@ -92,8 +91,8 @@ public class WorkspaceQueryService {
         }
 
         return Arrays.stream(folder.split("/"))
-            .map(String::trim)
-            .filter(segment -> !segment.isBlank())
-            .collect(Collectors.toList());
+                .map(String::trim)
+                .filter(segment -> !segment.isBlank())
+                .collect(Collectors.toList());
     }
 }

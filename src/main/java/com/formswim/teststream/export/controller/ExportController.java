@@ -68,8 +68,8 @@ public class ExportController {
 
     /**
      * Builds an export filename with a given prefix and current date.
-     * @param prefix
-     * @return
+     * @param prefix a string prefix for the filename, e.g. "workspace-export" or "workspace-selected"
+     * @return the generated filename in the format "{prefix}-YYYYMMDD.xlsx", e.g. "workspace-export-20240617.xlsx"
      */
     private String buildExportFilename(String prefix) {
         String date = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);

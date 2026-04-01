@@ -1,4 +1,6 @@
 package com.formswim.teststream.auth.service;
+
+
 import java.util.Optional;
 
 import org.springframework.security.core.Authentication;
