@@ -4,13 +4,13 @@
 	<th:block th:fragment="drawer">
 		<div id="drawer" class="fixed inset-0 z-50 hidden" aria-hidden="true">
 			<div id="drawerBackdrop" class="absolute inset-0 bg-black/70"></div>
-			<aside id="drawerPanel" class="absolute right-0 top-0 h-full w-full sm:w-[26rem] lg:w-[40%] bg-black border-l border-white/10 translate-x-full transition-transform">
+			<aside id="drawerPanel" class="absolute right-0 top-0 h-full w-full sm:w-[26rem] lg:w-[40%] bg-black border-l border-white/10 translate-x-full transition-transform" role="dialog" aria-modal="true" aria-labelledby="drawerHeading">
 				<div class="h-full flex flex-col">
 					<div class="shrink-0 px-6 py-5 border-b border-white/10">
 						<div class="flex items-start justify-between gap-4">
 							<div>
 								<p id="drawerModeLabel" class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Edit test case</p>
-								<h2 class="text-lg font-semibold text-white/85 mt-1">
+								<h2 id="drawerHeading" class="text-lg font-semibold text-white/85 mt-1">
 									<span id="drawerId" class="text-white/55">TC--</span>
 								</h2>
 							</div>

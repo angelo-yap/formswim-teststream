@@ -42,7 +42,7 @@ export function bindWorkspaceRowActions(options) {
 
                 const action = actionButton.dataset.action;
                 if (action === 'preview') {
-                    drawer.openByWorkKey(workKey, { readOnly: false });
+                    drawer.openByWorkKey(workKey, { readOnly: true });
                 } else if (action === 'edit' && actionButton.tagName !== 'A') {
                     window.location.href = editBasePath + encodeURIComponent(workKey);
                 }
