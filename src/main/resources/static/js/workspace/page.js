@@ -9,6 +9,7 @@ import { bindWorkspaceHeaderControls } from './features/workspace-header-control
 import { createWorkspaceImportController } from './features/workspace-import-controller.js';
 import { createWorkspaceMoveController } from './features/workspace-move-controller.js';
 import { createWorkspaceOrganizeModal } from './features/workspace-organize-modal.js';
+import { bindWorkspacePreviewControls } from './features/workspace-preview-controls.js';
 import { bindWorkspaceRowActions } from './features/workspace-row-actions.js';
 import { createGrid } from './grid.js';
 import { createSelection } from './selection.js';
@@ -32,6 +33,7 @@ const bulkOrganize = document.getElementById('bulkOrganize');
 const pageInfo = document.getElementById('wsPageInfo');
 const prevPageButton = document.getElementById('wsPrevPage');
 const nextPageButton = document.getElementById('wsNextPage');
+const collapseAllPreviews = document.getElementById('wsCollapsePreviews');
 const importNoticeContainer = document.getElementById('importNoticeContainer');
 const importNotice = document.getElementById('importNotice');
 const importNoticeBadge = document.getElementById('importNoticeBadge');
@@ -112,6 +114,9 @@ let importController = {
     clearNotice() {},
     showNotice() {}
 };
+let previewControls = {
+    refresh() {}
+};
 
 const dataController = createWorkspaceDataController({
     api,
@@ -127,7 +132,10 @@ const dataController = createWorkspaceDataController({
     filterComponent,
     filterStatus,
     filterTag,
-    syncRowSelectionUi: () => syncRowSelectionUi()
+    syncRowSelectionUi: () => syncRowSelectionUi(),
+    onAfterRender: () => {
+        previewControls.refresh();
+    }
 });
 
 const folderTreeController = createWorkspaceFolderTree({
@@ -152,10 +160,17 @@ const folderTreeController = createWorkspaceFolderTree({
 const rowActions = bindWorkspaceRowActions({
     tbody,
     selection,
-    drawer,
+    uiState,
+    rerenderCurrentPage: () => dataController.rerenderCurrentPage(),
     editBasePath: '/workspace/test-cases/'
 });
 syncRowSelectionUi = rowActions.syncRowSelectionUi;
+
+previewControls = bindWorkspacePreviewControls({
+    uiState,
+    collapseAllButton: collapseAllPreviews,
+    rerenderCurrentPage: () => dataController.rerenderCurrentPage()
+});
 
 importController = createWorkspaceImportController({
     api,

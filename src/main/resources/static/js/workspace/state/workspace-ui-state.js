@@ -12,6 +12,7 @@ export function createWorkspaceUiState(options) {
         isLoading: false
     };
     let sidebarExpanded = true;
+    const expandedPreviewKeys = new Set();
 
     function normalizeFolder(value) {
         const raw = String(value || '').trim();
@@ -176,6 +177,48 @@ export function createWorkspaceUiState(options) {
         return sidebarExpanded;
     }
 
+    function togglePreviewExpanded(workKey) {
+        const key = String(workKey || '').trim();
+        if (!key) {
+            return false;
+        }
+
+        if (expandedPreviewKeys.has(key)) {
+            expandedPreviewKeys.delete(key);
+            return false;
+        }
+
+        expandedPreviewKeys.add(key);
+        return true;
+    }
+
+    function isPreviewExpanded(workKey) {
+        const key = String(workKey || '').trim();
+        return key ? expandedPreviewKeys.has(key) : false;
+    }
+
+    function getExpandedPreviewKeys() {
+        return new Set(expandedPreviewKeys);
+    }
+
+    function clearExpandedPreviews() {
+        expandedPreviewKeys.clear();
+    }
+
+    function retainExpandedPreviewKeys(visibleWorkKeys) {
+        const keep = new Set((visibleWorkKeys || []).map((value) => String(value || '').trim()).filter(Boolean));
+        const removed = [];
+
+        for (const key of expandedPreviewKeys) {
+            if (!keep.has(key)) {
+                expandedPreviewKeys.delete(key);
+                removed.push(key);
+            }
+        }
+
+        return removed;
+    }
+
     return {
         applyPageLoadOptions,
         buildPageRequestParams,
@@ -190,6 +233,11 @@ export function createWorkspaceUiState(options) {
         setSelectedFolder,
         setSidebarExpanded,
         syncWorkspaceUrl,
-        updatePageData
+        updatePageData,
+        clearExpandedPreviews,
+        getExpandedPreviewKeys,
+        isPreviewExpanded,
+        retainExpandedPreviewKeys,
+        togglePreviewExpanded
     };
 }

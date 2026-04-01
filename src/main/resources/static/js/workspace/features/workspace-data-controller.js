@@ -50,6 +50,7 @@ export function createWorkspaceDataController(options) {
     const filterStatus = options.filterStatus;
     const filterTag = options.filterTag;
     const syncRowSelectionUi = options.syncRowSelectionUi;
+    const onAfterRender = typeof options.onAfterRender === 'function' ? options.onAfterRender : null;
 
     let currentPageCases = [];
     let activePageRequestId = 0;
@@ -101,8 +102,12 @@ export function createWorkspaceDataController(options) {
         }
 
         const visibleIds = currentPageCases.map((testCase) => testCase.workKey).filter(Boolean);
+        uiState.retainExpandedPreviewKeys(visibleIds);
         selection.retainSelectedIds(visibleIds);
-        grid.renderRows(currentPageCases, new Set(selection.getSelectedIds()));
+        const expandedPreviewKeys = uiState.getExpandedPreviewKeys();
+        grid.renderRows(currentPageCases, new Set(selection.getSelectedIds()), {
+            expandedPreviewKeys
+        });
         selection.setVisibleIds(visibleIds);
         selection.bindRowCheckboxes(tbody);
         if (typeof syncRowSelectionUi === 'function') {
@@ -110,6 +115,13 @@ export function createWorkspaceDataController(options) {
         }
         updatePageControls();
         uiState.syncWorkspaceUrl(getFilterElements());
+        if (onAfterRender) {
+            onAfterRender({
+                currentPageCases: currentPageCases.slice(),
+                expandedPreviewKeys,
+                visibleIds
+            });
+        }
     }
 
     function loadCurrentPage(options) {
@@ -190,11 +202,16 @@ export function createWorkspaceDataController(options) {
         return currentPageCases.slice();
     }
 
+    function rerenderCurrentPage() {
+        renderCurrentPage();
+    }
+
     return {
         applyFilters,
         getCurrentPageCases,
         loadCurrentPage,
         loadFilterOptions,
+        rerenderCurrentPage,
         updatePageControls
     };
 }

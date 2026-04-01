@@ -1,3 +1,5 @@
+import { renderInlinePreviewRow } from './components/workspace-inline-preview-row.js';
+
 export function escHtml(value) {
     return String(value)
         .replace(/&/g, '&amp;')
@@ -31,7 +33,7 @@ function parseTagList(value) {
 
 function buildTagBadges(testCase, maxVisible = 3) {
     // Today, tags live in `components` (often a string). `testCaseType` is shown as an additional badge.
-    // This helper keeps the future “real tags” implementation isolated.
+    // This helper keeps the future "real tags" implementation isolated.
     const list = [];
     list.push(...parseTagList(testCase?.components));
     list.push(...parseTagList(testCase?.testCaseType));
@@ -61,6 +63,10 @@ function buildTagBadges(testCase, maxVisible = 3) {
         tags,
         html
     };
+}
+
+function buildPreviewElementId(workKey) {
+    return 'ws-preview-' + String(workKey || '').replace(/[^a-zA-Z0-9_-]/g, '-');
 }
 
 let tagTooltipEl = null;
@@ -161,10 +167,15 @@ function decodeTagsFromDataset(value) {
 export function createGrid(tbody) {
     let testCaseMap = {};
 
-    function renderRows(testCases, selectedIds) {
+    function renderRows(testCases, selectedIds, options) {
         if (!tbody) {
             return;
         }
+
+        const viewOptions = options || {};
+        const expandedPreviewKeys = viewOptions.expandedPreviewKeys instanceof Set
+            ? viewOptions.expandedPreviewKeys
+            : new Set();
 
         // If the grid rerenders while hovering/focused, ensure any tag tooltip is dismissed.
         hideTagTooltip();
@@ -185,20 +196,23 @@ export function createGrid(tbody) {
         }
 
         for (const testCase of testCases) {
-            const workKey = testCase.workKey || '—';
-            const title = testCase.summary || '—';
+            const workKey = testCase.workKey || '-';
+            const title = testCase.summary || '-';
             const folder = testCase.folder || '';
-            const status = testCase.status || '—';
+            const status = testCase.status || '-';
             const tagModel = buildTagBadges(testCase, 3);
-            const updated = testCase.updatedOn || '—';
-            const idFontSize = workKey.length > 14 ? '10px' : (workKey.length > 10 ? '11px' : '12px');
+            const updated = testCase.updatedOn || '-';
             const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
+            const isSelected = selectedIds.has(workKey);
+            const isExpanded = expandedPreviewKeys.has(workKey);
+            const previewElementId = buildPreviewElementId(workKey);
 
             testCaseMap[workKey] = testCase;
 
             const row = document.createElement('tr');
-            const isSelected = selectedIds.has(workKey);
-            row.className = 'ws-row border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer' + (isSelected ? ' ws-row-selected' : '');
+            row.className = 'ws-row border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer'
+                + (isSelected ? ' ws-row-selected' : '')
+                + (isExpanded ? ' ws-row-expanded' : '');
             row.dataset.id = workKey;
             row.dataset.workKey = workKey;
             row.dataset.title = title;
@@ -211,7 +225,7 @@ export function createGrid(tbody) {
                     (folder ? '<div class="text-white/45 text-xs mt-0.5 truncate">' + escHtml(folder) + '</div>' : '') +
                 '</div>';
 
-            const tagsCell = tagModel.html || '<span class="text-white/45">—</span>';
+            const tagsCell = tagModel.html || '<span class="text-white/45">-</span>';
             const encodedTags = tagModel.tags && tagModel.tags.length > 0
                 ? encodeURIComponent(JSON.stringify(tagModel.tags))
                 : '';
@@ -225,7 +239,7 @@ export function createGrid(tbody) {
                 '</td>' +
                 '<td class="px-2 sm:px-3 py-2.5">' +
                     '<input type="checkbox" class="ws-row-check ws-interactive h-4 w-4 accent-[#E7FF02]" aria-label="Select row" data-work-key="' + escHtml(workKey) + '"' +
-                    (selectedIds.has(workKey) ? ' checked' : '') + ' />' +
+                    (isSelected ? ' checked' : '') + ' />' +
                 '</td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
@@ -233,7 +247,7 @@ export function createGrid(tbody) {
                 '<td class="pl-3 pr-6 sm:pl-6 sm:pr-4 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>' +
                 '<td class="px-2 sm:px-4 py-2.5 text-right">' +
                     '<div class="inline-flex items-center gap-2" data-work-key="' + escHtml(workKey) + '">' +
-                        '<button type="button" class="ws-row-action ws-row-preview ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="preview" data-work-key="' + escHtml(workKey) + '">Preview</button>' +
+                        '<button type="button" class="ws-row-action ws-row-preview ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="preview" data-work-key="' + escHtml(workKey) + '" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" aria-controls="' + escHtml(previewElementId) + '">' + (isExpanded ? 'Hide preview' : 'Preview') + '</button>' +
                         '<a class="ws-row-action ws-row-edit ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="edit" data-work-key="' + escHtml(workKey) + '" href="' + escHtml(previewUrl) + '">Edit</a>' +
                     '</div>' +
                 '</td>';
@@ -258,6 +272,10 @@ export function createGrid(tbody) {
             }
 
             tbody.appendChild(row);
+
+            if (isExpanded) {
+                tbody.insertAdjacentHTML('beforeend', renderInlinePreviewRow(testCase, { isSelected }));
+            }
         }
     }
 

@@ -5,8 +5,11 @@ function isInteractiveTarget(target) {
 export function bindWorkspaceRowActions(options) {
     const tbody = options.tbody;
     const selection = options.selection;
-    const drawer = options.drawer;
     const editBasePath = options.editBasePath || '/workspace/test-cases/';
+    const uiState = options.uiState;
+    const rerenderCurrentPage = typeof options.rerenderCurrentPage === 'function'
+        ? options.rerenderCurrentPage
+        : () => {};
 
     function syncRowSelectionUi() {
         if (!tbody) {
@@ -18,6 +21,19 @@ export function bindWorkspaceRowActions(options) {
             const workKey = row.dataset.workKey || '';
             const isSelected = selection.isSelected(workKey);
             row.classList.toggle('ws-row-selected', isSelected);
+        });
+
+        const previewCards = tbody.querySelectorAll('[data-preview-card-for]');
+        previewCards.forEach((previewCard) => {
+            const workKey = previewCard.getAttribute('data-preview-card-for') || '';
+            const isSelected = selection.isSelected(workKey);
+            const previewRow = previewCard.closest('tr.ws-preview-row');
+            if (!previewRow) {
+                return;
+            }
+
+            previewRow.classList.toggle('ws-preview-selected', isSelected);
+            previewRow.classList.toggle('ws-preview-open', !isSelected);
         });
     }
 
@@ -42,9 +58,37 @@ export function bindWorkspaceRowActions(options) {
 
                 const action = actionButton.dataset.action;
                 if (action === 'preview') {
-                    drawer.openByWorkKey(workKey, { readOnly: true });
+                    if (!uiState || typeof uiState.togglePreviewExpanded !== 'function') {
+                        return;
+                    }
+                    uiState.togglePreviewExpanded(workKey);
+                    rerenderCurrentPage();
                 } else if (action === 'edit' && actionButton.tagName !== 'A') {
                     window.location.href = editBasePath + encodeURIComponent(workKey);
+                }
+                return;
+            }
+
+            const genericAction = event.target?.closest?.('[data-action]');
+            if (genericAction && !genericAction.classList.contains('ws-row-action')) {
+                const action = genericAction.dataset.action;
+                if (action === 'toggle-preview-steps') {
+                    const previewCard = genericAction.closest('[data-preview-card-for]');
+                    if (!previewCard) {
+                        return;
+                    }
+
+                    const isExpanded = String(genericAction.dataset.expanded || '').toLowerCase() === 'true';
+                    const hiddenStepRows = previewCard.querySelectorAll('.ws-preview-step-extra');
+                    hiddenStepRows.forEach((row) => {
+                        row.classList.toggle('hidden', isExpanded);
+                    });
+
+                    const hiddenCount = Number.parseInt(genericAction.dataset.hiddenCount || '0', 10) || 0;
+                    genericAction.dataset.expanded = isExpanded ? 'false' : 'true';
+                    genericAction.textContent = isExpanded
+                        ? 'Show all ' + hiddenCount + ' more steps'
+                        : 'Show fewer steps';
                 }
                 return;
             }

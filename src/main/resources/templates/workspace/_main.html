@@ -9,12 +9,15 @@
 						<div id="wsSidebarToggleCollapsedHost" class="hidden shrink-0"></div>
 						<div class="min-w-0">
 							<h1 class="text-base uppercase tracking-wider text-white/70" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Test cases</h1>
-							<p class="text-xs text-white/45 mt-1">Click row body to select. Use Preview/Edit actions for drawer details.</p>
+							<p class="text-xs text-white/45 mt-1">Click row body to select. Preview expands inline under each test case.</p>
 						</div>
 					</div>
 					<div class="text-right">
 						<p class="text-xs text-white/45">Total</p>
 						<p id="wsTotalCount" class="text-sm text-white/70" th:text="${testCaseCount != null ? testCaseCount : '-'}">-</p>
+						<button id="wsCollapsePreviews" type="button" class="hidden mt-2 px-3 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-[11px] uppercase tracking-wider text-white/70">
+							Collapse all previews
+						</button>
 					</div>
 				</div>
 			</div>
