@@ -35,7 +35,7 @@ import com.formswim.teststream.shared.domain.TestStep;
 public class ExcelExportService {
 
     private static final String SHEET_NAME = "Test Cases";
-    private static final int FIXED_COLUMN_WIDTH = 22 * 256;
+    private static final int FIXED_COLUMN_WIDTH = 22 * 256; // Can play around with but for the most part looks solid
     private static final MediaType XLSX_MEDIA_TYPE = MediaType.parseMediaType(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
@@ -114,6 +114,8 @@ public class ExcelExportService {
                 }
             }
 
+            // DO NOT set to auto column width leave as fixed column width, The issue is that our docker file has a more lighweight
+            // Setup that does not include the proper fonts needed to support the auto column width which causes are export feature to crash
             for (int columnIndex = 0; columnIndex < ExcelParserService.CANONICAL_HEADERS.size(); columnIndex++) {
                 sheet.setColumnWidth(columnIndex, FIXED_COLUMN_WIDTH);
             }
