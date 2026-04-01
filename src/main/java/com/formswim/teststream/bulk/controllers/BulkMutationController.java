@@ -79,8 +79,7 @@ public class BulkMutationController {
      *
      * Runs team-scoped exact text replacement for selected work keys and fields.
      * Returns 400 for invalid payloads (blank find text, empty work keys, unsupported fields,
-     * or over-limit batch sizes), 503 when disabled by rollout flag,
-     * and 401/403 for authentication or team access failures.
+     * or over-limit batch sizes), and 401/403 for authentication or team access failures.
      */
     @PatchMapping("/api/testcases/bulk-edit")
     @ResponseBody

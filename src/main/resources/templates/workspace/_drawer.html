@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+	<th:block th:fragment="drawer">
+		<div id="drawer" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+			<div id="drawerBackdrop" class="absolute inset-0 bg-black/70"></div>
+			<aside id="drawerPanel" class="absolute right-0 top-0 h-full w-full sm:w-[26rem] lg:w-[40%] bg-black border-l border-white/10 translate-x-full transition-transform">
+				<div class="h-full flex flex-col">
+					<div class="shrink-0 px-6 py-5 border-b border-white/10">
+						<div class="flex items-start justify-between gap-4">
+							<div>
+								<p id="drawerModeLabel" class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Edit test case</p>
+								<h2 class="text-lg font-semibold text-white/85 mt-1">
+									<span id="drawerId" class="text-white/55">TC--</span>
+								</h2>
+							</div>
+							<button id="drawerClose" type="button" class="px-3 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
+								Close
+							</button>
+						</div>
+					</div>
+
+					<div class="flex-1 min-h-0 overflow-auto px-6 py-6">
+						<div class="space-y-5">
+							<div>
+								<label class="block text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Title</label>
+								<input id="drawerTitle" type="text" class="mt-2 w-full bg-black border border-white/15 px-4 py-3 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]" />
+							</div>
+							<div>
+								<label class="block text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Summary</label>
+								<textarea id="drawerSummary" rows="3" class="mt-2 w-full bg-black border border-white/15 px-4 py-3 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]" placeholder="One clear sentence describing the goal."></textarea>
+							</div>
+							<div>
+								<div class="flex items-center justify-between gap-4">
+									<label class="block text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Steps</label>
+									<span class="text-xs text-white/45">Action - Data - Expected</span>
+								</div>
+								<div id="drawerSteps" class="mt-3 space-y-3">
+								</div>
+							</div>
+
+							<div class="border border-white/10 bg-white/5 p-4">
+								<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Context</p>
+								<div class="mt-2 grid grid-cols-2 gap-3 text-sm">
+									<div>
+										<p class="text-xs text-white/45">Status</p>
+										<select id="drawerStatus" class="mt-1 w-full bg-black border border-white/15 px-3 py-2 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]">
+											<option>Draft</option>
+											<option>Pass</option>
+											<option>Fail</option>
+										</select>
+									</div>
+									<div>
+										<p class="text-xs text-white/45">Last updated</p>
+										<p id="drawerUpdated" class="text-white/75">-</p>
+									</div>
+								</div>
+								<div class="mt-3 grid grid-cols-2 gap-3 text-sm">
+									<div>
+										<p class="text-xs text-white/45">Assignee</p>
+										<p id="drawerAssignee" class="text-white/75">-</p>
+									</div>
+									<div>
+										<p class="text-xs text-white/45">Reporter</p>
+										<p id="drawerReporter" class="text-white/75">-</p>
+									</div>
+								</div>
+								<div class="mt-3">
+									<p class="text-xs text-white/45">Created on</p>
+									<p id="drawerCreatedOn" class="text-white/75">-</p>
+								</div>
+								<div class="mt-3">
+									<p class="text-xs text-white/45">Tags</p>
+									<p id="drawerTags" class="text-white/75">-</p>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="shrink-0 px-6 py-5 border-t border-white/10 flex items-center justify-between gap-3">
+						<p id="drawerFooterHint" class="text-xs text-white/45">Save updates and return to grid.</p>
+						<button id="drawerSave" type="button" class="px-5 py-2 text-black font-bold hover:opacity-80 transition-opacity text-sm" style="background-color: #E7FF02;">
+							Save
+						</button>
+					</div>
+				</div>
+			</aside>
+		</div>
+	</th:block>
+</body>
+</html>

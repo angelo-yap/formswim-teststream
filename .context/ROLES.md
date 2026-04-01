@@ -97,6 +97,7 @@ Responsibilities:
 - implement Thymeleaf and JavaScript work in feature-based folders
 - extract behavior out of inline template scripts when pages begin to grow
 - keep one small page boot file per page
+- split large page templates into feature-aligned fragments once the JS seams are established
 - prefer reusable components over more code in giant page scripts
 
 Restrictions:

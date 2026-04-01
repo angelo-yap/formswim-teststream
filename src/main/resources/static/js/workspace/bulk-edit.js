@@ -197,9 +197,8 @@ export function createBulkEdit(options) {
     const previewInfo = document.getElementById('bulkEditPreviewInfo');
     const previewList = document.getElementById('bulkEditPreviewList');
     const selectedCount = document.getElementById('bulkEditSelectedCount');
-    const isEnabled = typeof config.isEnabled === 'function' ? config.isEnabled : () => false;
 
-    if (!isEnabled() || !modal || !panel || !applyButton || !findInput || !replaceInput || !fieldsContainer || !previewInfo || !previewList || !selectedCount) {
+    if (!modal || !panel || !applyButton || !findInput || !replaceInput || !fieldsContainer || !previewInfo || !previewList || !selectedCount) {
         return createNoopApi();
     }
 

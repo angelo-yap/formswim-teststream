@@ -159,14 +159,20 @@ class WorkspaceFilteringIntegrationTests {
     }
 
     @Test
-    void workspacePageRendersPhaseOneFrontendHooks() throws Exception {
+    void workspacePageRendersWorkspaceTemplateHooks() throws Exception {
         mockMvc.perform(get("/workspace")
                 .with(user("team1.user@example.com").roles("USER")))
             .andExpect(status().isOk())
             .andExpect(view().name("workspace"))
             .andExpect(content().string(containsString("id=\"wsTbody\"")))
             .andExpect(content().string(containsString("id=\"importBtn\"")))
-            .andExpect(content().string(containsString("id=\"bulkOrganize\"")));
+            .andExpect(content().string(containsString("id=\"wsFolderTree\"")))
+            .andExpect(content().string(containsString("id=\"bulkEditOpen\"")))
+            .andExpect(content().string(containsString("id=\"bulkOrganize\"")))
+            .andExpect(content().string(containsString("id=\"bulkEditModal\"")))
+            .andExpect(content().string(containsString("id=\"organizeModal\"")))
+            .andExpect(content().string(containsString("id=\"drawer\"")))
+            .andExpect(content().string(containsString("id=\"workspaceAccountToggle\"")));
     }
 
     @Test

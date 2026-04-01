@@ -11,6 +11,7 @@ export function createWorkspaceUiState(options) {
         hasNext: false,
         isLoading: false
     };
+    let sidebarExpanded = true;
 
     function normalizeFolder(value) {
         const raw = String(value || '').trim();
@@ -167,6 +168,14 @@ export function createWorkspaceUiState(options) {
         pageState.page = Math.max(Number(page) || 0, 0);
     }
 
+    function setSidebarExpanded(expanded) {
+        sidebarExpanded = Boolean(expanded);
+    }
+
+    function isSidebarExpanded() {
+        return sidebarExpanded;
+    }
+
     return {
         applyPageLoadOptions,
         buildPageRequestParams,
@@ -174,10 +183,12 @@ export function createWorkspaceUiState(options) {
         getPageState,
         getSelectedFolder,
         hydrateInputs,
+        isSidebarExpanded,
         normalizeFolder,
         setLoading,
         setPage,
         setSelectedFolder,
+        setSidebarExpanded,
         syncWorkspaceUrl,
         updatePageData
     };
