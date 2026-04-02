@@ -1,6 +1,5 @@
 package com.formswim.teststream.bulk.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.ArrayList;
@@ -9,22 +8,24 @@ import java.util.List;
 /**
  * Request payload for PATCH /api/testcases/bulk-edit.
  *
- * <p>Callers provide a set of target test case work keys, literal text to find,
- * replacement text, and optional field selectors. If {@code fields} is omitted,
- * the service applies replacements to all supported editable text fields.</p>
+ * <p>Callers provide a set of target test case work keys, optional literal text to find,
+ * optional replacement text, optional field selectors, an optional case-sensitivity flag,
+ * and an optional status assignment value.</p>
  */
 public class BulkEditRequest {
 
     @NotNull(message = "workKeys is required")
     private List<String> workKeys = new ArrayList<>();
 
-    @NotBlank(message = "findText is required")
     private String findText;
 
-    @NotNull(message = "replaceText is required")
     private String replaceText;
 
     private List<String> fields = new ArrayList<>();
+
+    private Boolean caseSensitive;
+
+    private String statusValue;
 
     /**
      * Returns requested work keys as a non-null list.
@@ -80,5 +81,27 @@ public class BulkEditRequest {
      */
     public void setFields(List<String> fields) {
         this.fields = fields == null ? new ArrayList<>() : new ArrayList<>(fields);
+    }
+
+    /**
+     * Whether literal text replacement should match exact case.
+     */
+    public Boolean getCaseSensitive() {
+        return caseSensitive;
+    }
+
+    public void setCaseSensitive(Boolean caseSensitive) {
+        this.caseSensitive = caseSensitive;
+    }
+
+    /**
+     * Optional status to apply directly to each selected test case.
+     */
+    public String getStatusValue() {
+        return statusValue;
+    }
+
+    public void setStatusValue(String statusValue) {
+        this.statusValue = statusValue;
     }
 }

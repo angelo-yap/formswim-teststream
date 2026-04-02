@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -110,9 +111,125 @@ class BulkEditIntegrationTests {
         assertThat(edited.getDescription()).isEqualTo("Description has Click but should stay unchanged when field is excluded.");
         assertThat(edited.getSteps().get(0).getStepSummary()).isEqualTo("Tap submit");
         assertThat(edited.getSteps().get(0).getExpectedResult()).isEqualTo("Click confirmation appears");
+        assertThat(edited.getUpdatedOn()).isEqualTo(LocalDate.now().toString());
 
         assertThat(untouchedSameTeam.getSummary()).isEqualTo("Click in second case");
         assertThat(untouchedOtherTeam.getSummary()).isEqualTo("Click from another team");
+    }
+
+    @Test
+    void bulkEditSupportsStatusOnlyMutationsAndRefreshesUpdatedOn() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("statusValue", "Pass");
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.requestedCount").value(1))
+            .andExpect(jsonPath("$.candidateCount").value(1))
+            .andExpect(jsonPath("$.updatedCaseCount").value(1))
+            .andExpect(jsonPath("$.updatedStepCount").value(0))
+            .andExpect(jsonPath("$.totalReplacements").value(0));
+
+        TestCase edited = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn("TEAM1", List.of("TC-101")).get(0);
+        assertThat(edited.getStatus()).isEqualTo("Pass");
+        assertThat(edited.getUpdatedOn()).isEqualTo(LocalDate.now().toString());
+        assertThat(edited.getSummary()).isEqualTo("Please Click the button. Click once.");
+    }
+
+    @Test
+    void bulkEditRejectsInvalidFixedStatusValues() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("statusValue", "Open");
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest());
+
+        TestCase untouched = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn("TEAM1", List.of("TC-101")).get(0);
+        assertThat(untouched.getStatus()).isEqualTo("Draft");
+        assertThat(untouched.getUpdatedOn()).isEqualTo("2026-03-18");
+    }
+
+    @Test
+    void bulkEditDefaultsToCaseSensitiveReplacement() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "click");
+        payload.put("replaceText", "Tap");
+        payload.put("fields", List.of("summary"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedCaseCount").value(0))
+            .andExpect(jsonPath("$.updatedStepCount").value(0))
+            .andExpect(jsonPath("$.totalReplacements").value(0));
+
+        TestCase untouched = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn("TEAM1", List.of("TC-101")).get(0);
+        assertThat(untouched.getSummary()).isEqualTo("Please Click the button. Click once.");
+        assertThat(untouched.getUpdatedOn()).isEqualTo("2026-03-18");
+    }
+
+    @Test
+    void bulkEditCanIgnoreCaseWhenRequested() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "click");
+        payload.put("replaceText", "Tap");
+        payload.put("fields", List.of("summary", "stepSummary"));
+        payload.put("caseSensitive", false);
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedCaseCount").value(1))
+            .andExpect(jsonPath("$.updatedStepCount").value(1))
+            .andExpect(jsonPath("$.totalReplacements").value(3));
+
+        TestCase edited = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn("TEAM1", List.of("TC-101")).get(0);
+        assertThat(edited.getSummary()).isEqualTo("Please Tap the button. Tap once.");
+        assertThat(edited.getSteps().get(0).getStepSummary()).isEqualTo("Tap submit");
+        assertThat(edited.getUpdatedOn()).isEqualTo(LocalDate.now().toString());
+    }
+
+    @Test
+    void bulkEditCanCombineTextReplacementAndStatusAssignment() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "Click");
+        payload.put("replaceText", "Tap");
+        payload.put("fields", List.of("summary", "stepSummary"));
+        payload.put("statusValue", "Fail");
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedCaseCount").value(1))
+            .andExpect(jsonPath("$.updatedStepCount").value(1))
+            .andExpect(jsonPath("$.totalReplacements").value(3));
+
+        TestCase edited = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn("TEAM1", List.of("TC-101")).get(0);
+        assertThat(edited.getSummary()).isEqualTo("Please Tap the button. Tap once.");
+        assertThat(edited.getStatus()).isEqualTo("Fail");
+        assertThat(edited.getUpdatedOn()).isEqualTo(LocalDate.now().toString());
     }
 
     @Test
@@ -161,6 +278,35 @@ class BulkEditIntegrationTests {
     }
 
     @Test
+    void bulkEditReturnsBadRequestWhenRequestHasNoTextOrStatusOperation() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("replaceText", "Tap");
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void bulkEditReturnsBadRequestWhenPayloadHasNoTextOrStatusOperation() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "   ");
+        payload.put("statusValue", "   ");
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void bulkEditReturnsBadRequestWhenWorkKeyCountExceedsLimit() throws Exception {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("workKeys", List.of("K-1", "K-2", "K-3", "K-4", "K-5", "K-6", "K-7", "K-8", "K-9", "K-10", "K-11"));
@@ -197,6 +343,7 @@ class BulkEditIntegrationTests {
         assertThat(edited.getSummary()).isEqualTo("Please Click the button. Click once.");
         assertThat(edited.getSteps().get(0).getStepSummary()).isEqualTo("Tap submit");
         assertThat(edited.getSteps().get(0).getExpectedResult()).isEqualTo("Tap confirmation appears");
+        assertThat(edited.getUpdatedOn()).isEqualTo(LocalDate.now().toString());
     }
 
     @Test
@@ -243,6 +390,45 @@ class BulkEditIntegrationTests {
     }
 
     @Test
+    void bulkEditRejectsLegacyStatusTextFieldAndDoesNotMutate() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "Draft");
+        payload.put("replaceText", "Pass");
+        payload.put("fields", List.of("status"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest());
+
+        TestCase untouched = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-101").orElseThrow();
+        assertThat(untouched.getStatus()).isEqualTo("Draft");
+        assertThat(untouched.getUpdatedOn()).isEqualTo("2026-03-18");
+    }
+
+    @Test
+    void bulkEditRejectsSystemManagedUpdatedOnFieldAndDoesNotMutate() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "2026");
+        payload.put("replaceText", "2025");
+        payload.put("fields", List.of("updated_on"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest());
+
+        TestCase untouched = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-101").orElseThrow();
+        assertThat(untouched.getUpdatedOn()).isEqualTo("2026-03-18");
+    }
+
+    @Test
     void bulkEditRollsBackAllChangesWhenSaveFailsMidOperation() throws Exception {
         String oversizedReplacement = "X".repeat(300);
 
@@ -266,5 +452,7 @@ class BulkEditIntegrationTests {
 
         assertThat(first.getAssignee()).isEqualTo("Assignee");
         assertThat(second.getAssignee()).isEqualTo("Assignee");
+        assertThat(first.getUpdatedOn()).isEqualTo("2026-03-18");
+        assertThat(second.getUpdatedOn()).isEqualTo("2026-03-18");
     }
 }

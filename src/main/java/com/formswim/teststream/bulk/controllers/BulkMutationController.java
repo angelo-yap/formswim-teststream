@@ -101,12 +101,16 @@ public class BulkMutationController {
             return ResponseEntity.badRequest().build();
         }
 
-        String findText = request.getFindText() == null ? "" : request.getFindText().trim();
-        if (findText.isBlank()) {
+        String normalizedFindText = normalizeTrimmed(request.getFindText());
+        String normalizedStatusValue = normalizeTrimmed(request.getStatusValue());
+        request.setFindText(normalizedFindText);
+        request.setStatusValue(normalizedStatusValue);
+
+        boolean hasTextOperation = !normalizedFindText.isBlank();
+        boolean hasStatusOperation = !normalizedStatusValue.isBlank();
+        if (!hasTextOperation && !hasStatusOperation) {
             return ResponseEntity.badRequest().build();
         }
-        // Use the normalized token for mutation so validation and execution are consistent.
-        request.setFindText(findText);
 
         try {
             BulkEditResult result = testCaseBulkEditService.bulkEditByWorkKeys(user.getTeamKey(), request);
@@ -114,6 +118,10 @@ public class BulkMutationController {
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    private String normalizeTrimmed(String value) {
+        return value == null ? "" : value.trim();
     }
 
 }
