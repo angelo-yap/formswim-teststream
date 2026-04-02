@@ -201,7 +201,14 @@ export function createGrid(tbody) {
             row.innerHTML =
                 '<td class="px-2 sm:px-4 py-2.5 text-white/45">' +
                     '<button type="button" class="ws-row-grab ws-interactive h-7 w-7 inline-flex items-center justify-center border border-transparent hover:border-white/20 rounded-sm" aria-label="Drag to move" draggable="true" data-work-key="' + escHtml(workKey) + '">' +
-                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5"><circle cx="4" cy="3" r="1.1" /><circle cx="4" cy="8" r="1.1" /><circle cx="4" cy="13" r="1.1" /><circle cx="12" cy="3" r="1.1" /><circle cx="12" cy="8" r="1.1" /><circle cx="12" cy="13" r="1.1" /></svg>' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">' +
+                            '<rect x="5" y="3.5" width="2" height="2" rx="0.4"></rect>' +
+                            '<rect x="5" y="9" width="2" height="2" rx="0.4"></rect>' +
+                            '<rect x="5" y="14.5" width="2" height="2" rx="0.4"></rect>' +
+                            '<rect x="13" y="3.5" width="2" height="2" rx="0.4"></rect>' +
+                            '<rect x="13" y="9" width="2" height="2" rx="0.4"></rect>' +
+                            '<rect x="13" y="14.5" width="2" height="2" rx="0.4"></rect>' +
+                        '</svg>' +
                     '</button>' +
                 '</td>' +
                 '<td class="px-2 sm:px-3 py-2.5">' +
