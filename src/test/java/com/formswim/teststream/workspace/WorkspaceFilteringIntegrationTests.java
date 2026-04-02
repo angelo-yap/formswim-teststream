@@ -170,6 +170,10 @@ class WorkspaceFilteringIntegrationTests {
             .andExpect(content().string(containsString("id=\"bulkEditOpen\"")))
             .andExpect(content().string(containsString("id=\"bulkOrganize\"")))
             .andExpect(content().string(containsString("id=\"bulkEditModal\"")))
+            .andExpect(content().string(containsString("id=\"bulkEditCaseSensitive\"")))
+            .andExpect(content().string(containsString("id=\"bulkEditStatusValue\"")))
+            .andExpect(content().string(containsString("id=\"bulkEditToggleAllFields\"")))
+            .andExpect(content().string(containsString("Search, replace, or set status")))
             .andExpect(content().string(containsString("id=\"organizeModal\"")))
             .andExpect(content().string(containsString("id=\"drawer\"")))
             .andExpect(content().string(containsString("id=\"workspaceAccountToggle\"")));

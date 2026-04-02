@@ -4,7 +4,6 @@ const CURATED_FIELDS = [
     { key: 'summary', label: 'Summary', description: 'Case title and headline text' },
     { key: 'description', label: 'Description', description: 'Main case description' },
     { key: 'precondition', label: 'Precondition', description: 'Required setup text' },
-    { key: 'status', label: 'Status', description: 'Case workflow status' },
     { key: 'priority', label: 'Priority', description: 'Case priority value' },
     { key: 'folder', label: 'Folder', description: 'Repository folder path' },
     { key: 'labels', label: 'Labels', description: 'Case labels and tags' },
@@ -29,14 +28,55 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
-function buildHighlightedSnippet(text, token) {
+function findMatchIndex(source, needle, caseSensitive) {
+    const haystack = String(source || '');
+    const search = String(needle || '');
+    if (!haystack || !search) {
+        return -1;
+    }
+
+    if (caseSensitive) {
+        return haystack.indexOf(search);
+    }
+
+    return haystack.toLowerCase().indexOf(search.toLowerCase());
+}
+
+function findMatchSpans(source, needle, caseSensitive) {
+    const haystack = String(source || '');
+    const search = String(needle || '');
+    if (!haystack || !search) {
+        return [];
+    }
+
+    const spans = [];
+    const loweredHaystack = caseSensitive ? '' : haystack.toLowerCase();
+    const loweredNeedle = caseSensitive ? '' : search.toLowerCase();
+    let searchIndex = 0;
+
+    while (searchIndex < haystack.length) {
+        const matchIndex = caseSensitive
+            ? haystack.indexOf(search, searchIndex)
+            : loweredHaystack.indexOf(loweredNeedle, searchIndex);
+        if (matchIndex < 0) {
+            break;
+        }
+
+        spans.push({ start: matchIndex, end: matchIndex + search.length });
+        searchIndex = matchIndex + Math.max(search.length, 1);
+    }
+
+    return spans;
+}
+
+function buildHighlightedSnippet(text, token, caseSensitive) {
     const source = String(text || '');
     const needle = String(token || '');
     if (!source || !needle) {
         return escapeHtml(source);
     }
 
-    const matchIndex = source.indexOf(needle);
+    const matchIndex = findMatchIndex(source, needle, caseSensitive);
     if (matchIndex < 0) {
         return escapeHtml(source);
     }
@@ -57,7 +97,7 @@ function buildHighlightedSnippet(text, token) {
         + suffix;
 }
 
-function buildHighlightedHtml(text, token) {
+function buildHighlightedHtml(text, token, caseSensitive) {
     const source = String(text || '');
     const needle = String(token || '');
     if (!source) {
@@ -67,21 +107,21 @@ function buildHighlightedHtml(text, token) {
         return escapeHtml(source);
     }
 
+    const spans = findMatchSpans(source, needle, caseSensitive);
+    if (spans.length === 0) {
+        return escapeHtml(source);
+    }
+
     let html = '';
     let searchIndex = 0;
 
-    while (searchIndex < source.length) {
-        const matchIndex = source.indexOf(needle, searchIndex);
-        if (matchIndex < 0) {
-            html += escapeHtml(source.slice(searchIndex));
-            break;
-        }
-
-        html += escapeHtml(source.slice(searchIndex, matchIndex));
-        html += '<mark class="bg-[#E7FF02] text-black px-0.5">' + escapeHtml(needle) + '</mark>';
-        searchIndex = matchIndex + needle.length;
+    for (const span of spans) {
+        html += escapeHtml(source.slice(searchIndex, span.start));
+        html += '<mark class="bg-[#E7FF02] text-black px-0.5">' + escapeHtml(source.slice(span.start, span.end)) + '</mark>';
+        searchIndex = span.end;
     }
 
+    html += escapeHtml(source.slice(searchIndex));
     return html;
 }
 
@@ -112,7 +152,7 @@ function buildFieldValues(testCase, fieldKey) {
     }];
 }
 
-function buildCasePreviewRows(testCase, fieldKeys, findText, isExpanded) {
+function buildCasePreviewRows(testCase, fieldKeys, findText, isExpanded, caseSensitive) {
     const allRows = [];
     const matchingRows = [];
     const searchText = String(findText || '');
@@ -120,7 +160,7 @@ function buildCasePreviewRows(testCase, fieldKeys, findText, isExpanded) {
     for (const fieldKey of fieldKeys) {
         for (const row of buildFieldValues(testCase, fieldKey)) {
             allRows.push(row);
-            if (searchText && row.value.indexOf(searchText) >= 0) {
+            if (searchText && findMatchIndex(row.value, searchText, caseSensitive) >= 0) {
                 matchingRows.push(row);
             }
         }
@@ -131,8 +171,8 @@ function buildCasePreviewRows(testCase, fieldKeys, findText, isExpanded) {
     const visibleRows = sourceRows.map((row) => ({
         label: row.label,
         valueHtml: isExpanded
-            ? buildHighlightedHtml(row.value, searchText)
-            : (searchText ? buildHighlightedSnippet(row.value, searchText) : escapeHtml(row.value))
+            ? buildHighlightedHtml(row.value, searchText, caseSensitive)
+            : (searchText ? buildHighlightedSnippet(row.value, searchText, caseSensitive) : escapeHtml(row.value))
     }));
     const canToggleExpanded = allRows.length > sourceRows.length
         || (searchText && matchingRows.length > 0 && allRows.length > compactRows.length)
@@ -148,23 +188,42 @@ function buildCasePreviewRows(testCase, fieldKeys, findText, isExpanded) {
     };
 }
 
-function buildResultMessage(result) {
+function buildResultMessage(result, payload) {
     const updatedTargets = Number(result?.updatedCaseCount || 0) + Number(result?.updatedStepCount || 0);
     const replacements = Number(result?.totalReplacements || 0);
     const failureCount = Array.isArray(result?.failures) ? result.failures.length : 0;
+    const statusValue = String(payload?.statusValue || '').trim();
 
     if (replacements === 0 && updatedTargets === 0) {
+        if (statusValue) {
+            let message = 'No selected test cases needed a status change.';
+            if (failureCount > 0) {
+                message += ' ' + failureCount + ' selected item' + (failureCount === 1 ? ' was' : 's were') + ' skipped.';
+            }
+            return message;
+        }
         if (failureCount > 0) {
             return 'No matching text was replaced. Some selected test cases could not be edited.';
         }
         return 'No matching text was found in the selected fields.';
     }
 
-    let message = 'Applied ' + replacements + ' replacement' + (replacements === 1 ? '' : 's')
-        + ' across ' + Number(result?.updatedCaseCount || 0) + ' case'
-        + (Number(result?.updatedCaseCount || 0) === 1 ? '' : 's')
-        + ' and ' + Number(result?.updatedStepCount || 0) + ' step'
-        + (Number(result?.updatedStepCount || 0) === 1 ? '' : 's') + '.';
+    let message;
+    if (replacements === 0 && statusValue) {
+        message = 'Updated status on ' + Number(result?.updatedCaseCount || 0) + ' case'
+            + (Number(result?.updatedCaseCount || 0) === 1 ? '' : 's')
+            + ' to ' + statusValue + '.';
+    } else {
+        message = 'Applied ' + replacements + ' replacement' + (replacements === 1 ? '' : 's')
+            + ' across ' + Number(result?.updatedCaseCount || 0) + ' case'
+            + (Number(result?.updatedCaseCount || 0) === 1 ? '' : 's')
+            + ' and ' + Number(result?.updatedStepCount || 0) + ' step'
+            + (Number(result?.updatedStepCount || 0) === 1 ? '' : 's') + '.';
+
+        if (statusValue) {
+            message += ' Status set to ' + statusValue + '.';
+        }
+    }
 
     if (failureCount > 0) {
         message += ' ' + failureCount + ' selected item' + (failureCount === 1 ? ' was' : 's were') + ' skipped.';
@@ -192,13 +251,16 @@ export function createBulkEdit(options) {
     const applyButton = document.getElementById('bulkEditApply');
     const findInput = document.getElementById('bulkEditFindText');
     const replaceInput = document.getElementById('bulkEditReplaceText');
+    const caseSensitiveInput = document.getElementById('bulkEditCaseSensitive');
+    const statusSelect = document.getElementById('bulkEditStatusValue');
     const fieldsContainer = document.getElementById('bulkEditFields');
+    const toggleAllFieldsButton = document.getElementById('bulkEditToggleAllFields');
     const inlineError = document.getElementById('bulkEditInlineError');
     const previewInfo = document.getElementById('bulkEditPreviewInfo');
     const previewList = document.getElementById('bulkEditPreviewList');
     const selectedCount = document.getElementById('bulkEditSelectedCount');
 
-    if (!modal || !panel || !applyButton || !findInput || !replaceInput || !fieldsContainer || !previewInfo || !previewList || !selectedCount) {
+    if (!modal || !panel || !applyButton || !findInput || !replaceInput || !caseSensitiveInput || !statusSelect || !fieldsContainer || !toggleAllFieldsButton || !previewInfo || !previewList || !selectedCount) {
         return createNoopApi();
     }
 
@@ -239,13 +301,14 @@ export function createBulkEdit(options) {
             const label = document.createElement('label');
             label.className = 'flex items-start gap-3 rounded-lg border border-white/10 bg-zinc-800/70 px-3 py-3 text-sm text-white/85 hover:border-white/20 hover:bg-zinc-800';
             label.innerHTML =
-                '<input type="checkbox" class="bulk-edit-field h-4 w-4 mt-0.5 accent-[#E7FF02]" value="' + escapeHtml(field.key) + '" />' +
+                '<input type="checkbox" class="bulk-edit-field h-4 w-4 mt-0.5 accent-[#E7FF02]" value="' + escapeHtml(field.key) + '" checked />' +
                 '<span class="min-w-0">' +
                     '<span class="block text-white/92">' + escapeHtml(field.label) + '</span>' +
                     '<span class="block text-xs text-white/50 mt-1">' + escapeHtml(field.description) + '</span>' +
                 '</span>';
             fieldsContainer.appendChild(label);
         }
+        syncFieldToggleLabel();
     }
 
     function setInlineError(message) {
@@ -274,27 +337,69 @@ export function createBulkEdit(options) {
             .map((input) => String(input.value || '').trim())
             .filter(Boolean);
 
-        return checked.length > 0 ? checked : CURATED_FIELDS.map((field) => field.key);
+        return checked;
     }
 
-    function syncSelectedCount() {
+    function hasTextOperation() {
+        return String(findInput.value || '').trim().length > 0;
+    }
+
+    function hasStatusOperation() {
+        return String(statusSelect.value || '').trim().length > 0;
+    }
+
+    function canSubmitCurrentState() {
+        if (state.selectedIds.length === 0 || state.isSubmitting) {
+            return false;
+        }
+
+        const textRequested = hasTextOperation();
+        const statusRequested = hasStatusOperation();
+        if (!textRequested && !statusRequested) {
+            return false;
+        }
+
+        if (textRequested) {
+            return getFieldSelection().length > 0;
+        }
+
+        return statusRequested;
+    }
+
+    function syncFieldToggleLabel() {
+        const allChecked = Array.from(fieldsContainer.querySelectorAll('.bulk-edit-field')).every((input) => input.checked);
+        toggleAllFieldsButton.textContent = allChecked ? 'Deselect all' : 'Select all';
+    }
+
+    function syncActionState() {
         const count = state.selectedIds.length;
         selectedCount.textContent = count + ' selected on this page';
-        applyButton.disabled = state.isSubmitting || count === 0;
+        applyButton.disabled = !canSubmitCurrentState();
         applyButton.classList.toggle('opacity-60', applyButton.disabled);
         applyButton.classList.toggle('cursor-not-allowed', applyButton.disabled);
+        syncFieldToggleLabel();
+    }
+
+    function setAllFieldsChecked(checked) {
+        fieldsContainer.querySelectorAll('.bulk-edit-field').forEach((input) => {
+            input.checked = Boolean(checked);
+        });
+        syncFieldToggleLabel();
     }
 
     function setSubmitting(isSubmitting) {
         state.isSubmitting = Boolean(isSubmitting);
         const disabled = state.isSubmitting;
-        applyButton.disabled = disabled || state.selectedIds.length === 0;
+        applyButton.disabled = disabled || !canSubmitCurrentState();
         applyButton.textContent = disabled ? 'Applying...' : 'Apply';
         findInput.disabled = disabled;
         replaceInput.disabled = disabled;
+        caseSensitiveInput.disabled = disabled;
+        statusSelect.disabled = disabled;
         fieldsContainer.querySelectorAll('input').forEach((input) => {
             input.disabled = disabled;
         });
+        toggleAllFieldsButton.disabled = disabled;
         if (closeButton) {
             closeButton.disabled = disabled;
         }
@@ -324,6 +429,8 @@ export function createBulkEdit(options) {
             .filter(Boolean);
         const findText = String(findInput.value || '').trim();
         const fieldKeys = getFieldSelection();
+        const caseSensitive = Boolean(caseSensitiveInput.checked);
+        const statusValue = String(statusSelect.value || '').trim();
 
         if (selectedCases.length === 0) {
             previewInfo.textContent = 'Select test cases on the current page to preview the edit.';
@@ -331,21 +438,36 @@ export function createBulkEdit(options) {
             return;
         }
 
-        previewInfo.textContent = findText
-            ? 'Showing ' + selectedCases.length + ' selected case' + (selectedCases.length === 1 ? '' : 's') + ' on this page. Matching text is highlighted when found.'
-            : 'Showing ' + selectedCases.length + ' selected case' + (selectedCases.length === 1 ? '' : 's') + ' on this page. Enter find text to highlight exact matches.';
+        if (findText) {
+            previewInfo.textContent = 'Showing ' + selectedCases.length + ' selected case' + (selectedCases.length === 1 ? '' : 's')
+                + ' on this page. Matching text is highlighted with ' + (caseSensitive ? 'exact-case' : 'case-insensitive') + ' search.';
+        } else if (statusValue) {
+            previewInfo.textContent = 'Showing ' + selectedCases.length + ' selected case' + (selectedCases.length === 1 ? '' : 's')
+                + ' on this page. Previewing a status update to ' + statusValue + '.';
+        } else {
+            previewInfo.textContent = 'Showing ' + selectedCases.length + ' selected case' + (selectedCases.length === 1 ? '' : 's') + ' on this page. Enter find text or choose a status to preview changes.';
+        }
 
         previewList.innerHTML = selectedCases.map((testCase) => {
             const workKey = String(testCase.workKey || '');
             const isExpanded = state.expandedCaseIds.has(workKey);
-            const preview = buildCasePreviewRows(testCase, fieldKeys, findText, isExpanded);
+            const preview = buildCasePreviewRows(testCase, fieldKeys, findText, isExpanded, caseSensitive);
             let stateHtml = '';
 
             if (!preview.hasAnyContent) {
                 stateHtml = '<p class="mt-3 text-xs text-white/45">No content found in the targeted fields for this case.</p>';
             } else if (findText && !preview.hasMatch) {
-                stateHtml = '<p class="mt-3 text-xs text-white/50">No exact matches in the selected fields for this case.</p>';
+                stateHtml = '<p class="mt-3 text-xs text-white/50">No matches in the selected fields for this case.</p>';
             }
+
+            const currentStatus = String(testCase.status || '').trim();
+            const statusIntentHtml = statusValue
+                ? '<p class="mt-3 text-xs ' + (currentStatus === statusValue ? 'text-amber-200' : 'text-[#E7FF02]') + '">'
+                    + (currentStatus === statusValue
+                        ? 'Status will remain ' + escapeHtml(statusValue) + '.'
+                        : 'Status will change from ' + escapeHtml(currentStatus || 'unset') + ' to ' + escapeHtml(statusValue) + '.')
+                + '</p>'
+                : '';
 
             const rowsHtml = preview.rows.map((row) =>
                 '<div class="mt-2 rounded-lg border border-zinc-700/80 bg-zinc-800/85 px-3 py-3">'
@@ -364,7 +486,7 @@ export function createBulkEdit(options) {
                 + '</button>'
                 : '';
             const previewButtonHtml = workKey
-                ? '<button type="button" class="px-3 py-2 border border-white/15 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs text-white/70" data-action="open-case-preview" data-work-key="' + escapeHtml(workKey) + '">Open full case</button>'
+                ? '<button type="button" class="px-3 py-2 border border-white/15 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs text-white/70" data-action="open-case-preview" data-work-key="' + escapeHtml(workKey) + '">Preview in Drawer</button>'
                 : '';
 
             return '<article class="rounded-xl border border-zinc-700/80 bg-zinc-900/85 px-4 py-4">'
@@ -379,6 +501,7 @@ export function createBulkEdit(options) {
                     + '</div>'
                 + '</div>'
                 + stateHtml
+                + statusIntentHtml
                 + rowsHtml
                 + hiddenHtml
             + '</article>';
@@ -388,7 +511,10 @@ export function createBulkEdit(options) {
     function open() {
         state.selectedIds = getSelectedIds();
         state.expandedCaseIds.clear();
-        syncSelectedCount();
+        setAllFieldsChecked(true);
+        caseSensitiveInput.checked = true;
+        statusSelect.value = '';
+        syncActionState();
 
         if (state.selectedIds.length === 0) {
             if (typeof config.showNotice === 'function') {
@@ -427,27 +553,35 @@ export function createBulkEdit(options) {
     }
 
     function buildPayload() {
-        const workKeys = state.selectedIds.slice();
         const findText = String(findInput.value || '').trim();
         const replaceText = String(replaceInput.value || '');
+        const statusValue = String(statusSelect.value || '').trim();
         const fields = getFieldSelection();
+        const caseSensitive = Boolean(caseSensitiveInput.checked);
 
-        if (workKeys.length === 0) {
+        if (state.selectedIds.length === 0) {
             setInlineError('Select at least one test case on this page before applying a bulk edit.');
             return null;
         }
 
-        if (!findText) {
-            setInlineError('Find text is required.');
+        if (!findText && !statusValue) {
+            setInlineError('Choose a status or enter find text before applying a bulk edit.');
+            return null;
+        }
+
+        if (findText && fields.length === 0) {
+            setInlineError('Select at least one text field when using find and replace.');
             return null;
         }
 
         setInlineError('');
         return {
-            workKeys,
-            findText,
-            replaceText,
-            fields
+            workKeys: state.selectedIds.slice(),
+            findText: findText,
+            replaceText: findText ? replaceText : '',
+            fields: findText ? fields : [],
+            caseSensitive,
+            statusValue
         };
     }
 
@@ -489,7 +623,7 @@ export function createBulkEdit(options) {
             }
 
             const result = await response.json();
-            const message = buildResultMessage(result);
+            const message = buildResultMessage(result, payload);
             const didChange = Number(result?.totalReplacements || 0) > 0 || Number(result?.updatedCaseCount || 0) > 0 || Number(result?.updatedStepCount || 0) > 0;
 
             if (typeof config.showNotice === 'function') {
@@ -512,7 +646,7 @@ export function createBulkEdit(options) {
             }
         } finally {
             setSubmitting(false);
-            syncSelectedCount();
+            syncActionState();
             if (state.isOpen) {
                 renderPreview();
             }
@@ -527,14 +661,15 @@ export function createBulkEdit(options) {
                 state.expandedCaseIds.delete(workKey);
             }
         }
-        syncSelectedCount();
+        syncActionState();
         if (state.isOpen) {
             renderPreview();
         }
     }
 
     renderFieldOptions();
-    syncSelectedCount();
+    setAllFieldsChecked(true);
+    syncActionState();
 
     if (bulkEditButton) {
         bulkEditButton.addEventListener('click', open);
@@ -552,15 +687,38 @@ export function createBulkEdit(options) {
     findInput.addEventListener('input', () => {
         setInlineError('');
         if (state.isOpen) {
+            syncActionState();
             renderPreview();
         }
     });
     replaceInput.addEventListener('input', () => {
         if (state.isOpen) {
+            syncActionState();
+            renderPreview();
+        }
+    });
+    caseSensitiveInput.addEventListener('change', () => {
+        if (state.isOpen) {
+            syncActionState();
+            renderPreview();
+        }
+    });
+    statusSelect.addEventListener('change', () => {
+        if (state.isOpen) {
+            syncActionState();
             renderPreview();
         }
     });
     fieldsContainer.addEventListener('change', () => {
+        syncActionState();
+        if (state.isOpen) {
+            renderPreview();
+        }
+    });
+    toggleAllFieldsButton.addEventListener('click', () => {
+        const allChecked = Array.from(fieldsContainer.querySelectorAll('.bulk-edit-field')).every((input) => input.checked);
+        setAllFieldsChecked(!allChecked);
+        syncActionState();
         if (state.isOpen) {
             renderPreview();
         }
