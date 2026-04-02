@@ -114,10 +114,10 @@ export function createWorkspaceFolderTree(options) {
         folderTree.innerHTML = '';
 
         const selectedFolder = uiState.getSelectedFolder();
-        const selectedRowClasses = 'bg-[#E7FF02]/10 border-[#E7FF02] text-white';
-        const unselectedRowClasses = 'border-transparent text-white/80 hover:bg-white/5 hover:border-white/10';
+        const selectedRowClasses = 'bg-[#E7FF02]/30 text-white';
+        const unselectedRowClasses = 'text-white/80 hover:bg-white/5';
         const rowWrapClasses = 'select-none';
-        const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pl-2 pr-2 text-sm rounded-md border transition-colors w-full';
+        const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pl-2 pr-2 text-sm rounded-md transition-colors w-full';
         const rowSelectButtonClasses = 'min-w-0 flex-1 flex items-center gap-2 text-left';
 
         const showAllWrap = document.createElement('div');
@@ -167,10 +167,22 @@ export function createWorkspaceFolderTree(options) {
             const rowWrap = document.createElement('div');
             rowWrap.className = rowWrapClasses;
             rowWrap.style.paddingLeft = String(12 + depth * 16) + 'px';
+            rowWrap.style.position = 'relative';
+
+            if (depth > 0) {
+                for (let guideLevel = 1; guideLevel <= depth; guideLevel++) {
+                    const guide = document.createElement('span');
+                    guide.className = 'pointer-events-none absolute top-0 bottom-0 w-px bg-white/20';
+                    guide.style.left = String(12 + (guideLevel - 1) * 16 + 8) + 'px';
+                    rowWrap.appendChild(guide);
+                }
+            }
 
             const rowInner = document.createElement('div');
             const isSelected = uiState.getSelectedFolder() === node.path;
             rowInner.className = rowInnerBaseClasses + ' ' + (isSelected ? selectedRowClasses : unselectedRowClasses);
+            rowInner.style.position = 'relative';
+            rowInner.style.zIndex = '1';
             rowInner.dataset.dropTarget = 'folder';
             rowInner.dataset.folderPath = node.path;
 
