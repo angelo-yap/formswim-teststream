@@ -21,6 +21,8 @@ const TAG_COLORS = [
     { color: '#93c5fd', bg: 'rgba(147,197,253,0.18)' },  // light-blue
 ];
 
+export function dismissTagTooltip() { hideTagTooltip(); }
+
 export function tagColor(tagName) {
     const s = String(tagName || '');
     const n = Math.abs(s.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0));
@@ -151,7 +153,7 @@ function showTagTooltip(anchorEl, tags, workKey) {
         const tagId = typeof tag === 'string' ? null : tag.id;
         const c = tagColor(name);
         const removeBtn = workKey && tagId != null
-            ? '<button class="ws-tooltip-remove shrink-0 opacity-60 hover:opacity-100 leading-none ml-1" data-work-key="' + escHtml(workKey) + '" data-tag-id="' + escHtml(String(tagId)) + '" aria-label="Remove">&#x2715;</button>'
+            ? '<button type="button" class="ws-tooltip-remove shrink-0 opacity-60 hover:opacity-100 leading-none ml-1" data-work-key="' + escHtml(workKey) + '" data-tag-id="' + escHtml(String(tagId)) + '" aria-label="Remove">&#x2715;</button>'
             : '';
         html += '<span class="inline-flex items-center whitespace-nowrap px-2 py-1 text-xs border" style="color:' + c.color + ';border-color:' + c.color + '40;background:' + c.bg + '">' + escHtml(name) + removeBtn + '</span>';
     }
@@ -274,7 +276,7 @@ const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
                             scheduleHideTagTooltip();
                         }
                     });
-                    tagsEl.addEventListener('focusin', () => showTagTooltip(tagsEl, tags, workKey));
+                    tagsEl.addEventListener('focusin', (e) => { if (!e.target.closest('[data-action="remove-tag"]')) { showTagTooltip(tagsEl, tags, workKey); } });
                     tagsEl.addEventListener('focusout', () => {
                         if (tagTooltipAnchor === tagsEl) {
                             hideTagTooltip();
@@ -316,7 +318,7 @@ const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
         if (tagModel.tags.length > 0) {
             fresh.addEventListener('mouseenter', () => { cancelHideTagTooltip(); showTagTooltip(fresh, tagModel.tags, workKey); });
             fresh.addEventListener('mouseleave', () => { if (tagTooltipAnchor === fresh) { scheduleHideTagTooltip(); } });
-            fresh.addEventListener('focusin', () => showTagTooltip(fresh, tagModel.tags, workKey));
+            fresh.addEventListener('focusin', (e) => { if (!e.target.closest('[data-action="remove-tag"]')) { showTagTooltip(fresh, tagModel.tags, workKey); } });
             fresh.addEventListener('focusout', () => { if (tagTooltipAnchor === fresh) { hideTagTooltip(); } });
         }
     }

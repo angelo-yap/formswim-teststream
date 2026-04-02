@@ -1,7 +1,7 @@
 import { createDrawer } from './drawer.js';
 import { createBulkEdit } from './bulk-edit.js';
 import { bindSelectedExport } from './export-selected.js';
-import { createGrid } from './grid.js';
+import { createGrid, dismissTagTooltip } from './grid.js';
 import { createSelection } from './selection.js';
 
 const importBtn = document.getElementById('importBtn');
@@ -1025,8 +1025,9 @@ function apiAddTag(workKey, tagId) {
 }
 
 function apiRemoveTag(workKey, tagId) {
+    dismissTagTooltip();
     const originalTags = (currentPageCases.find((tc) => tc.workKey === workKey)?.tags || []);
-    const optimisticTags = originalTags.filter((t) => t.id !== tagId);
+    const optimisticTags = originalTags.filter((t) => String(t.id) !== String(tagId));
     currentPageCases = currentPageCases.map((tc) =>
         tc.workKey === workKey ? { ...tc, tags: optimisticTags } : tc
     );
