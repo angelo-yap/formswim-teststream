@@ -1,3 +1,6 @@
+import { renderInlinePreviewRow } from './components/workspace-inline-preview-row.js';
+import { createWorkspaceTooltip } from './components/workspace-tooltip.js';
+
 export function escHtml(value) {
     return String(value)
         .replace(/&/g, '&amp;')
@@ -31,7 +34,7 @@ function parseTagList(value) {
 
 function buildTagBadges(testCase, maxVisible = 3) {
     // Today, tags live in `components` (often a string). `testCaseType` is shown as an additional badge.
-    // This helper keeps the future “real tags” implementation isolated.
+    // This helper keeps the future "real tags" implementation isolated.
     const list = [];
     list.push(...parseTagList(testCase?.components));
     list.push(...parseTagList(testCase?.testCaseType));
@@ -63,70 +66,33 @@ function buildTagBadges(testCase, maxVisible = 3) {
     };
 }
 
-let tagTooltipEl = null;
-let tagTooltipAnchor = null;
-
-function ensureTagTooltip() {
-    if (tagTooltipEl) {
-        return tagTooltipEl;
-    }
-
-    const el = document.createElement('div');
-    el.className = 'fixed z-50 border border-white/20 bg-black px-3 py-2 text-xs text-white/80';
-    el.style.display = 'none';
-    el.style.pointerEvents = 'none';
-    el.style.maxWidth = '22rem';
-    document.body.appendChild(el);
-
-    const hide = () => hideTagTooltip();
-    window.addEventListener('scroll', hide, true);
-    window.addEventListener('resize', hide);
-
-    tagTooltipEl = el;
-    return el;
+function buildPreviewElementId(workKey) {
+    return 'ws-preview-' + String(workKey || '').replace(/[^a-zA-Z0-9_-]/g, '-');
 }
 
-function hideTagTooltip() {
-    if (!tagTooltipEl) {
-        return;
-    }
-    tagTooltipEl.style.display = 'none';
-    tagTooltipEl.innerHTML = '';
-    tagTooltipAnchor = null;
-}
+const tagTooltip = createWorkspaceTooltip({
+    className: 'fixed z-50 border border-white/20 bg-black px-3 py-2 text-xs text-white/80',
+    maxWidth: '22rem'
+});
+const titleTooltip = createWorkspaceTooltip({
+    className: 'fixed z-50 border border-white/20 bg-black px-3.5 py-2.5 text-sm text-white/90',
+    maxWidth: '42rem',
+    whiteSpace: 'normal',
+    wordBreak: 'break-word'
+});
 
-function positionTooltip(anchorRect, tooltipRect) {
-    const padding = 8;
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-
-    let left = anchorRect.left;
-    let top = anchorRect.bottom + padding;
-
-    if (left + tooltipRect.width + padding > viewportWidth) {
-        left = Math.max(padding, viewportWidth - tooltipRect.width - padding);
+function isHorizontallyTruncated(element) {
+    if (!element) {
+        return false;
     }
 
-    if (top + tooltipRect.height + padding > viewportHeight) {
-        // If there's no room below, try above.
-        const above = anchorRect.top - padding - tooltipRect.height;
-        if (above >= padding) {
-            top = above;
-        } else {
-            top = Math.max(padding, viewportHeight - tooltipRect.height - padding);
-        }
-    }
-
-    return { left, top };
+    return element.scrollWidth > element.clientWidth + 1;
 }
 
 function showTagTooltip(anchorEl, tags) {
     if (!anchorEl || !tags || tags.length === 0) {
         return;
     }
-
-    const tooltip = ensureTagTooltip();
-    tagTooltipAnchor = anchorEl;
 
     // Render each tag as a badge so future per-tag colors are visible here.
     let html = '<div class="flex flex-wrap gap-2">';
@@ -135,14 +101,20 @@ function showTagTooltip(anchorEl, tags) {
     }
     html += '</div>';
 
-    tooltip.innerHTML = html;
-    tooltip.style.display = 'block';
+    tagTooltip.show(anchorEl, html);
+}
 
-    const anchorRect = anchorEl.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
-    const pos = positionTooltip(anchorRect, tooltipRect);
-    tooltip.style.left = String(Math.round(pos.left)) + 'px';
-    tooltip.style.top = String(Math.round(pos.top)) + 'px';
+function showTitleTooltip(anchorEl, fullTitle) {
+    if (!anchorEl || !isHorizontallyTruncated(anchorEl)) {
+        return;
+    }
+
+    const normalizedTitle = String(fullTitle || '').trim();
+    if (!normalizedTitle) {
+        return;
+    }
+
+    titleTooltip.show(anchorEl, escHtml(normalizedTitle));
 }
 
 function decodeTagsFromDataset(value) {
@@ -161,13 +133,19 @@ function decodeTagsFromDataset(value) {
 export function createGrid(tbody) {
     let testCaseMap = {};
 
-    function renderRows(testCases, selectedIds) {
+    function renderRows(testCases, selectedIds, options) {
         if (!tbody) {
             return;
         }
 
-        // If the grid rerenders while hovering/focused, ensure any tag tooltip is dismissed.
-        hideTagTooltip();
+        const viewOptions = options || {};
+        const expandedPreviewKeys = viewOptions.expandedPreviewKeys instanceof Set
+            ? viewOptions.expandedPreviewKeys
+            : new Set();
+
+        // If the grid rerenders while hovering/focused, ensure active tooltips are dismissed.
+        tagTooltip.hide();
+        titleTooltip.hide();
 
         tbody.innerHTML = '';
         testCaseMap = {};
@@ -185,20 +163,23 @@ export function createGrid(tbody) {
         }
 
         for (const testCase of testCases) {
-            const workKey = testCase.workKey || '—';
-            const title = testCase.summary || '—';
+            const workKey = testCase.workKey || '-';
+            const title = testCase.summary || '-';
             const folder = testCase.folder || '';
-            const status = testCase.status || '—';
+            const status = testCase.status || '-';
             const tagModel = buildTagBadges(testCase, 3);
-            const updated = testCase.updatedOn || '—';
-            const idFontSize = workKey.length > 14 ? '10px' : (workKey.length > 10 ? '11px' : '12px');
+            const updated = testCase.updatedOn || '-';
             const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
+            const isSelected = selectedIds.has(workKey);
+            const isExpanded = expandedPreviewKeys.has(workKey);
+            const previewElementId = buildPreviewElementId(workKey);
 
             testCaseMap[workKey] = testCase;
 
             const row = document.createElement('tr');
-            const isSelected = selectedIds.has(workKey);
-            row.className = 'ws-row border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer' + (isSelected ? ' ws-row-selected' : '');
+            row.className = 'ws-row border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer'
+                + (isSelected ? ' ws-row-selected' : '')
+                + (isExpanded ? ' ws-row-expanded' : '');
             row.dataset.id = workKey;
             row.dataset.workKey = workKey;
             row.dataset.title = title;
@@ -207,11 +188,11 @@ export function createGrid(tbody) {
 
             const titleCell =
                 '<div class="min-w-0">' +
-                    '<div class="font-semibold text-white/85 truncate">' + escHtml(title) + '</div>' +
+                    '<div class="font-semibold text-white/85 truncate ws-title-text" data-ws-title tabindex="0">' + escHtml(title) + '</div>' +
                     (folder ? '<div class="text-white/45 text-xs mt-0.5 truncate">' + escHtml(folder) + '</div>' : '') +
                 '</div>';
 
-            const tagsCell = tagModel.html || '<span class="text-white/45">—</span>';
+            const tagsCell = tagModel.html || '<span class="text-white/45">-</span>';
             const encodedTags = tagModel.tags && tagModel.tags.length > 0
                 ? encodeURIComponent(JSON.stringify(tagModel.tags))
                 : '';
@@ -220,12 +201,19 @@ export function createGrid(tbody) {
             row.innerHTML =
                 '<td class="px-2 sm:px-4 py-2.5 text-white/45">' +
                     '<button type="button" class="ws-row-grab ws-interactive h-7 w-7 inline-flex items-center justify-center border border-transparent hover:border-white/20 rounded-sm" aria-label="Drag to move" draggable="true" data-work-key="' + escHtml(workKey) + '">' +
-                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5"><circle cx="4" cy="3" r="1.1" /><circle cx="4" cy="8" r="1.1" /><circle cx="4" cy="13" r="1.1" /><circle cx="12" cy="3" r="1.1" /><circle cx="12" cy="8" r="1.1" /><circle cx="12" cy="13" r="1.1" /></svg>' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">' +
+                            '<rect x="5" y="3.5" width="2" height="2" rx="0.4"></rect>' +
+                            '<rect x="5" y="9" width="2" height="2" rx="0.4"></rect>' +
+                            '<rect x="5" y="14.5" width="2" height="2" rx="0.4"></rect>' +
+                            '<rect x="13" y="3.5" width="2" height="2" rx="0.4"></rect>' +
+                            '<rect x="13" y="9" width="2" height="2" rx="0.4"></rect>' +
+                            '<rect x="13" y="14.5" width="2" height="2" rx="0.4"></rect>' +
+                        '</svg>' +
                     '</button>' +
                 '</td>' +
                 '<td class="px-2 sm:px-3 py-2.5">' +
                     '<input type="checkbox" class="ws-row-check ws-interactive h-4 w-4 accent-[#E7FF02]" aria-label="Select row" data-work-key="' + escHtml(workKey) + '"' +
-                    (selectedIds.has(workKey) ? ' checked' : '') + ' />' +
+                    (isSelected ? ' checked' : '') + ' />' +
                 '</td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 truncate">' + titleCell + '</div></td>' +
                 '<td class="px-3 sm:px-6 py-2.5"><span class="inline-flex items-center px-2 py-1 border border-white/15 text-xs text-white/70">' + escHtml(status) + '</span></td>' +
@@ -233,7 +221,7 @@ export function createGrid(tbody) {
                 '<td class="pl-3 pr-6 sm:pl-6 sm:pr-4 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>' +
                 '<td class="px-2 sm:px-4 py-2.5 text-right">' +
                     '<div class="inline-flex items-center gap-2" data-work-key="' + escHtml(workKey) + '">' +
-                        '<button type="button" class="ws-row-action ws-row-preview ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="preview" data-work-key="' + escHtml(workKey) + '">Preview</button>' +
+                        '<button type="button" class="ws-row-action ws-row-preview ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="preview" data-work-key="' + escHtml(workKey) + '" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" aria-controls="' + escHtml(previewElementId) + '">' + (isExpanded ? 'Hide preview' : 'Preview') + '</button>' +
                         '<a class="ws-row-action ws-row-edit ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="edit" data-work-key="' + escHtml(workKey) + '" href="' + escHtml(previewUrl) + '">Edit</a>' +
                     '</div>' +
                 '</td>';
@@ -244,20 +232,32 @@ export function createGrid(tbody) {
                 if (tags.length > 0) {
                     tagsEl.addEventListener('mouseenter', () => showTagTooltip(tagsEl, tags));
                     tagsEl.addEventListener('mouseleave', () => {
-                        if (tagTooltipAnchor === tagsEl) {
-                            hideTagTooltip();
-                        }
+                        tagTooltip.hide();
                     });
                     tagsEl.addEventListener('focusin', () => showTagTooltip(tagsEl, tags));
                     tagsEl.addEventListener('focusout', () => {
-                        if (tagTooltipAnchor === tagsEl) {
-                            hideTagTooltip();
-                        }
+                        tagTooltip.hide();
                     });
                 }
             }
 
+            const titleEl = row.querySelector('[data-ws-title]');
+            if (titleEl) {
+                titleEl.addEventListener('mouseenter', () => showTitleTooltip(titleEl, title));
+                titleEl.addEventListener('mouseleave', () => {
+                    titleTooltip.hide();
+                });
+                titleEl.addEventListener('focusin', () => showTitleTooltip(titleEl, title));
+                titleEl.addEventListener('focusout', () => {
+                    titleTooltip.hide();
+                });
+            }
+
             tbody.appendChild(row);
+
+            if (isExpanded) {
+                tbody.insertAdjacentHTML('beforeend', renderInlinePreviewRow(testCase, { isSelected }));
+            }
         }
     }
 

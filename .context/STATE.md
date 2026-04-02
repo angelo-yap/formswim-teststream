@@ -68,6 +68,10 @@ Current frontend shape:
 
 - the workspace page now uses feature-scoped JS modules under `src/main/resources/static/js/workspace`
 - the workspace template now composes fragments from `src/main/resources/templates/workspace`
+- workspace row preview now uses inline expandable rows in the grid (multi-expand), rather than opening from row actions into the right-side drawer
+- workspace preview UX now includes in-card collapse controls, a global `Collapse all previews` control, and selected-row/preview linked highlighting
+- workspace grid now includes truncation-aware title tooltips (hover/focus only when truncated)
+- shared tooltip behavior was extracted into `src/main/resources/static/js/workspace/components/workspace-tooltip.js` and consumed by grid rendering
 - other pages still use the older flat-template and inline-script patterns
 
 Known frontend hotspots:
