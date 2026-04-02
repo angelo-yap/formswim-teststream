@@ -453,8 +453,9 @@ export function createBulkEdit(options) {
             const isExpanded = state.expandedCaseIds.has(workKey);
             const preview = buildCasePreviewRows(testCase, fieldKeys, findText, isExpanded, caseSensitive);
             let stateHtml = '';
+            const hasStatusIntent = Boolean(statusValue);
 
-            if (!preview.hasAnyContent) {
+            if (!preview.hasAnyContent && !hasStatusIntent) {
                 stateHtml = '<p class="mt-3 text-xs text-white/45">No content found in the targeted fields for this case.</p>';
             } else if (findText && !preview.hasMatch) {
                 stateHtml = '<p class="mt-3 text-xs text-white/50">No matches in the selected fields for this case.</p>';
@@ -511,6 +512,8 @@ export function createBulkEdit(options) {
     function open() {
         state.selectedIds = getSelectedIds();
         state.expandedCaseIds.clear();
+        findInput.value = '';
+        replaceInput.value = '';
         setAllFieldsChecked(true);
         caseSensitiveInput.checked = true;
         statusSelect.value = '';
@@ -606,7 +609,7 @@ export function createBulkEdit(options) {
             if (!response.ok) {
                 let message = 'Bulk edit failed. Please try again.';
                 if (response.status === 400) {
-                    message = 'Bulk edit request was invalid. Check the selected fields and search text.';
+                    message = 'Bulk edit request was invalid. Check the selected fields, search text, and status selection.';
                 } else if (response.status === 401) {
                     message = 'You must be logged in to bulk edit test cases.';
                 } else if (response.status === 403) {
