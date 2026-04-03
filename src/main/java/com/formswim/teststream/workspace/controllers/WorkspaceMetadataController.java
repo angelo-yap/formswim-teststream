@@ -7,10 +7,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -123,6 +125,11 @@ public class WorkspaceMetadataController {
             return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
         } catch (FolderConflictException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+        } catch (DataIntegrityViolationException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", "Folder could not be created due to a conflicting update. Please retry."));
+        } catch (TransactionSystemException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Folder request failed validation."));
         }
     }
 
@@ -151,6 +158,11 @@ public class WorkspaceMetadataController {
             return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
         } catch (FolderConflictException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+        } catch (DataIntegrityViolationException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", "Folder update conflicted with another request. Please retry."));
+        } catch (TransactionSystemException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Folder update failed validation."));
         }
     }
 
@@ -178,6 +190,11 @@ public class WorkspaceMetadataController {
             return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
         } catch (FolderConflictException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+        } catch (DataIntegrityViolationException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", "Folder could not be deleted because it is still referenced."));
+        } catch (TransactionSystemException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Folder delete request failed validation."));
         }
     }
 

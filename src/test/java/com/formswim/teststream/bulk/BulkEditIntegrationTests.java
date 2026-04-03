@@ -1,7 +1,6 @@
 package com.formswim.teststream.bulk;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -18,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,8 +29,6 @@ import com.formswim.teststream.shared.domain.TestCaseRepository;
 import com.formswim.teststream.shared.domain.TestStep;
 import com.formswim.teststream.support.TestCaseFixtures;
 import com.formswim.teststream.workspace.repository.FolderRepository;
-
-import jakarta.servlet.ServletException;
 
 @SpringBootTest(properties = {
     "teststream.bulk-edit.enabled=true",
@@ -258,14 +254,15 @@ class BulkEditIntegrationTests {
         payload.put("replaceText", oversizedReplacement);
         payload.put("fields", List.of("assignee"));
 
-        assertThatThrownBy(() -> mockMvc.perform(patch("/api/testcases/bulk-edit")
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(payload)))
-            .andReturn())
-            .isInstanceOf(ServletException.class)
-            .hasCauseInstanceOf(DataIntegrityViolationException.class);
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.requestedCount").value(2))
+            .andExpect(jsonPath("$.invalidCount").value(2))
+            .andExpect(jsonPath("$.failures[0].reason").value("CONFLICT"));
 
         TestCase first = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-101").orElseThrow();
         TestCase second = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-102").orElseThrow();

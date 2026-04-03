@@ -32,10 +32,6 @@ public class FolderBackfillService {
 
     @Transactional
     public int backfillFoldersFromTestCases() {
-        if (folderRepository.count() > 0) {
-            return 0;
-        }
-
         int createdCount = 0;
         List<String> teamKeys = testCaseRepository.findDistinctTeamKeysWithFolders();
 

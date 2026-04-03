@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,17 +35,18 @@ public class FolderPathSyncService {
 
         Folder parent = null;
         for (String segment : segments) {
-            Folder existing;
-            if (parent == null) {
-                existing = folderRepository.findByTeamKeyAndParentIsNullAndNameIgnoreCase(teamKey, segment)
-                    .orElse(null);
-            } else {
-                existing = folderRepository.findByTeamKeyAndParent_IdAndNameIgnoreCase(teamKey, parent.getId(), segment)
-                    .orElse(null);
-            }
+            Folder existing = findSibling(teamKey, parent, segment);
 
             if (existing == null) {
-                existing = folderRepository.save(new Folder(segment, parent, teamKey, normalizeActor(actor)));
+                try {
+                    existing = folderRepository.save(new Folder(segment, parent, teamKey, normalizeActor(actor)));
+                } catch (DataIntegrityViolationException exception) {
+                    // Another request may have created this segment concurrently; refetch and continue.
+                    existing = findSibling(teamKey, parent, segment);
+                    if (existing == null) {
+                        throw exception;
+                    }
+                }
             }
 
             parent = existing;
@@ -91,6 +93,16 @@ public class FolderPathSyncService {
         }
 
         return segments;
+    }
+
+    private Folder findSibling(String teamKey, Folder parent, String segment) {
+        if (parent == null) {
+            return folderRepository.findByTeamKeyAndParentIsNullAndNameIgnoreCase(teamKey, segment)
+                .orElse(null);
+        }
+
+        return folderRepository.findByTeamKeyAndParent_IdAndNameIgnoreCase(teamKey, parent.getId(), segment)
+            .orElse(null);
     }
 
     private String normalizeActor(String createdBy) {

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -114,7 +115,7 @@ public class UploadReviewService {
         for (UploadReviewItem item : session.getItems()) {
             if (UploadReviewItem.TYPE_NEW.equals(item.getConflictType())) {
                 ReviewCaseSnapshot newSnapshot = readSnapshot(item.getIncomingSnapshotJson());
-                folderPathSyncService.ensureFolderPathExists(teamKey, newSnapshot.getFolder(), "upload-review");
+                ensureFolderPathOrThrowValidation(teamKey, newSnapshot.getFolder());
                 testCaseRepository.save(toEntity(teamKey, newSnapshot));
                 importedNewCount++;
                 continue;
@@ -126,7 +127,7 @@ public class UploadReviewService {
             if (UploadReviewItem.ACTION_MERGE.equals(action)) {
                 ReviewCaseSnapshot editedSnapshot = buildEditedSnapshot(readSnapshot(item.getIncomingSnapshotJson()), parameters, item.getId());
                 item.setEditedSnapshotJson(writeJson(editedSnapshot));
-                folderPathSyncService.ensureFolderPathExists(teamKey, editedSnapshot.getFolder(), "upload-review");
+                ensureFolderPathOrThrowValidation(teamKey, editedSnapshot.getFolder());
                 mergeIntoExisting(teamKey, editedSnapshot);
                 mergedCount++;
             } else {
@@ -139,6 +140,16 @@ public class UploadReviewService {
         uploadHistoryRepository.save(new UploadHistory(session.getTeamKey(), session.getOriginalFilename(), session.getFileHash()));
 
         return new ReviewApplyResult(importedNewCount, mergedCount, skippedCount);
+    }
+
+    private void ensureFolderPathOrThrowValidation(String teamKey, String folderPath) {
+        try {
+            folderPathSyncService.ensureFolderPathExists(teamKey, folderPath, "upload-review");
+        } catch (IllegalArgumentException exception) {
+            throw exception;
+        } catch (DataIntegrityViolationException exception) {
+            throw new IllegalArgumentException("Folder path could not be synchronized due to a concurrent update. Please retry.");
+        }
     }
 
     @Transactional

@@ -2,6 +2,7 @@ package com.formswim.teststream.bulk.controllers;
 
 import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -27,6 +28,10 @@ import jakarta.validation.Valid;
 @RequestMapping
 public class BulkMutationController {
 
+    private static final String BULK_MOVE_INVALID_REQUEST = "INVALID_REQUEST";
+    private static final String BULK_MOVE_CONFLICT = "CONFLICT";
+    private static final String BULK_EDIT_INVALID_REQUEST = "INVALID_REQUEST";
+    private static final String BULK_EDIT_CONFLICT = "CONFLICT";
 
 
     private final CurrentUserService currentUserService;
@@ -74,7 +79,9 @@ public class BulkMutationController {
             BulkMoveResult result = testCaseBulkMoveService.bulkMoveByWorkKeys(user.getTeamKey(), request);
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException exception) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(buildBulkMoveErrorResult(request, BULK_MOVE_INVALID_REQUEST));
+        } catch (DataIntegrityViolationException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(buildBulkMoveErrorResult(request, BULK_MOVE_CONFLICT));
         }
     }
 
@@ -116,8 +123,28 @@ public class BulkMutationController {
             BulkEditResult result = testCaseBulkEditService.bulkEditByWorkKeys(user.getTeamKey(), request);
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException exception) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(buildBulkEditErrorResult(request, BULK_EDIT_INVALID_REQUEST));
+        } catch (DataIntegrityViolationException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(buildBulkEditErrorResult(request, BULK_EDIT_CONFLICT));
         }
+    }
+
+    private BulkMoveResult buildBulkMoveErrorResult(BulkMoveRequest request, String reason) {
+        BulkMoveResult result = new BulkMoveResult();
+        int requestedCount = request == null || request.getWorkKeys() == null ? 0 : request.getWorkKeys().size();
+        result.setRequestedCount(requestedCount);
+        result.setInvalidCount(requestedCount);
+        result.getFailures().add(new BulkMoveResult.BulkMoveFailure(null, reason));
+        return result;
+    }
+
+    private BulkEditResult buildBulkEditErrorResult(BulkEditRequest request, String reason) {
+        BulkEditResult result = new BulkEditResult();
+        int requestedCount = request == null || request.getWorkKeys() == null ? 0 : request.getWorkKeys().size();
+        result.setRequestedCount(requestedCount);
+        result.setInvalidCount(requestedCount);
+        result.getFailures().add(new BulkEditResult.BulkEditFailure(null, reason));
+        return result;
     }
 
 }
