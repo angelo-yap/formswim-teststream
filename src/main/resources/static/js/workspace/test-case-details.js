@@ -344,6 +344,9 @@ function activateEditMode(fieldKey) {
         editBtn.classList.add('hidden');
     }
     editContainer.classList.remove('hidden');
+    if (textarea) {
+        autoGrow(textarea);
+    }
     const focusTarget = textarea || input;
     if (focusTarget) {
         focusTarget.focus();
