@@ -141,6 +141,9 @@ class WorkspaceTestCaseDetailsIntegrationTests {
         assertThat(updated.getSummary()).isEqualTo("Updated checkout flow summary");
         assertThat(updated.getDescription()).isEqualTo("Detailed checkout description");
         assertThat(updated.getPrecondition()).isEqualTo("User has valid cart");
+        assertThat(updated.getUpdatedOn()).isNotNull();
+        assertThat(updated.getUpdatedOn()).isNotEqualTo("2026-03-02");
+        assertThat(updated.getUpdatedOn()).matches("\\d{2}/[A-Z][a-z]{2}/\\d{4} \\d{2}:\\d{2}");
     }
 
     @Test
