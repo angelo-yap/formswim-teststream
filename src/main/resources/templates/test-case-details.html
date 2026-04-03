@@ -78,7 +78,7 @@
                                                   th:text="${detailsStatus ?: '-'}">Draft</span>
                                 </span>
                                 <button type="button"
-                                        class="text-xs text-white/40 hover:text-[#E7FF02] transition-colors"
+                                        class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                         data-edit-field="status"
                                         th:if="${!#strings.isEmpty(detailsStatus)}">edit</button>
 
@@ -88,7 +88,7 @@
                                                     th:text="${detailsPriority ?: '-'}">Medium</span>
                                 </span>
                                 <button type="button"
-                                        class="text-xs text-white/40 hover:text-[#E7FF02] transition-colors"
+                                        class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                         data-edit-field="priority"
                                         th:if="${!#strings.isEmpty(detailsPriority)}">edit</button>
 
@@ -242,7 +242,7 @@
                                                     Step <span th:text="${step.stepNumber}">1</span>
                                                 </p>
                                                 <button type="button"
-                                                        class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] border border-white/15 hover:border-[#E7FF02] px-2 py-0.5 transition-colors"
+                                                        class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                                         th:attr="data-edit-field=${'step-' + step.stepNumber + '-stepSummary'}"
                                                         th:if="${!#strings.isEmpty(step.stepSummary)}">Edit action</button>
                                             </div>
@@ -278,7 +278,7 @@
                                                     <div class="flex items-center justify-between gap-2">
                                                         <p class="text-xs text-white/50">Test data</p>
                                                         <button type="button"
-                                                                class="text-xs text-white/40 hover:text-[#E7FF02] transition-colors"
+                                                                class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                                                 th:attr="data-edit-field=${'step-' + step.stepNumber + '-testData'}">edit</button>
                                                     </div>
                                                     <div class="mt-1 text-sm text-white/80 leading-7 break-words"
@@ -306,7 +306,7 @@
                                                     <div class="flex items-center justify-between gap-2">
                                                         <p class="text-xs text-white/50">Expected result</p>
                                                         <button type="button"
-                                                                class="text-xs text-white/40 hover:text-[#E7FF02] transition-colors"
+                                                                class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                                                 th:attr="data-edit-field=${'step-' + step.stepNumber + '-expectedResult'}"
                                                                 th:if="${!#strings.isEmpty(step.expectedResult)}">edit</button>
                                                     </div>
@@ -387,7 +387,7 @@
                                                 th:attr="data-raw-value=${detailsComponents}"
                                                 th:text="${detailsComponents}">HeadCoach, Device</dd>
                                             <button type="button"
-                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                                     data-edit-field="components">edit</button>
                                         </div>
                                     </div>
@@ -414,7 +414,7 @@
                                                 th:attr="data-raw-value=${detailsTestCaseType}"
                                                 th:text="${detailsTestCaseType}">Functional</dd>
                                             <button type="button"
-                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                                     data-edit-field="testCaseType">edit</button>
                                         </div>
                                     </div>
@@ -441,7 +441,7 @@
                                                 th:attr="data-raw-value=${detailsLabels}"
                                                 th:text="${detailsLabels}">training, assignment, mobile</dd>
                                             <button type="button"
-                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                                     data-edit-field="labels">edit</button>
                                         </div>
                                     </div>
@@ -477,7 +477,7 @@
                                                 th:attr="data-raw-value=${detailsSprint}"
                                                 th:text="${detailsSprint}">Sprint 14</dd>
                                             <button type="button"
-                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                                     data-edit-field="sprint">edit</button>
                                         </div>
                                     </div>
@@ -504,7 +504,7 @@
                                                 th:attr="data-raw-value=${detailsFixVersions}"
                                                 th:text="${detailsFixVersions}">v0.14.0</dd>
                                             <button type="button"
-                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                                     data-edit-field="fixVersions">edit</button>
                                         </div>
                                     </div>
@@ -531,7 +531,7 @@
                                                 th:attr="data-raw-value=${detailsVersion}"
                                                 th:text="${detailsVersion}">2</dd>
                                             <button type="button"
-                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                                     data-edit-field="version">edit</button>
                                         </div>
                                     </div>
@@ -558,7 +558,7 @@
                                                 th:attr="data-raw-value=${detailsEstimatedTime}"
                                                 th:text="${detailsEstimatedTime}">5m</dd>
                                             <button type="button"
-                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    class="shrink-0 px-2 py-0.5 border border-[#E7FF02]/50 text-white/70 text-xs hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors whitespace-nowrap"
                                                     data-edit-field="estimatedTime">edit</button>
                                         </div>
                                     </div>
