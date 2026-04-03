@@ -100,53 +100,53 @@ class WorkspaceFolderApiIntegrationTests {
             .andExpect(jsonPath("$.path").value("Project/Sprint-1"));
     }
 
-            @Test
-            void postFolderRejectsNameLongerThan255Characters() throws Exception {
-            String oversized = "A".repeat(256);
+    @Test
+    void postFolderRejectsNameLongerThan255Characters() throws Exception {
+        String oversized = "A".repeat(256);
 
-            mockMvc.perform(post("/api/folders")
+        mockMvc.perform(post("/api/folders")
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", oversized))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Folder name cannot exceed 255 characters."));
-            }
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Folder name cannot exceed 255 characters."));
+    }
 
-            @Test
-            void postFolderReturnsNotFoundWhenParentMissing() throws Exception {
-            mockMvc.perform(post("/api/folders")
+    @Test
+    void postFolderReturnsNotFoundWhenParentMissing() throws Exception {
+        mockMvc.perform(post("/api/folders")
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", "Sprint-1", "parentId", 99999L))))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Parent folder not found."));
-            }
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("Parent folder not found."));
+    }
 
-            @Test
-            void patchFolderReturnsNotFoundWhenFolderMissing() throws Exception {
-            mockMvc.perform(patch("/api/folders/{id}", 99999L)
+    @Test
+    void patchFolderReturnsNotFoundWhenFolderMissing() throws Exception {
+        mockMvc.perform(patch("/api/folders/{id}", 99999L)
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", "Renamed"))))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Folder not found."));
-            }
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("Folder not found."));
+    }
 
-            @Test
-            void postFolderRejectsDuplicateRootNameIgnoringCase() throws Exception {
-            createFolder("Project", null);
+    @Test
+    void postFolderRejectsDuplicateRootNameIgnoringCase() throws Exception {
+        createFolder("Project", null);
 
-            mockMvc.perform(post("/api/folders")
+        mockMvc.perform(post("/api/folders")
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", "project"))))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("A folder with this name already exists in the target location."));
-            }
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("A folder with this name already exists in the target location."));
+    }
 
     @Test
     void patchFolderRejectsCycles() throws Exception {
