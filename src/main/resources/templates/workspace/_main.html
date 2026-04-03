@@ -26,7 +26,16 @@
 				<aside id="wsSidebar" class="w-[18rem] sm:w-[20rem] border-r border-white/10 bg-black shrink-0">
 					<div id="wsSidebarInner" class="px-6 py-5">
 						<div id="wsSidebarHeader" class="flex items-center justify-between gap-3">
-							<p id="wsSidebarTitle" class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Directory</p>
+							<div class="flex items-center gap-2 min-w-0">
+								<p id="wsSidebarTitle" class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Directory</p>
+								<button
+									id="wsNewFolderButton"
+									type="button"
+									class="px-2 py-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-[10px] uppercase tracking-wider text-white/75"
+								>
+									New Folder
+								</button>
+							</div>
 							<div id="wsSidebarToggleExpandedHost" class="shrink-0">
 								<button
 									id="wsSidebarToggle"

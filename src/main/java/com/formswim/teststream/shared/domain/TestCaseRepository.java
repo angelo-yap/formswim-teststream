@@ -144,6 +144,16 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
     List<String> findDistinctFolderByTeamKey(String teamKey);
 
     @Query("""
+            select distinct testCase.teamKey
+            from TestCase testCase
+            where testCase.teamKey is not null
+              and trim(testCase.teamKey) <> ''
+              and testCase.folder is not null
+              and trim(testCase.folder) <> ''
+            """)
+    List<String> findDistinctTeamKeysWithFolders();
+
+    @Query("""
             select distinct trim(testCase.components)
             from TestCase testCase
             where testCase.teamKey = :teamKey
@@ -186,6 +196,18 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
     boolean existsByTeamKeyAndWorkKey(String teamKey, String workKey);
 
     List<TestCase> findByTeamKeyAndFolder(String teamKey, String folder);
+
+                @Query("""
+                                                select count(testCase)
+                                                from TestCase testCase
+                                                where testCase.teamKey = :teamKey
+                                                        and (
+                                                                                lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) = lower(:folderPath)
+                                                                                or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) like lower(concat(:folderPath, '/%'))
+                                                        )
+                                                """)
+                long countByTeamKeyAndFolderPathHierarchy(@Param("teamKey") String teamKey,
+                                                                                                                                                                                        @Param("folderPath") String folderPath);
 
     List<TestCase> findByTeamKeyAndStatus(String teamKey, String status);
 }

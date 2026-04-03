@@ -21,6 +21,36 @@ function fetchOptionValues(url) {
         .then((data) => uniqueSorted(Array.isArray(data) ? data : []));
 }
 
+function getCsrfHeaders() {
+    const headerName = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    const token = document.querySelector('meta[name="_csrf"]')?.content || '';
+    return {
+        [headerName]: token
+    };
+}
+
+async function parseJsonOrEmpty(response) {
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+        return null;
+    }
+
+    try {
+        return await response.json();
+    } catch (error) {
+        return null;
+    }
+}
+
+async function toApiError(response, fallbackMessage) {
+    const payload = await parseJsonOrEmpty(response);
+    const message = payload?.message || fallbackMessage || ('Request failed with status ' + response.status);
+    const error = new Error(message);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+}
+
 export function createWorkspacePageApi(options) {
     const apiBaseUrl = options.apiBaseUrl;
     const componentsBaseUrl = options.componentsBaseUrl;
@@ -58,6 +88,75 @@ export function createWorkspacePageApi(options) {
                 return response.json();
             })
             .then((data) => (Array.isArray(data) ? data : []));
+    }
+
+    function fetchFolderNodes() {
+        return fetch('/api/folders/nodes')
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error('Folder nodes failed with status ' + response.status);
+                }
+                return response.json();
+            })
+            .then((data) => (Array.isArray(data) ? data : []));
+    }
+
+    async function createFolder(input) {
+        const response = await fetch('/api/folders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getCsrfHeaders()
+            },
+            body: JSON.stringify({
+                name: input?.name || '',
+                parentId: Object.prototype.hasOwnProperty.call(input || {}, 'parentId') ? input.parentId : undefined
+            })
+        });
+
+        if (!response.ok) {
+            return toApiError(response, 'Failed to create folder.');
+        }
+
+        return parseJsonOrEmpty(response);
+    }
+
+    async function updateFolder(folderId, input) {
+        const payload = {};
+        if (Object.prototype.hasOwnProperty.call(input || {}, 'name')) {
+            payload.name = input.name;
+        }
+        if (Object.prototype.hasOwnProperty.call(input || {}, 'parentId')) {
+            payload.parentId = input.parentId;
+        }
+
+        const response = await fetch('/api/folders/' + encodeURIComponent(String(folderId)), {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getCsrfHeaders()
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            return toApiError(response, 'Failed to update folder.');
+        }
+
+        return parseJsonOrEmpty(response);
+    }
+
+    async function deleteFolder(folderId) {
+        const response = await fetch('/api/folders/' + encodeURIComponent(String(folderId)), {
+            method: 'DELETE',
+            headers: {
+                ...getCsrfHeaders()
+            }
+        });
+
+        if (!response.ok) {
+            return toApiError(response, 'Failed to delete folder.');
+        }
     }
 
     function fetchFilterOptions() {
@@ -129,9 +228,13 @@ export function createWorkspacePageApi(options) {
 
     return {
         bulkMove,
+        createFolder,
+        deleteFolder,
         fetchFilterOptions,
         fetchFolders,
+        fetchFolderNodes,
         fetchPage,
+        updateFolder,
         uploadFile
     };
 }
