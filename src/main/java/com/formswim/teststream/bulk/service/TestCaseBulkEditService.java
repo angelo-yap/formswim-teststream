@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -25,6 +27,9 @@ import java.util.Set;
  * if any persistence error occurs during processing.</p>
  */
 public class TestCaseBulkEditService {
+
+    private static final DateTimeFormatter UPDATED_ON_FORMAT =
+        DateTimeFormatter.ofPattern("dd/MMM/yyyy HH:mm", Locale.ENGLISH);
 
     private static final String FAILURE_INVALID = "INVALID_WORK_KEY";
     private static final String FAILURE_FORBIDDEN = "FORBIDDEN";
@@ -294,6 +299,7 @@ public class TestCaseBulkEditService {
                 updatedCaseCount++;
             }
 
+            boolean anyStepChanged = false;
             for (TestStep step : testCase.getSteps()) {
                 boolean stepChanged = false;
 
@@ -314,7 +320,12 @@ public class TestCaseBulkEditService {
 
                 if (stepChanged) {
                     updatedStepCount++;
+                    anyStepChanged = true;
                 }
+            }
+
+            if (caseChanged || anyStepChanged) {
+                testCase.setUpdatedOn(LocalDateTime.now().format(UPDATED_ON_FORMAT));
             }
         }
 
