@@ -51,6 +51,7 @@ public class SchemaAlterRunner implements ApplicationRunner {
         // Older schemas enforced work_key uniqueness globally. The application model is
         // (team_key, work_key) unique, so migrate the constraint for Postgres.
         ensureTestCaseWorkKeyUniquePerTeam();
+        ensureRootFolderUniquePerTeam();
 
         if (!folderBackfillOnStartup) {
             log.info("Folder backfill skipped: teststream.folders.backfill-on-startup=false");
@@ -82,6 +83,25 @@ public class SchemaAlterRunner implements ApplicationRunner {
             }
         } catch (Exception e) {
             log.warn("Could not migrate test_case work_key uniqueness constraint: {}", e.getMessage());
+        }
+    }
+
+    private void ensureRootFolderUniquePerTeam() {
+        if (!isPostgres()) {
+            return;
+        }
+
+        try {
+            // UNIQUE(team_key, parent_id, name) allows duplicate roots on Postgres because
+            // parent_id is NULL at the root level. Enforce root uniqueness explicitly.
+            jdbc.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uk_folders_team_root_lower_name
+                ON folders (team_key, lower(name))
+                WHERE parent_id IS NULL
+                """);
+            log.info("Ensured index uk_folders_team_root_lower_name on folders(team_key, lower(name)) where parent_id is null");
+        } catch (Exception exception) {
+            log.warn("Could not enforce root folder uniqueness index: {}", exception.getMessage());
         }
     }
 
