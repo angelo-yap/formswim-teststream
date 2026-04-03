@@ -46,7 +46,7 @@ public class WorkspaceFolderService {
             }
         }
 
-        paths.sort(String::compareToIgnoreCase);
+        paths.sort(String::compareTo);
         return Collections.unmodifiableList(paths);
     }
 
