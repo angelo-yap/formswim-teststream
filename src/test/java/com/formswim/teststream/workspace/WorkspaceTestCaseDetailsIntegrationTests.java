@@ -1,24 +1,32 @@
 package com.formswim.teststream.workspace;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
 import com.formswim.teststream.shared.domain.TestCase;
@@ -33,6 +41,9 @@ class WorkspaceTestCaseDetailsIntegrationTests {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private TestCaseRepository testCaseRepository;
@@ -107,5 +118,88 @@ class WorkspaceTestCaseDetailsIntegrationTests {
                 .with(user("team1.user@example.com").roles("USER")))
             .andExpect(status().is3xxRedirection())
             .andExpect(redirectedUrl("/workspace?importError=Test+case+not+found"));
+    }
+
+    @Test
+    void singleCaseEditOverwritesFullFieldValue() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "Checkout flow summary");
+        payload.put("replaceText", "Updated checkout flow summary");
+        payload.put("fields", List.of("summary"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedCaseCount").value(1))
+            .andExpect(jsonPath("$.totalReplacements").value(1));
+
+        TestCase updated = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-101").orElseThrow();
+        assertThat(updated.getSummary()).isEqualTo("Updated checkout flow summary");
+        assertThat(updated.getDescription()).isEqualTo("Detailed checkout description");
+        assertThat(updated.getPrecondition()).isEqualTo("User has valid cart");
+    }
+
+    @Test
+    void singleCaseEditCrossTeamCaseIsReportedAsForbidden() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-201"));
+        payload.put("findText", "Summary TC-201");
+        payload.put("replaceText", "Attempted overwrite");
+        payload.put("fields", List.of("summary"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.forbiddenCount").value(1))
+            .andExpect(jsonPath("$.updatedCaseCount").value(0))
+            .andExpect(jsonPath("$.totalReplacements").value(0));
+
+        TestCase unchanged = testCaseRepository.findByTeamKeyAndWorkKey("TEAM2", "TC-201").orElseThrow();
+        assertThat(unchanged.getSummary()).isEqualTo("Summary TC-201");
+    }
+
+    @Test
+    void singleCaseEditRequiresAuthentication() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "Checkout flow summary");
+        payload.put("replaceText", "New value");
+        payload.put("fields", List.of("summary"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("unknown.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void singleCaseEditOverwritesStepFieldValue() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "Open checkout page");
+        payload.put("replaceText", "Navigate to checkout");
+        payload.put("fields", List.of("stepSummary"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedStepCount").value(1))
+            .andExpect(jsonPath("$.totalReplacements").value(1));
+
+        TestCase updated = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn("TEAM1", List.of("TC-101")).get(0);
+        assertThat(updated.getSteps().get(0).getStepSummary()).isEqualTo("Navigate to checkout");
+        assertThat(updated.getSummary()).isEqualTo("Checkout flow summary");
     }
 }
