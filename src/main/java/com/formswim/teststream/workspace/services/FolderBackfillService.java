@@ -3,7 +3,6 @@ package com.formswim.teststream.workspace.services;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -52,7 +51,7 @@ public class FolderBackfillService {
             for (Folder folder : existing) {
                 String path = derivePath(folder, pathMemo, byId);
                 if (!path.isBlank()) {
-                    byPath.put(canonicalPathKey(path), folder);
+                    byPath.put(path, folder);
                 }
             }
 
@@ -67,7 +66,7 @@ public class FolderBackfillService {
                 String currentPath = "";
                 for (String segment : segments) {
                     currentPath = currentPath.isEmpty() ? segment : currentPath + "/" + segment;
-                    String lookupPath = canonicalPathKey(currentPath);
+                    String lookupPath = currentPath;
 
                     Folder node = byPath.get(lookupPath);
                     if (node == null) {
@@ -107,13 +106,6 @@ public class FolderBackfillService {
         String path = parentPath.isBlank() ? current : parentPath + "/" + current;
         pathMemo.put(folder.getId(), path);
         return path;
-    }
-
-    private String canonicalPathKey(String path) {
-        if (path == null || path.isBlank()) {
-            return "";
-        }
-        return path.toLowerCase(Locale.ROOT);
     }
 
     private List<String> parseSegments(String rawPath) {
