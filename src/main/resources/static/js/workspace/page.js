@@ -51,7 +51,6 @@ const sidebarInner = document.getElementById('wsSidebarInner');
 const sidebarHeader = document.getElementById('wsSidebarHeader');
 const sidebarToggleExpandedHost = document.getElementById('wsSidebarToggleExpandedHost');
 const sidebarToggleCollapsedHost = document.getElementById('wsSidebarToggleCollapsedHost');
-const newFolderButton = document.getElementById('wsNewFolderButton');
 
 const organizeModal = document.getElementById('organizeModal');
 const organizeBackdrop = document.getElementById('organizeBackdrop');
@@ -115,7 +114,6 @@ let importController = {
     clearNotice() {},
     showNotice() {}
 };
-let showNotice = () => {};
 let previewControls = {
     refresh() {}
 };
@@ -146,7 +144,6 @@ const folderTreeController = createWorkspaceFolderTree({
     folderTree,
     folderLoading,
     folderEmpty,
-    newFolderButton,
     sidebar,
     sidebarToggle,
     sidebarContent,
@@ -155,7 +152,6 @@ const folderTreeController = createWorkspaceFolderTree({
     sidebarHeader,
     sidebarToggleExpandedHost,
     sidebarToggleCollapsedHost,
-    showNotice: (type, message) => showNotice(type, message),
     onFolderChanged: () => {
         dataController.applyFilters({ resetPage: true });
     }
@@ -194,7 +190,6 @@ importController = createWorkspaceImportController({
         ]);
     }
 });
-showNotice = (type, message) => importController.showNotice(type, message);
 
 const moveController = createWorkspaceMoveController({
     api,

@@ -10,8 +10,6 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import com.formswim.teststream.workspace.services.FolderBackfillService;
-
 /**
  * Runs once on startup to widen any varchar(255) columns that need to be TEXT.
  * Hibernate's ddl-auto=update never alters existing column types, so this
@@ -24,12 +22,9 @@ public class SchemaAlterRunner implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(SchemaAlterRunner.class);
 
     private final JdbcTemplate jdbc;
-    private final FolderBackfillService folderBackfillService;
 
-    public SchemaAlterRunner(JdbcTemplate jdbc,
-                             FolderBackfillService folderBackfillService) {
+    public SchemaAlterRunner(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
-        this.folderBackfillService = folderBackfillService;
     }
 
     @Override
@@ -47,13 +42,6 @@ public class SchemaAlterRunner implements ApplicationRunner {
         // Older schemas enforced work_key uniqueness globally. The application model is
         // (team_key, work_key) unique, so migrate the constraint for Postgres.
         ensureTestCaseWorkKeyUniquePerTeam();
-
-        try {
-            int createdFolders = folderBackfillService.backfillFoldersFromTestCases();
-            log.info("Folder backfill completed. Created {} folder rows.", createdFolders);
-        } catch (Exception exception) {
-            log.warn("Folder backfill failed: {}", exception.getMessage());
-        }
     }
 
     private void ensureTestCaseWorkKeyUniquePerTeam() {

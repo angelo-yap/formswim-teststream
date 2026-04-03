@@ -4,7 +4,6 @@ export function createWorkspaceFolderTree(options) {
     const folderTree = options.folderTree;
     const folderLoading = options.folderLoading;
     const folderEmpty = options.folderEmpty;
-    const newFolderButton = options.newFolderButton;
     const sidebar = options.sidebar;
     const sidebarToggle = options.sidebarToggle;
     const sidebarContent = options.sidebarContent;
@@ -13,17 +12,9 @@ export function createWorkspaceFolderTree(options) {
     const sidebarHeader = options.sidebarHeader;
     const sidebarToggleExpandedHost = options.sidebarToggleExpandedHost;
     const sidebarToggleCollapsedHost = options.sidebarToggleCollapsedHost;
-    const showNotice = options.showNotice;
     const onFolderChanged = options.onFolderChanged;
 
-    let folderTreeModel = createFolderTreeModel([], []);
-    let folderNodeByPath = new Map();
-    let inlineEditorState = null;
-    let contextMenuEl = null;
-    let contextMenuCleanupBound = false;
-    let activeFolderDrag = null;
-    let activeFolderDropTargetEl = null;
-    let activeFolderDropMode = null;
+    let folderTreeModel = createFolderTreeModel([]);
 
     function setSidebarExpanded(expanded) {
         uiState.setSidebarExpanded(expanded);
@@ -80,62 +71,13 @@ export function createWorkspaceFolderTree(options) {
         }
     }
 
-    function createFolderTreeModel(folderNames, folderNodes) {
+    function createFolderTreeModel(folderNames) {
         const root = {
             name: '',
-            id: null,
             path: '',
-            parentPath: '',
             children: new Map(),
             expanded: true
         };
-
-        const pathIndex = new Map();
-        pathIndex.set('', root);
-
-        const normalizedNodes = Array.isArray(folderNodes) ? folderNodes : [];
-
-        if (normalizedNodes.length > 0) {
-            for (const rawNode of normalizedNodes) {
-                const normalized = uiState.normalizeFolder(rawNode?.path || '');
-                const name = String(rawNode?.name || '').trim();
-                if (!normalized || !name) {
-                    continue;
-                }
-
-                const parts = normalized.split('/').filter(Boolean);
-                let current = root;
-                let currentPath = '';
-
-                for (let index = 0; index < parts.length; index++) {
-                    const part = parts[index];
-                    const parentPath = currentPath;
-                    currentPath = currentPath ? currentPath + '/' + part : part;
-
-                    if (!current.children.has(part)) {
-                        current.children.set(part, {
-                            id: null,
-                            name: part,
-                            path: currentPath,
-                            parentPath,
-                            children: new Map(),
-                            expanded: true
-                        });
-                    }
-
-                    const child = current.children.get(part);
-                    if (index === parts.length - 1) {
-                        child.id = rawNode?.id ?? null;
-                        child.name = name;
-                    }
-
-                    pathIndex.set(currentPath, child);
-                    current = child;
-                }
-            }
-
-            return { root, pathIndex };
-        }
 
         for (const folderName of folderNames || []) {
             const normalized = uiState.normalizeFolder(folderName);
@@ -148,369 +90,20 @@ export function createWorkspaceFolderTree(options) {
             let currentPath = '';
 
             for (const part of parts) {
-                const parentPath = currentPath;
                 currentPath = currentPath ? currentPath + '/' + part : part;
                 if (!current.children.has(part)) {
                     current.children.set(part, {
-                        id: null,
                         name: part,
                         path: currentPath,
-                        parentPath,
                         children: new Map(),
                         expanded: true
                     });
                 }
                 current = current.children.get(part);
-                pathIndex.set(currentPath, current);
             }
         }
 
-        return { root, pathIndex };
-    }
-
-    function getNodeMetaByPath(path) {
-        const normalized = uiState.normalizeFolder(path || '');
-        if (!normalized) {
-            return null;
-        }
-        return folderNodeByPath.get(normalized) || null;
-    }
-
-    function clearInlineEditor() {
-        inlineEditorState = null;
-    }
-
-    function emitFolderChanged(path) {
-        if (typeof onFolderChanged === 'function') {
-            onFolderChanged(path || '');
-        }
-    }
-
-    function notify(type, message) {
-        if (typeof showNotice === 'function') {
-            showNotice(type, message);
-            return;
-        }
-        if (message) {
-            window.alert(String(message));
-        }
-    }
-
-    function closeContextMenu() {
-        if (contextMenuEl && contextMenuEl.parentNode) {
-            contextMenuEl.parentNode.removeChild(contextMenuEl);
-        }
-        contextMenuEl = null;
-    }
-
-    function bindContextMenuCleanup() {
-        if (contextMenuCleanupBound) {
-            return;
-        }
-        contextMenuCleanupBound = true;
-        document.addEventListener('click', () => closeContextMenu());
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-                closeContextMenu();
-            }
-        });
-        window.addEventListener('resize', () => closeContextMenu());
-    }
-
-    function openContextMenu(node, event) {
-        closeContextMenu();
-        bindContextMenuCleanup();
-
-        const menu = document.createElement('div');
-        menu.className = 'fixed z-[1200] min-w-[10rem] border border-white/20 bg-black text-white shadow-xl';
-        menu.style.left = String(event.clientX) + 'px';
-        menu.style.top = String(event.clientY) + 'px';
-
-        const actions = [
-            {
-                label: 'New Folder',
-                handler: () => {
-                    startInlineCreate(node);
-                }
-            },
-            {
-                label: 'Rename',
-                disabled: !node.id,
-                handler: () => {
-                    startInlineRename(node);
-                }
-            },
-            {
-                label: 'Delete',
-                disabled: !node.id,
-                handler: () => {
-                    handleDeleteFolder(node);
-                }
-            }
-        ];
-
-        for (const action of actions) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'block w-full px-3 py-2 text-left text-sm transition-colors';
-            button.classList.add(action.disabled ? 'text-white/35 cursor-not-allowed' : 'hover:bg-white/10');
-            button.textContent = action.label;
-            button.disabled = Boolean(action.disabled);
-            button.addEventListener('click', (clickEvent) => {
-                clickEvent.stopPropagation();
-                closeContextMenu();
-                if (!action.disabled) {
-                    action.handler();
-                }
-            });
-            menu.appendChild(button);
-        }
-
-        document.body.appendChild(menu);
-        contextMenuEl = menu;
-    }
-
-    function startInlineCreate(parentNode) {
-        const parentPath = parentNode?.path || '';
-        const parentMeta = parentPath ? getNodeMetaByPath(parentPath) : null;
-
-        if (parentPath && !parentMeta?.id) {
-            notify('error', 'Cannot create subfolder here because this folder id is unavailable.');
-            return;
-        }
-
-        inlineEditorState = {
-            mode: 'create',
-            parentPath,
-            parentId: parentMeta?.id ?? null,
-            value: ''
-        };
-        renderFolderTree();
-    }
-
-    function startInlineRename(node) {
-        const meta = getNodeMetaByPath(node.path);
-        if (!meta?.id) {
-            notify('error', 'Cannot rename this folder because its id is unavailable.');
-            return;
-        }
-
-        inlineEditorState = {
-            mode: 'rename',
-            targetId: meta.id,
-            targetPath: node.path,
-            value: node.name
-        };
-        renderFolderTree();
-    }
-
-    async function submitInlineEditor(value) {
-        if (!inlineEditorState) {
-            return;
-        }
-
-        const name = String(value || '').trim();
-        if (!name) {
-            clearInlineEditor();
-            renderFolderTree();
-            return;
-        }
-
-        try {
-            if (inlineEditorState.mode === 'create') {
-                const created = await api.createFolder({
-                    name,
-                    parentId: inlineEditorState.parentId
-                });
-
-                clearInlineEditor();
-                const currentSelection = uiState.getSelectedFolder();
-                await loadFolders();
-
-                if (created?.path) {
-                    uiState.setSelectedFolder(uiState.normalizeFolder(created.path));
-                    renderFolderTree();
-                    emitFolderChanged(uiState.getSelectedFolder());
-                    notify('success', 'Folder created.');
-                } else if (currentSelection) {
-                    emitFolderChanged(currentSelection);
-                }
-                return;
-            }
-
-            if (inlineEditorState.mode === 'rename') {
-                const updated = await api.updateFolder(inlineEditorState.targetId, { name });
-                const previousSelected = uiState.getSelectedFolder();
-                const renamedPath = inlineEditorState.targetPath;
-
-                clearInlineEditor();
-                await loadFolders();
-
-                if (previousSelected && renamedPath && updated?.path) {
-                    const normalizedRenamedPath = uiState.normalizeFolder(renamedPath);
-                    const normalizedUpdatedPath = uiState.normalizeFolder(updated.path);
-
-                    if (previousSelected === normalizedRenamedPath) {
-                        uiState.setSelectedFolder(normalizedUpdatedPath);
-                    } else if (previousSelected.startsWith(normalizedRenamedPath + '/')) {
-                        const suffix = previousSelected.slice(normalizedRenamedPath.length);
-                        uiState.setSelectedFolder(uiState.normalizeFolder(normalizedUpdatedPath + suffix));
-                    }
-                }
-
-                emitFolderChanged(uiState.getSelectedFolder());
-
-                notify('success', 'Folder renamed.');
-            }
-        } catch (error) {
-            notify('error', error?.message || 'Folder operation failed.');
-            clearInlineEditor();
-            renderFolderTree();
-        }
-    }
-
-    async function handleDeleteFolder(node) {
-        const meta = getNodeMetaByPath(node.path);
-        if (!meta?.id) {
-            notify('error', 'Cannot delete this folder because its id is unavailable.');
-            return;
-        }
-
-        const confirmed = window.confirm('Delete folder "' + node.path + '"?');
-        if (!confirmed) {
-            return;
-        }
-
-        try {
-            await api.deleteFolder(meta.id);
-            const selected = uiState.getSelectedFolder();
-            if (selected && (selected === node.path || selected.startsWith(node.path + '/'))) {
-                uiState.setSelectedFolder('');
-                emitFolderChanged('');
-            }
-            await loadFolders();
-            notify('success', 'Folder deleted.');
-        } catch (error) {
-            notify('error', error?.message || 'Folder delete failed.');
-        }
-    }
-
-    function isInvalidFolderDrop(sourcePath, candidateParentPath) {
-        if (!sourcePath) {
-            return true;
-        }
-        const normalizedParent = uiState.normalizeFolder(candidateParentPath || '');
-        if (sourcePath === normalizedParent) {
-            return true;
-        }
-        return Boolean(normalizedParent && normalizedParent.startsWith(sourcePath + '/'));
-    }
-
-    function setFolderDropHover(targetEl, mode) {
-        if (activeFolderDropTargetEl === targetEl && activeFolderDropMode === mode) {
-            return;
-        }
-        if (activeFolderDropTargetEl) {
-            activeFolderDropTargetEl.classList.remove('ws-folder-drop-hover');
-            activeFolderDropTargetEl.classList.remove('ws-folder-drop-line-top');
-            activeFolderDropTargetEl.classList.remove('ws-folder-drop-line-bottom');
-        }
-
-        activeFolderDropTargetEl = targetEl;
-        activeFolderDropMode = mode || null;
-        if (activeFolderDropTargetEl) {
-            if (activeFolderDropMode === 'sibling-before') {
-                activeFolderDropTargetEl.classList.add('ws-folder-drop-line-top');
-            } else {
-                activeFolderDropTargetEl.classList.add('ws-folder-drop-hover');
-            }
-        }
-    }
-
-    function clearFolderDropHover() {
-        if (activeFolderDropTargetEl) {
-            activeFolderDropTargetEl.classList.remove('ws-folder-drop-hover');
-            activeFolderDropTargetEl.classList.remove('ws-folder-drop-line-top');
-            activeFolderDropTargetEl.classList.remove('ws-folder-drop-line-bottom');
-            activeFolderDropTargetEl = null;
-        }
-        activeFolderDropMode = null;
-    }
-
-    function resolveDropMode(event, rowEl) {
-        const rect = rowEl.getBoundingClientRect();
-        if (!rect || rect.height <= 0) {
-            return 'child';
-        }
-
-        const offsetY = event.clientY - rect.top;
-        const edgeThreshold = Math.min(8, Math.max(4, rect.height * 0.2));
-        if (offsetY <= edgeThreshold) {
-            return 'sibling-before';
-        }
-        return 'child';
-    }
-
-    function resolveCandidateParentPath(targetNode, dropMode) {
-        if (!targetNode) {
-            return '';
-        }
-        if (dropMode === 'sibling-before') {
-            return targetNode.parentPath || '';
-        }
-        return targetNode.path || '';
-    }
-
-    function isSelfTopDrop(sourcePath, targetPath, dropMode) {
-        return dropMode === 'sibling-before' && sourcePath && sourcePath === uiState.normalizeFolder(targetPath || '');
-    }
-
-    async function handleFolderDrop(dragPayload, targetNode, dropMode) {
-        if (!dragPayload || !targetNode) {
-            return;
-        }
-
-        const sourcePath = uiState.normalizeFolder(dragPayload.path || '');
-        const targetPath = uiState.normalizeFolder(targetNode.path || '');
-        if (isSelfTopDrop(sourcePath, targetPath, dropMode)) {
-            notify('error', 'Cannot drop a folder on its own top edge.');
-            return;
-        }
-
-        const candidateParentPath = uiState.normalizeFolder(resolveCandidateParentPath(targetNode, dropMode));
-        if (isInvalidFolderDrop(sourcePath, candidateParentPath)) {
-            notify('error', 'Cannot move a folder into itself or its descendants.');
-            return;
-        }
-
-        const targetMeta = getNodeMetaByPath(uiState.normalizeFolder(targetNode.path || ''));
-        if (!targetMeta) {
-            notify('error', 'Destination folder is unavailable.');
-            return;
-        }
-
-        let nextParentId = null;
-        if (dropMode === 'sibling-before') {
-            nextParentId = targetMeta.parentId ?? null;
-        } else if (targetMeta.id) {
-            nextParentId = targetMeta.id;
-        } else {
-            notify('error', 'Destination folder is unavailable.');
-            return;
-        }
-
-        try {
-            const updated = await api.updateFolder(dragPayload.id, { parentId: nextParentId });
-            const selected = uiState.getSelectedFolder();
-            if (selected && selected === sourcePath && updated?.path) {
-                uiState.setSelectedFolder(uiState.normalizeFolder(updated.path));
-                emitFolderChanged(uiState.getSelectedFolder());
-            }
-            await loadFolders();
-            notify('success', 'Folder moved.');
-        } catch (error) {
-            notify('error', error?.message || 'Folder move failed.');
-        }
+        return root;
     }
 
     function renderFolderTree() {
@@ -562,66 +155,11 @@ export function createWorkspaceFolderTree(options) {
         showAllWrap.appendChild(showAllInner);
         folderTree.appendChild(showAllWrap);
 
-        if (!folderTreeModel || !folderTreeModel.root || !folderTreeModel.root.children || folderTreeModel.root.children.size === 0) {
-            if (inlineEditorState && inlineEditorState.mode === 'create' && !inlineEditorState.parentPath) {
-                renderInlineEditorRow(null, 0);
-            }
+        if (!folderTreeModel || !folderTreeModel.children || folderTreeModel.children.size === 0) {
             return;
         }
 
         const sortedChildren = (node) => Array.from(node.children.values()).sort((a, b) => a.name.localeCompare(b.name));
-
-        function renderInlineEditorRow(parentNode, depth) {
-            const rowWrap = document.createElement('div');
-            rowWrap.className = rowWrapClasses;
-            rowWrap.style.paddingLeft = String(12 + depth * 16) + 'px';
-
-            const rowInner = document.createElement('div');
-            rowInner.className = rowInnerBaseClasses + ' text-white/90 bg-white/5';
-            rowInner.style.position = 'relative';
-            rowInner.style.zIndex = '1';
-
-            const spacer = document.createElement('span');
-            spacer.className = 'shrink-0 w-5 h-5 flex items-center justify-center text-white/50';
-            spacer.innerHTML =
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M12 5v14" /><path d="M5 12h14" /></svg>';
-
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = inlineEditorState?.value || '';
-            input.className = 'min-w-0 flex-1 bg-black border border-white/20 px-2 py-1 text-sm text-white focus:outline-none focus:border-[#E7FF02]';
-            input.placeholder = inlineEditorState?.mode === 'rename' ? 'Rename folder' : 'New folder';
-
-            input.addEventListener('keydown', async (event) => {
-                if (event.key === 'Escape') {
-                    event.preventDefault();
-                    clearInlineEditor();
-                    renderFolderTree();
-                    return;
-                }
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    await submitInlineEditor(input.value);
-                }
-            });
-
-            input.addEventListener('blur', async () => {
-                if (!inlineEditorState) {
-                    return;
-                }
-                await submitInlineEditor(input.value);
-            });
-
-            rowInner.appendChild(spacer);
-            rowInner.appendChild(input);
-            rowWrap.appendChild(rowInner);
-            folderTree.appendChild(rowWrap);
-
-            window.requestAnimationFrame(() => {
-                input.focus();
-                input.select();
-            });
-        }
 
         const renderNode = (node, depth) => {
             const hasChildren = node.children && node.children.size > 0;
@@ -647,13 +185,6 @@ export function createWorkspaceFolderTree(options) {
             rowInner.style.zIndex = '1';
             rowInner.dataset.dropTarget = 'folder';
             rowInner.dataset.folderPath = node.path;
-
-            const nodeMeta = getNodeMetaByPath(node.path);
-            const canMutate = Boolean(nodeMeta?.id);
-            if (canMutate) {
-                rowInner.draggable = true;
-                rowInner.dataset.folderId = String(nodeMeta.id);
-            }
 
             let toggle;
             if (hasChildren) {
@@ -699,121 +230,20 @@ export function createWorkspaceFolderTree(options) {
             labelSpan.textContent = node.name;
 
             selectButton.appendChild(iconSpan);
-            if (inlineEditorState && inlineEditorState.mode === 'rename' && inlineEditorState.targetPath === node.path) {
-                const editInput = document.createElement('input');
-                editInput.type = 'text';
-                editInput.value = inlineEditorState.value || node.name;
-                editInput.className = 'min-w-0 flex-1 bg-black border border-white/20 px-2 py-1 text-sm text-white focus:outline-none focus:border-[#E7FF02]';
-                editInput.addEventListener('keydown', async (event) => {
-                    if (event.key === 'Escape') {
-                        event.preventDefault();
-                        clearInlineEditor();
-                        renderFolderTree();
-                        return;
-                    }
-                    if (event.key === 'Enter') {
-                        event.preventDefault();
-                        await submitInlineEditor(editInput.value);
-                    }
-                });
-                editInput.addEventListener('blur', async () => {
-                    if (!inlineEditorState) {
-                        return;
-                    }
-                    await submitInlineEditor(editInput.value);
-                });
-                selectButton.appendChild(editInput);
-                window.requestAnimationFrame(() => {
-                    editInput.focus();
-                    editInput.select();
-                });
-            } else {
-                selectButton.appendChild(labelSpan);
-            }
-
+            selectButton.appendChild(labelSpan);
             selectButton.addEventListener('click', () => {
                 const next = uiState.getSelectedFolder() === node.path ? '' : node.path;
                 uiState.setSelectedFolder(next);
                 renderFolderTree();
-                emitFolderChanged(next);
-            });
-
-            rowInner.addEventListener('contextmenu', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                openContextMenu(node, event);
-            });
-
-            rowInner.addEventListener('dragstart', (event) => {
-                if (!canMutate || !event.dataTransfer) {
-                    return;
+                if (typeof onFolderChanged === 'function') {
+                    onFolderChanged(next);
                 }
-                activeFolderDrag = {
-                    id: nodeMeta.id,
-                    path: node.path
-                };
-                event.dataTransfer.effectAllowed = 'move';
-                event.dataTransfer.setData('text/plain', node.path);
-            });
-
-            rowInner.addEventListener('dragend', () => {
-                activeFolderDrag = null;
-                clearFolderDropHover();
-            });
-
-            rowInner.addEventListener('dragover', (event) => {
-                if (!activeFolderDrag) {
-                    return;
-                }
-                const sourcePath = uiState.normalizeFolder(activeFolderDrag.path || '');
-                const dropMode = resolveDropMode(event, rowInner);
-                if (isSelfTopDrop(sourcePath, node.path, dropMode)) {
-                    clearFolderDropHover();
-                    return;
-                }
-                const candidateParentPath = resolveCandidateParentPath(node, dropMode);
-                if (isInvalidFolderDrop(sourcePath, candidateParentPath)) {
-                    clearFolderDropHover();
-                    return;
-                }
-                event.preventDefault();
-                if (event.dataTransfer) {
-                    event.dataTransfer.dropEffect = 'move';
-                }
-                setFolderDropHover(rowInner, dropMode);
-            });
-
-            rowInner.addEventListener('dragleave', (event) => {
-                if (!activeFolderDrag) {
-                    return;
-                }
-                const relatedTarget = event.relatedTarget;
-                if (!relatedTarget || !rowInner.contains(relatedTarget)) {
-                    clearFolderDropHover();
-                }
-            });
-
-            rowInner.addEventListener('drop', async (event) => {
-                if (!activeFolderDrag) {
-                    return;
-                }
-                event.preventDefault();
-                const targetNode = node;
-                const dropMode = resolveDropMode(event, rowInner);
-                const dragPayload = activeFolderDrag;
-                activeFolderDrag = null;
-                clearFolderDropHover();
-                await handleFolderDrop(dragPayload, targetNode, dropMode);
             });
 
             rowInner.appendChild(toggle);
             rowInner.appendChild(selectButton);
             rowWrap.appendChild(rowInner);
             folderTree.appendChild(rowWrap);
-
-            if (inlineEditorState && inlineEditorState.mode === 'create' && inlineEditorState.parentPath === node.path) {
-                renderInlineEditorRow(node, depth + 1);
-            }
 
             if (hasChildren && node.expanded) {
                 for (const child of sortedChildren(node)) {
@@ -822,11 +252,7 @@ export function createWorkspaceFolderTree(options) {
             }
         };
 
-        if (inlineEditorState && inlineEditorState.mode === 'create' && !inlineEditorState.parentPath) {
-            renderInlineEditorRow(null, 0);
-        }
-
-        for (const child of sortedChildren(folderTreeModel.root)) {
+        for (const child of sortedChildren(folderTreeModel)) {
             renderNode(child, 0);
         }
     }
@@ -840,27 +266,15 @@ export function createWorkspaceFolderTree(options) {
             folderEmpty.textContent = 'No folders found.';
         }
 
-        const folderNodesPromise = typeof api.fetchFolderNodes === 'function'
-            ? api.fetchFolderNodes().catch(() => [])
-            : Promise.resolve([]);
-
-        return Promise.all([api.fetchFolders(), folderNodesPromise])
-            .then(([folders, nodes]) => {
-                folderNodeByPath = new Map();
-                for (const node of nodes || []) {
-                    const normalizedPath = uiState.normalizeFolder(node?.path || '');
-                    if (normalizedPath) {
-                        folderNodeByPath.set(normalizedPath, node);
-                    }
-                }
-
-                folderTreeModel = createFolderTreeModel(folders, nodes);
+        return api.fetchFolders()
+            .then((folders) => {
+                folderTreeModel = createFolderTreeModel(folders);
 
                 if (folderLoading) {
                     folderLoading.classList.add('hidden');
                 }
 
-                const hasAny = folderTreeModel && folderTreeModel.root && folderTreeModel.root.children && folderTreeModel.root.children.size > 0;
+                const hasAny = folderTreeModel && folderTreeModel.children && folderTreeModel.children.size > 0;
                 if (folderEmpty) {
                     folderEmpty.classList.toggle('hidden', hasAny);
                 }
@@ -870,8 +284,7 @@ export function createWorkspaceFolderTree(options) {
             })
             .catch((error) => {
                 console.error('Failed to load folders', error);
-                folderTreeModel = createFolderTreeModel([], []);
-                folderNodeByPath = new Map();
+                folderTreeModel = createFolderTreeModel([]);
                 if (folderLoading) {
                     folderLoading.classList.add('hidden');
                 }
@@ -891,24 +304,6 @@ export function createWorkspaceFolderTree(options) {
     if (sidebarToggle) {
         sidebarToggle.addEventListener('click', () => {
             setSidebarExpanded(!uiState.isSidebarExpanded());
-        });
-    }
-
-    if (newFolderButton) {
-        newFolderButton.addEventListener('click', () => {
-            const selectedPath = uiState.getSelectedFolder();
-            if (!selectedPath) {
-                startInlineCreate(null);
-                return;
-            }
-
-            const selectedNode = folderTreeModel.pathIndex.get(selectedPath);
-            if (!selectedNode) {
-                startInlineCreate(null);
-                return;
-            }
-
-            startInlineCreate(selectedNode);
         });
     }
 
