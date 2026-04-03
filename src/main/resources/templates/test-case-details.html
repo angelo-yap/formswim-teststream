@@ -383,15 +383,12 @@
                                 <div th:if="${!#strings.isEmpty(detailsTestCaseType)}">
                                     <div class="flex items-center justify-between gap-4">
                                         <dt class="text-white/50 shrink-0">Test case type</dt>
-                                        <div class="flex items-center gap-2 min-w-0">
-                                            <dd class="text-white/80 text-right break-all"
-                                                data-field-display="testCaseType"
-                                                th:attr="data-raw-value=${detailsTestCaseType}"
-                                                th:text="${detailsTestCaseType}">Functional</dd>
-                                            <button type="button"
-                                                    class="shrink-0 px-2 py-0.5 border border-white/20 text-white/60 text-xs hover:border-white/50 hover:text-white transition-colors whitespace-nowrap"
-                                                    data-edit-field="testCaseType">Edit</button>
-                                        </div>
+                                        <dd class="text-white/80 text-right break-all cursor-pointer hover:text-white transition-colors"
+                                            data-field-display="testCaseType"
+                                            data-edit-field="testCaseType"
+                                            title="Click to edit"
+                                            th:attr="data-raw-value=${detailsTestCaseType}"
+                                            th:text="${detailsTestCaseType}">Functional</dd>
                                     </div>
                                     <div class="hidden mt-2" data-field-edit="testCaseType">
                                         <input type="text"
