@@ -109,6 +109,8 @@ const drawer = createDrawer({
     getTestCaseById: grid.getTestCaseById
 });
 
+const bulkDeselectAll = document.getElementById('bulkDeselectAll');
+
 let syncRowSelectionUi = () => {};
 let importController = {
     clearNotice() {},
@@ -304,3 +306,10 @@ if (nextPageButton) {
 dataController.loadCurrentPage();
 dataController.loadFilterOptions();
 folderTreeController.loadFolders();
+
+
+if (bulkDeselectAll) {
+    bulkDeselectAll.addEventListener('click', () => {
+        selection.clearSelection();
+    });
+}

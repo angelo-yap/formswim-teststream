@@ -13,10 +13,6 @@ function clearBrowserTextSelection() {
     }
 }
 
-function isModifierToggle(event) {
-    return Boolean(event?.ctrlKey || event?.metaKey);
-}
-
 function syncCheckboxElement(selection, checkbox) {
     if (!checkbox) {
         return;
@@ -72,36 +68,22 @@ export function bindWorkspaceRowActions(options) {
         }
 
         const hasShift = Boolean(event?.shiftKey);
-        const hasModifier = isModifierToggle(event);
-        const anchor = selection.getSelectionAnchor();
-        const isAlreadySelected = selection.isSelected(workKey);
         const selectedCount = selection.getSelectedIds().length;
 
-        if (hasShift && anchor) {
-            selection.selectRange(anchor, workKey);
-            syncRowSelectionUi();
-            return;
-        }
-
         if (hasShift) {
-            selection.selectOnly(workKey);
-            syncRowSelectionUi();
-            return;
+            const anchor = selectedCount === 0
+                ? selection.getFirstVisibleId()
+                : (selection.getSelectionAnchor() || selection.getFirstVisibleId());
+
+            if (anchor) {
+                selection.selectRange(anchor, workKey);
+                syncRowSelectionUi();
+                return;
+            }
         }
 
-        if (hasModifier) {
-            selection.toggleSingle(workKey);
-            syncRowSelectionUi();
-            return;
-        }
-
-        if (isAlreadySelected && selectedCount === 1) {
-            selection.clearSelection();
-            syncRowSelectionUi();
-            return;
-        }
-
-        selection.selectOnly(workKey);
+        selection.toggleSingle(workKey);
+        selection.setSelectionAnchor(workKey);
         syncRowSelectionUi();
     }
 

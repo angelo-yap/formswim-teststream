@@ -19,6 +19,10 @@ export function createSelection(selectAll, bulkBar, bulkCount) {
         updateBulkBar();
     }
 
+    function getFirstVisibleId() {
+        return visibleIds.length > 0 ? visibleIds[0] : null;
+    }
+
     function setSelectionAnchor(workKey) {
         selectionAnchor = workKey ? String(workKey) : null;
     }
@@ -236,6 +240,7 @@ export function createSelection(selectAll, bulkBar, bulkCount) {
     return {
         bindRowCheckboxes,
         clearSelection,
+        getFirstVisibleId,
         getSelectedIds,
         getSelectionAnchor,
         isSelected,
