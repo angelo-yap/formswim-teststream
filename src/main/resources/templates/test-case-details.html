@@ -9,6 +9,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;700;900&display=swap" rel="stylesheet">
     <meta name="_csrf" th:content="${_csrf.token}">
     <meta name="_csrf_header" th:content="${_csrf.headerName}">
+    <style>
+        textarea { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
+        textarea::-webkit-scrollbar { width: 5px; }
+        textarea::-webkit-scrollbar-track { background: transparent; }
+        textarea::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+        textarea::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); }
+    </style>
 </head>
 
 <body class="bg-[#181818] text-white">
@@ -16,7 +23,10 @@
     <!-- Edit notice banner (shown/hidden by JS) -->
     <div id="detailsNotice" class="fixed top-0 inset-x-0 z-50 hidden border-b border-white/15 bg-[#1d1d1d]/98 backdrop-blur">
         <div class="px-6 sm:px-8 py-3 flex items-center justify-between gap-4">
-            <span id="detailsNoticeMsg" class="text-sm text-white/90"></span>
+            <div class="flex items-center gap-2.5 min-w-0">
+                <span id="detailsNoticeDot" class="shrink-0 h-1.5 w-1.5 rounded-full"></span>
+                <span id="detailsNoticeMsg" class="text-sm text-white/90"></span>
+            </div>
             <button type="button" id="detailsNoticeClose" class="shrink-0 text-white/50 hover:text-white text-xl leading-none">×</button>
         </div>
     </div>
@@ -60,7 +70,7 @@
                                 th:attr="data-raw-value=${detailsSummary ?: ''}"
                                 th:text="${detailsSummary ?: 'No summary available'}">Validate drill assignment from session plan</h2>
                             <div class="hidden mt-3" data-field-edit="summary">
-                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-y min-h-[4rem]"
+                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-none overflow-y-auto max-h-96 min-h-[4rem]"
                                           rows="3" data-field-textarea="summary" th:text="${detailsSummary ?: ''}"></textarea>
                                 <div class="mt-2 flex items-center gap-2 flex-wrap">
                                     <button type="button" class="px-4 py-2 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="summary">Save</button>
@@ -184,7 +194,7 @@
                                  th:attr="data-raw-value=${detailsDescription}"
                                  th:text="${detailsDescription}">Coach assigns a planned drill to a swimmer and verifies it appears in the daily training view with the correct configuration.</div>
                             <div class="hidden mt-3" data-field-edit="description">
-                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-y min-h-[6rem]"
+                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-none overflow-y-auto max-h-96 min-h-[6rem]"
                                           rows="6" data-field-textarea="description" th:text="${detailsDescription}"></textarea>
                                 <div class="mt-2 flex items-center gap-2 flex-wrap">
                                     <button type="button" class="px-4 py-2 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="description">Save</button>
@@ -195,8 +205,13 @@
                         </article>
 
                         <!-- Precondition -->
-                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6" th:if="${!#strings.isEmpty(detailsPrecondition)}">
-                            <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Precondition</p>
+                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6 group relative" th:if="${!#strings.isEmpty(detailsPrecondition)}">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Precondition</p>
+                                <span class="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-white/35 select-none" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                                </span>
+                            </div>
                             <div class="mt-3 text-sm leading-7 text-white/80 break-words cursor-text hover:bg-white/[0.03] rounded transition-colors"
                                  data-md="true"
                                  data-field-display="precondition"
@@ -206,7 +221,7 @@
                                  th:attr="data-raw-value=${detailsPrecondition}"
                                  th:text="${detailsPrecondition}">User is authenticated, swimmer profile exists, and the session plan has at least one unpublished drill.</div>
                             <div class="hidden mt-3" data-field-edit="precondition">
-                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-y min-h-[4rem]"
+                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-none overflow-y-auto max-h-96 min-h-[4rem]"
                                           rows="4" data-field-textarea="precondition" th:text="${detailsPrecondition}"></textarea>
                                 <div class="mt-2 flex items-center gap-2 flex-wrap">
                                     <button type="button" class="px-4 py-2 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="precondition">Save</button>
@@ -234,12 +249,17 @@
                                 <ol class="border-l border-white/15 pl-5 space-y-6">
                                     <li th:each="step : ${detailsSteps}" th:id="${'step-' + step.stepNumber}" class="relative">
                                         <span class="absolute -left-[1.875rem] top-1.5 h-3 w-3 rounded-full border border-[#E7FF02] bg-[#202020]"></span>
-                                        <div class="border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+                                        <div class="border border-white/10 bg-white/[0.03] p-4 sm:p-5 group relative">
 
                                             <!-- Step label -->
-                                            <p class="text-xs uppercase tracking-wider text-white/55" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">
-                                                Step <span th:text="${step.stepNumber}">1</span>
-                                            </p>
+                                            <div class="flex items-center justify-between">
+                                                <p class="text-xs uppercase tracking-wider text-white/55" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">
+                                                    Step <span th:text="${step.stepNumber}">1</span>
+                                                </p>
+                                                <span class="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-white/35 select-none" aria-hidden="true">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                                                </span>
+                                            </div>
 
                                             <!-- Step summary display -->
                                             <div class="mt-2 text-sm text-white/85 leading-7 break-words cursor-text hover:bg-white/[0.03] rounded transition-colors"
@@ -252,7 +272,7 @@
 
                                             <!-- Step summary edit form -->
                                             <div class="hidden mt-2" th:attr="data-field-edit=${'step-' + step.stepNumber + '-stepSummary'}">
-                                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-y min-h-[3rem]"
+                                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-none overflow-y-auto max-h-96 min-h-[3rem]"
                                                           rows="3"
                                                           th:attr="data-field-textarea=${'step-' + step.stepNumber + '-stepSummary'}"
                                                           th:text="${step.stepSummary}"></textarea>
@@ -270,8 +290,13 @@
                                             <div class="mt-4 grid grid-cols-1 gap-3" th:classappend="${!#strings.isEmpty(step.testData)} ? ' sm:grid-cols-2' : ''">
 
                                                 <!-- Test data -->
-                                                <div class="border border-white/10 bg-black/20 p-3" th:if="${!#strings.isEmpty(step.testData)}">
-                                                    <p class="text-xs text-white/50">Test data</p>
+                                                <div class="border border-white/10 bg-black/20 p-3 group/sub relative" th:if="${!#strings.isEmpty(step.testData)}">
+                                                    <div class="flex items-center justify-between">
+                                                        <p class="text-xs text-white/50">Test data</p>
+                                                        <span class="opacity-0 group-hover/sub:opacity-100 transition-opacity pointer-events-none text-white/35 select-none" aria-hidden="true">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                                                        </span>
+                                                    </div>
                                                     <div class="mt-1 text-sm text-white/80 leading-7 break-words cursor-text hover:bg-white/[0.03] rounded transition-colors"
                                                          data-md="true"
                                                          data-dblclick-edit="true"
@@ -279,7 +304,7 @@
                                                          th:attr="data-field-display=${'step-' + step.stepNumber + '-testData'}, data-raw-value=${step.testData ?: ''}"
                                                          th:text="${step.testData}">Swimmer: Maya T. | Plan: Endurance - Week 4</div>
                                                     <div class="hidden mt-2" th:attr="data-field-edit=${'step-' + step.stepNumber + '-testData'}">
-                                                        <textarea class="w-full bg-black/30 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-2 leading-6 resize-y min-h-[3rem]"
+                                                        <textarea class="w-full bg-black/30 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-2 leading-6 resize-none overflow-y-auto max-h-96 min-h-[3rem]"
                                                                   rows="3"
                                                                   th:attr="data-field-textarea=${'step-' + step.stepNumber + '-testData'}"
                                                                   th:text="${step.testData}"></textarea>
@@ -295,8 +320,13 @@
                                                 </div>
 
                                                 <!-- Expected result -->
-                                                <div class="border border-white/10 bg-black/20 p-3">
-                                                    <p class="text-xs text-white/50">Expected result</p>
+                                                <div class="border border-white/10 bg-black/20 p-3 group/sub relative">
+                                                    <div class="flex items-center justify-between">
+                                                        <p class="text-xs text-white/50">Expected result</p>
+                                                        <span class="opacity-0 group-hover/sub:opacity-100 transition-opacity pointer-events-none text-white/35 select-none" aria-hidden="true">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                                                        </span>
+                                                    </div>
                                                     <div class="mt-1 text-sm text-white/80 leading-7 break-words cursor-text hover:bg-white/[0.03] rounded transition-colors"
                                                          data-md="true"
                                                          data-dblclick-edit="true"
@@ -305,7 +335,7 @@
                                                          th:attr="data-field-display=${'step-' + step.stepNumber + '-expectedResult'}, data-raw-value=${step.expectedResult ?: ''}"
                                                          th:text="${step.expectedResult}">Swimmer profile opens with the selected session plan visible.</div>
                                                     <div class="hidden mt-2" th:attr="data-field-edit=${'step-' + step.stepNumber + '-expectedResult'}">
-                                                        <textarea class="w-full bg-black/30 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-2 leading-6 resize-y min-h-[3rem]"
+                                                        <textarea class="w-full bg-black/30 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-2 leading-6 resize-none overflow-y-auto max-h-96 min-h-[3rem]"
                                                                   rows="3"
                                                                   th:attr="data-field-textarea=${'step-' + step.stepNumber + '-expectedResult'}"
                                                                   th:text="${step.expectedResult}"></textarea>
@@ -332,8 +362,13 @@
                         </article>
 
                         <!-- Story linkages -->
-                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6" th:if="${!#strings.isEmpty(detailsStoryLinkages)}">
-                            <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Story linkage</p>
+                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6 group relative" th:if="${!#strings.isEmpty(detailsStoryLinkages)}">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Story linkage</p>
+                                <span class="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-white/35 select-none" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+                                </span>
+                            </div>
                             <div class="mt-3 text-sm text-white/80 break-words cursor-text hover:bg-white/[0.03] rounded transition-colors"
                                  data-md="true"
                                  data-field-display="storyLinkages"
@@ -342,7 +377,7 @@
                                  th:attr="data-raw-value=${detailsStoryLinkages}"
                                  th:text="${detailsStoryLinkages}">https://tracker.example.com/story/TC-2481</div>
                             <div class="hidden mt-3" data-field-edit="storyLinkages">
-                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-y min-h-[3rem]"
+                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-none overflow-y-auto max-h-96 min-h-[3rem]"
                                           rows="3" data-field-textarea="storyLinkages" th:text="${detailsStoryLinkages}"></textarea>
                                 <div class="mt-2 flex items-center gap-2 flex-wrap">
                                     <button type="button" class="px-4 py-2 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="storyLinkages">Save</button>

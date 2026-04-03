@@ -209,15 +209,44 @@ function getApiFieldKey(fieldKey) {
 function showNotice(type, message) {
     const notice = document.getElementById('detailsNotice');
     const msg = document.getElementById('detailsNoticeMsg');
+    const dot = document.getElementById('detailsNoticeDot');
     if (!notice || !msg) {
         return;
     }
+    const isSuccess = type === 'success';
+    const isError = type === 'error';
     msg.textContent = message;
-    notice.classList.toggle('border-[#E7FF02]/50', type === 'success');
-    notice.classList.toggle('border-red-500/40', type !== 'success');
+    msg.className = isError ? 'text-sm text-red-300' : isSuccess ? 'text-sm text-white/90' : 'text-sm text-white/50';
+    if (dot) {
+        dot.className = isSuccess
+            ? 'shrink-0 h-1.5 w-1.5 rounded-full bg-[#E7FF02]'
+            : isError
+                ? 'shrink-0 h-1.5 w-1.5 rounded-full bg-red-400'
+                : 'shrink-0 h-1.5 w-1.5 rounded-full bg-white/30';
+    }
     notice.classList.remove('hidden');
     clearTimeout(noticeTimeout);
-    noticeTimeout = setTimeout(() => notice.classList.add('hidden'), 6000);
+    const timeout = isError ? 8000 : isSuccess ? 6000 : 2500;
+    noticeTimeout = setTimeout(() => notice.classList.add('hidden'), timeout);
+}
+
+function autoGrow(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+}
+
+function flashFieldSaved(fieldKey) {
+    const displayEl = document.querySelector('[data-field-display="' + fieldKey + '"]');
+    if (!displayEl) {
+        return;
+    }
+    displayEl.style.transition = '';
+    displayEl.style.backgroundColor = 'rgba(231, 255, 2, 0.08)';
+    setTimeout(() => {
+        displayEl.style.transition = 'background-color 0.8s ease';
+        displayEl.style.backgroundColor = '';
+        setTimeout(() => { displayEl.style.transition = ''; }, 800);
+    }, 700);
 }
 
 async function saveFieldEdit(workKey, fieldKey, oldValue, newValue) {
@@ -304,7 +333,8 @@ function activateEditMode(fieldKey) {
     }
     const currentValue = displayEl.dataset.rawValue || '';
     if (textarea) {
-        textarea.value = currentValue;
+        textarea.value = currentValue.trimEnd();
+        textarea.style.height = '';
     }
     if (input) {
         input.value = currentValue;
@@ -383,6 +413,7 @@ function initFieldEditing() {
 
             if (newValue === oldValue) {
                 deactivateEditMode(fieldKey);
+                showNotice('neutral', 'No changes made.');
                 return;
             }
 
@@ -410,6 +441,7 @@ function initFieldEditing() {
                     applyDisplayUpdate(fieldKey, newValue);
                     deactivateEditMode(fieldKey);
                     updateUpdatedOn();
+                    flashFieldSaved(fieldKey);
                     showNotice('success', 'Field updated.');
                 } else {
                     if (errorEl) {
@@ -429,6 +461,38 @@ function initFieldEditing() {
                 saveBtn.disabled = false;
             }
         });
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+        if (document.querySelector('[data-field-edit]:not(.hidden)')) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
+    document.querySelectorAll('[data-field-textarea]').forEach((textarea) => {
+        textarea.addEventListener('input', () => autoGrow(textarea));
+        const fieldKey = textarea.dataset.fieldTextarea;
+        textarea.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                const saveBtn = document.querySelector('[data-field-save="' + fieldKey + '"]');
+                if (saveBtn && !saveBtn.disabled) {
+                    saveBtn.click();
+                }
+            }
+        });
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') {
+            return;
+        }
+        const openEdit = document.querySelector('[data-field-edit]:not(.hidden)');
+        if (!openEdit) {
+            return;
+        }
+        deactivateEditMode(openEdit.dataset.fieldEdit);
     });
 
     const noticeClose = document.getElementById('detailsNoticeClose');
