@@ -17,5 +17,7 @@ public interface FolderRepository extends JpaRepository<Folder, Long> {
 
     Optional<Folder> findByTeamKeyAndParent_IdAndNameIgnoreCase(String teamKey, Long parentId, String name);
 
+        Optional<Folder> findByTeamKeyAndParentIsNullAndNameIgnoreCase(String teamKey, String name);
+
     boolean existsByTeamKeyAndParent_Id(String teamKey, Long parentId);
 }

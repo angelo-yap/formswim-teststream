@@ -13,7 +13,6 @@ import com.formswim.teststream.workspace.dto.FolderResponse;
 import com.formswim.teststream.workspace.dto.FolderUpdateRequest;
 import com.formswim.teststream.workspace.model.Folder;
 import com.formswim.teststream.workspace.repository.FolderRepository;
-import com.formswim.teststream.shared.domain.TestCase;
 
 @Service
 public class WorkspaceFolderMutationService {
@@ -62,7 +61,7 @@ public class WorkspaceFolderMutationService {
         }
 
         Folder folder = folderRepository.findByTeamKeyAndId(teamKey, id)
-            .orElseThrow(() -> new FolderBadRequestException("Folder not found."));
+            .orElseThrow(() -> new FolderNotFoundException("Folder not found."));
 
         Map<Long, Folder> byId = indexById(folderRepository.findByTeamKeyOrderByIdAsc(teamKey));
 
@@ -100,7 +99,7 @@ public class WorkspaceFolderMutationService {
     @Transactional
     public void deleteFolder(String teamKey, Long id) {
         Folder folder = folderRepository.findByTeamKeyAndId(teamKey, id)
-            .orElseThrow(() -> new FolderBadRequestException("Folder not found."));
+            .orElseThrow(() -> new FolderNotFoundException("Folder not found."));
 
         if (folderRepository.existsByTeamKeyAndParent_Id(teamKey, folder.getId())) {
             throw new FolderConflictException("Folder cannot be deleted because it contains subfolders.");
@@ -122,17 +121,27 @@ public class WorkspaceFolderMutationService {
         }
 
         return folderRepository.findByTeamKeyAndId(teamKey, parentId)
-            .orElseThrow(() -> new FolderBadRequestException("Parent folder not found."));
+            .orElseThrow(() -> new FolderNotFoundException("Parent folder not found."));
     }
 
     private void ensureSiblingNameAvailable(String teamKey, Folder parent, String name, Long selfId) {
         Long parentId = parent == null ? null : parent.getId();
+        if (parentId == null) {
+            folderRepository.findByTeamKeyAndParentIsNullAndNameIgnoreCase(teamKey, name)
+                .ifPresent(existing -> {
+                    if (selfId == null || !existing.getId().equals(selfId)) {
+                        throw new FolderConflictException("A folder with this name already exists in the target location.");
+                    }
+                });
+            return;
+        }
+
         folderRepository.findByTeamKeyAndParent_IdAndNameIgnoreCase(teamKey, parentId, name)
-            .ifPresent(existing -> {
-                if (selfId == null || !existing.getId().equals(selfId)) {
-                    throw new FolderConflictException("A folder with this name already exists in the target location.");
-                }
-            });
+                .ifPresent(existing -> {
+                    if (selfId == null || !existing.getId().equals(selfId)) {
+                        throw new FolderConflictException("A folder with this name already exists in the target location.");
+                    }
+                });
     }
 
     private String normalizeName(String rawName) {
@@ -183,39 +192,8 @@ public class WorkspaceFolderMutationService {
             return;
         }
 
-        List<TestCase> cases = testCaseRepository.findByTeamKey(teamKey);
-        for (TestCase testCase : cases) {
-            String currentFolder = testCase.getFolder();
-            String normalizedCurrent = normalizeFolderPath(currentFolder);
-            if (normalizedCurrent.isBlank()) {
-                continue;
-            }
-
-            if (normalizedCurrent.equals(previousPath)) {
-                testCase.setFolder(nextPath);
-                continue;
-            }
-
-            String prefix = previousPath + "/";
-            if (normalizedCurrent.startsWith(prefix)) {
-                String suffix = normalizedCurrent.substring(previousPath.length());
-                testCase.setFolder(nextPath + suffix);
-            }
-        }
-
-        testCaseRepository.saveAll(cases);
-    }
-
-    private String normalizeFolderPath(String value) {
-        if (value == null) {
-            return "";
-        }
-
-        return value.trim()
-            .replace('\\', '/')
-            .replaceAll("/+", "/")
-            .replaceAll("^/+", "")
-            .replaceAll("/+$", "");
+        testCaseRepository.bulkRepathExact(teamKey, previousPath, nextPath);
+        testCaseRepository.bulkRepathDescendants(teamKey, previousPath, nextPath, previousPath.length() + 1);
     }
 
     private FolderResponse toResponse(Folder folder, Map<Long, Folder> byId, Map<Long, String> pathMemo) {

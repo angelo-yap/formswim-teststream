@@ -209,5 +209,30 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                 long countByTeamKeyAndFolderPathHierarchy(@Param("teamKey") String teamKey,
                                                                                                                                                                                         @Param("folderPath") String folderPath);
 
+                @Modifying(clearAutomatically = true, flushAutomatically = true)
+                @Query("""
+                                                update TestCase testCase
+                                                set testCase.folder = :nextPath
+                                                where testCase.teamKey = :teamKey
+                                                        and lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) = lower(:previousPath)
+                                                """)
+                int bulkRepathExact(@Param("teamKey") String teamKey,
+                                                                                                @Param("previousPath") String previousPath,
+                                                                                                @Param("nextPath") String nextPath);
+
+                @Modifying(clearAutomatically = true, flushAutomatically = true)
+                @Query("""
+                                                update TestCase testCase
+                                                set testCase.folder = concat(:nextPath,
+                                                                                                                                                                 substring(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/')),
+                                                                                                                                                                                                         :suffixStartIndex))
+                                                where testCase.teamKey = :teamKey
+                                                        and lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) like lower(concat(function('replace', function('replace', function('replace', :previousPath, '\\', '\\\\'), '%', '\\%'), '_', '\\_'), '/%')) escape '\\'
+                                                """)
+                int bulkRepathDescendants(@Param("teamKey") String teamKey,
+                                                                                                                        @Param("previousPath") String previousPath,
+                                                                                                                        @Param("nextPath") String nextPath,
+                                                                                                                        @Param("suffixStartIndex") int suffixStartIndex);
+
     List<TestCase> findByTeamKeyAndStatus(String teamKey, String status);
 }

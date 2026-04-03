@@ -28,6 +28,7 @@ import com.formswim.teststream.workspace.dto.FolderResponse;
 import com.formswim.teststream.workspace.dto.FolderUpdateRequest;
 import com.formswim.teststream.workspace.services.FolderBadRequestException;
 import com.formswim.teststream.workspace.services.FolderConflictException;
+import com.formswim.teststream.workspace.services.FolderNotFoundException;
 import com.formswim.teststream.workspace.services.WorkspaceFolderService;
 import com.formswim.teststream.workspace.services.WorkspaceFolderMutationService;
 import com.formswim.teststream.workspace.services.WorkspaceQueryService;
@@ -116,6 +117,8 @@ public class WorkspaceMetadataController {
         try {
             FolderResponse created = workspaceFolderMutationService.createFolder(user.getTeamKey(), user.getEmail(), request);
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        } catch (FolderNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
         } catch (FolderBadRequestException ex) {
             return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
         } catch (FolderConflictException ex) {
@@ -142,6 +145,8 @@ public class WorkspaceMetadataController {
         try {
             FolderResponse updated = workspaceFolderMutationService.updateFolder(user.getTeamKey(), id, request);
             return ResponseEntity.ok(updated);
+        } catch (FolderNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
         } catch (FolderBadRequestException ex) {
             return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
         } catch (FolderConflictException ex) {
@@ -167,6 +172,8 @@ public class WorkspaceMetadataController {
         try {
             workspaceFolderMutationService.deleteFolder(user.getTeamKey(), id);
             return ResponseEntity.noContent().build();
+        } catch (FolderNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
         } catch (FolderBadRequestException ex) {
             return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
         } catch (FolderConflictException ex) {

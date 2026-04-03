@@ -24,6 +24,7 @@ export function createWorkspaceFolderTree(options) {
     let activeFolderDrag = null;
     let activeFolderDropTargetEl = null;
     let activeFolderDropMode = null;
+    let isFolderLoading = false;
 
     function setSidebarExpanded(expanded) {
         uiState.setSidebarExpanded(expanded);
@@ -547,6 +548,17 @@ export function createWorkspaceFolderTree(options) {
             '</span>' +
             '<span class="min-w-0 truncate">Show all files</span>';
 
+        if (isFolderLoading) {
+            const loadingSpinner = document.createElement('span');
+            loadingSpinner.className = 'shrink-0 inline-flex items-center justify-center text-white/55';
+            loadingSpinner.setAttribute('aria-label', 'Loading folders');
+            loadingSpinner.innerHTML =
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 animate-spin" aria-hidden="true" focusable="false">' +
+                '<path d="M12 3a9 9 0 1 0 9 9" />' +
+                '</svg>';
+            showAllButton.appendChild(loadingSpinner);
+        }
+
         showAllButton.addEventListener('click', () => {
             if (!uiState.getSelectedFolder()) {
                 return;
@@ -844,13 +856,16 @@ export function createWorkspaceFolderTree(options) {
     }
 
     function loadFolders() {
+        isFolderLoading = true;
         if (folderLoading) {
-            folderLoading.classList.remove('hidden');
+            folderLoading.classList.add('hidden');
         }
         if (folderEmpty) {
             folderEmpty.classList.add('hidden');
             folderEmpty.textContent = 'No folders found.';
         }
+
+        renderFolderTree();
 
         const folderNodesPromise = typeof api.fetchFolderNodes === 'function'
             ? api.fetchFolderNodes().catch(() => [])
@@ -858,6 +873,7 @@ export function createWorkspaceFolderTree(options) {
 
         return Promise.all([api.fetchFolders(), folderNodesPromise])
             .then(([folders, nodes]) => {
+                isFolderLoading = false;
                 folderNodeByPath = new Map();
                 for (const node of nodes || []) {
                     const normalizedPath = uiState.normalizeFolder(node?.path || '');
@@ -882,6 +898,7 @@ export function createWorkspaceFolderTree(options) {
             })
             .catch((error) => {
                 console.error('Failed to load folders', error);
+                isFolderLoading = false;
                 folderTreeModel = createFolderTreeModel([], []);
                 folderNodeByPath = new Map();
                 if (folderLoading) {

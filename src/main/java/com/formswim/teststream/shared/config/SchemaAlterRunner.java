@@ -5,6 +5,7 @@ import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -25,11 +26,14 @@ public class SchemaAlterRunner implements ApplicationRunner {
 
     private final JdbcTemplate jdbc;
     private final FolderBackfillService folderBackfillService;
+    private final boolean folderBackfillOnStartup;
 
     public SchemaAlterRunner(JdbcTemplate jdbc,
-                             FolderBackfillService folderBackfillService) {
+                             FolderBackfillService folderBackfillService,
+                             @Value("${teststream.folders.backfill-on-startup:true}") boolean folderBackfillOnStartup) {
         this.jdbc = jdbc;
         this.folderBackfillService = folderBackfillService;
+        this.folderBackfillOnStartup = folderBackfillOnStartup;
     }
 
     @Override
@@ -47,6 +51,11 @@ public class SchemaAlterRunner implements ApplicationRunner {
         // Older schemas enforced work_key uniqueness globally. The application model is
         // (team_key, work_key) unique, so migrate the constraint for Postgres.
         ensureTestCaseWorkKeyUniquePerTeam();
+
+        if (!folderBackfillOnStartup) {
+            log.info("Folder backfill skipped: teststream.folders.backfill-on-startup=false");
+            return;
+        }
 
         try {
             int createdFolders = folderBackfillService.backfillFoldersFromTestCases();
