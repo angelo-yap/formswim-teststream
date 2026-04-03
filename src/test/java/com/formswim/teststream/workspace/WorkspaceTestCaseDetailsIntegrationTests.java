@@ -185,6 +185,69 @@ class WorkspaceTestCaseDetailsIntegrationTests {
     }
 
     @Test
+    void singleCaseEditOverwritesFolderValue() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "Checkout/Payments");
+        payload.put("replaceText", "Checkout/Payments/Refunds");
+        payload.put("fields", List.of("folder"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedCaseCount").value(1))
+            .andExpect(jsonPath("$.totalReplacements").value(1));
+
+        TestCase updated = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-101").orElseThrow();
+        assertThat(updated.getFolder()).isEqualTo("Checkout/Payments/Refunds");
+        assertThat(updated.getUpdatedOn()).matches("\\d{2}/[A-Z][a-z]{2}/\\d{4} \\d{2}:\\d{2}");
+    }
+
+    @Test
+    void singleCaseEditFolderToRootLevelValue() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "Checkout/Payments");
+        payload.put("replaceText", "Checkout");
+        payload.put("fields", List.of("folder"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedCaseCount").value(1));
+
+        TestCase updated = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-101").orElseThrow();
+        assertThat(updated.getFolder()).isEqualTo("Checkout");
+    }
+
+    @Test
+    void singleCaseEditFolderCrossTeamIsRejected() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-201"));
+        payload.put("findText", "OtherTeam/Auth");
+        payload.put("replaceText", "Stolen/Folder");
+        payload.put("fields", List.of("folder"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.forbiddenCount").value(1))
+            .andExpect(jsonPath("$.updatedCaseCount").value(0));
+
+        TestCase unchanged = testCaseRepository.findByTeamKeyAndWorkKey("TEAM2", "TC-201").orElseThrow();
+        assertThat(unchanged.getFolder()).isEqualTo("OtherTeam/Auth");
+    }
+
+    @Test
     void singleCaseEditOverwritesStepFieldValue() throws Exception {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("workKeys", List.of("TC-101"));
