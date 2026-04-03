@@ -52,6 +52,7 @@ public class SchemaAlterRunner implements ApplicationRunner {
         // (team_key, work_key) unique, so migrate the constraint for Postgres.
         ensureTestCaseWorkKeyUniquePerTeam();
         ensureRootFolderUniquePerTeam();
+        ensureChildFolderUniquePerTeam();
 
         if (!folderBackfillOnStartup) {
             log.info("Folder backfill skipped: teststream.folders.backfill-on-startup=false");
@@ -102,6 +103,24 @@ public class SchemaAlterRunner implements ApplicationRunner {
             log.info("Ensured index uk_folders_team_root_lower_name on folders(team_key, lower(name)) where parent_id is null");
         } catch (Exception exception) {
             log.warn("Could not enforce root folder uniqueness index: {}", exception.getMessage());
+        }
+    }
+
+    private void ensureChildFolderUniquePerTeam() {
+        if (!isPostgres()) {
+            return;
+        }
+
+        try {
+            // Keep DB semantics aligned with NameIgnoreCase sibling checks for non-root folders.
+            jdbc.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uk_folders_team_parent_lower_name
+                ON folders (team_key, parent_id, lower(name))
+                WHERE parent_id IS NOT NULL
+                """);
+            log.info("Ensured index uk_folders_team_parent_lower_name on folders(team_key, parent_id, lower(name)) where parent_id is not null");
+        } catch (Exception exception) {
+            log.warn("Could not enforce child folder uniqueness index: {}", exception.getMessage());
         }
     }
 
