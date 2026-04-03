@@ -244,6 +244,20 @@ async function saveFieldEdit(workKey, fieldKey, oldValue, newValue) {
     return response.json();
 }
 
+function updateUpdatedOn() {
+    const el = document.getElementById('detailsUpdatedOn');
+    if (!el) {
+        return;
+    }
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()];
+    const year = now.getFullYear();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    el.textContent = `${day}/${month}/${year} ${hh}:${mm}`;
+}
+
 function updateFolderSegments(newFolderPath) {
     const container = document.getElementById('folderSegmentsContainer');
     if (!container) {
@@ -395,6 +409,7 @@ function initFieldEditing() {
                 if (didChange) {
                     applyDisplayUpdate(fieldKey, newValue);
                     deactivateEditMode(fieldKey);
+                    updateUpdatedOn();
                     showNotice('success', 'Field updated.');
                 } else {
                     if (errorEl) {
@@ -429,3 +444,19 @@ function initFieldEditing() {
 }
 
 initFieldEditing();
+
+function initDoubleClickEdit() {
+    const workKey = getWorkKey();
+    if (!workKey) {
+        return;
+    }
+    document.querySelectorAll('[data-dblclick-edit="true"]').forEach((displayEl) => {
+        const fieldKey = displayEl.dataset.fieldDisplay;
+        if (!fieldKey) {
+            return;
+        }
+        displayEl.addEventListener('dblclick', () => activateEditMode(fieldKey));
+    });
+}
+
+initDoubleClickEdit();
