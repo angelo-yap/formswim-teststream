@@ -31,18 +31,15 @@ import com.formswim.teststream.shared.domain.TestStep;
 public class UploadReviewService {
 
     private final ObjectMapper objectMapper;
-    private final UploadDiffService uploadDiffService;
     private final UploadReviewSessionRepository uploadReviewSessionRepository;
     private final UploadHistoryRepository uploadHistoryRepository;
     private final TestCaseRepository testCaseRepository;
 
     public UploadReviewService(ObjectMapper objectMapper,
-                               UploadDiffService uploadDiffService,
                                UploadReviewSessionRepository uploadReviewSessionRepository,
                                UploadHistoryRepository uploadHistoryRepository,
                                TestCaseRepository testCaseRepository) {
         this.objectMapper = objectMapper;
-        this.uploadDiffService = uploadDiffService;
         this.uploadReviewSessionRepository = uploadReviewSessionRepository;
         this.uploadHistoryRepository = uploadHistoryRepository;
         this.testCaseRepository = testCaseRepository;
