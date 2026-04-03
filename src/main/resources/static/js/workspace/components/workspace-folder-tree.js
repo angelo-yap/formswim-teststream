@@ -414,6 +414,7 @@ export function createWorkspaceFolderTree(options) {
         if (activeFolderDropTargetEl) {
             activeFolderDropTargetEl.classList.remove('ws-folder-drop-hover');
             activeFolderDropTargetEl.classList.remove('ws-folder-drop-line-top');
+            activeFolderDropTargetEl.classList.remove('ws-folder-drop-line-bottom');
         }
 
         activeFolderDropTargetEl = targetEl;
@@ -431,6 +432,7 @@ export function createWorkspaceFolderTree(options) {
         if (activeFolderDropTargetEl) {
             activeFolderDropTargetEl.classList.remove('ws-folder-drop-hover');
             activeFolderDropTargetEl.classList.remove('ws-folder-drop-line-top');
+            activeFolderDropTargetEl.classList.remove('ws-folder-drop-line-bottom');
             activeFolderDropTargetEl = null;
         }
         activeFolderDropMode = null;
