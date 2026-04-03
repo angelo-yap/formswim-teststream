@@ -7,10 +7,21 @@
     <title>Test Case Details</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;700;900&display=swap" rel="stylesheet">
+    <meta name="_csrf" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}">
 </head>
 
 <body class="bg-[#181818] text-white">
-    <div class="min-h-screen relative overflow-hidden">
+
+    <!-- Edit notice banner (shown/hidden by JS) -->
+    <div id="detailsNotice" class="fixed top-0 inset-x-0 z-50 hidden border-b border-white/15 bg-[#1d1d1d]/98 backdrop-blur">
+        <div class="px-6 sm:px-8 py-3 flex items-center justify-between gap-4">
+            <span id="detailsNoticeMsg" class="text-sm text-white/90"></span>
+            <button type="button" id="detailsNoticeClose" class="shrink-0 text-white/50 hover:text-white text-xl leading-none">×</button>
+        </div>
+    </div>
+
+    <div class="min-h-screen relative overflow-hidden" th:attr="data-work-key=${detailsCaseId}">
         <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(231,255,2,0.09)_0%,rgba(231,255,2,0)_32%),radial-gradient(circle_at_85%_0%,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_38%)]"></div>
 
         <header class="sticky top-0 z-20 border-b border-white/10 bg-[#1d1d1d]/95 backdrop-blur">
@@ -29,45 +40,185 @@
         </header>
 
         <main class="relative w-full px-6 sm:px-8 py-8 sm:py-10">
-            <div class="max-w-[76rem] mx-auto">
+            <div class="mx-auto">
+
+                <!-- Case header card -->
                 <section class="border border-white/10 bg-[#202020] p-5 sm:p-6 lg:p-7">
+
                     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 lg:gap-6">
-                        <div class="min-w-0">
-                            <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Summary</p>
-                            <h2 class="mt-2 text-xl sm:text-2xl text-white/90 font-semibold leading-tight" th:text="${detailsSummary ?: 'No summary available'}">Validate drill assignment from session plan</h2>
+
+                        <!-- Summary -->
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-3">
+                                <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Summary</p>
+                                <button type="button"
+                                        class="shrink-0 text-xs text-white/45 hover:text-[#E7FF02] border border-white/15 hover:border-[#E7FF02] px-2 py-0.5 transition-colors"
+                                        data-edit-field="summary"
+                                        th:if="${!#strings.isEmpty(detailsSummary)}">Edit</button>
+                            </div>
+                            <h2 class="mt-2 text-xl sm:text-2xl text-white/90 font-semibold leading-tight"
+                                data-field-display="summary"
+                                th:attr="data-raw-value=${detailsSummary ?: ''}"
+                                th:text="${detailsSummary ?: 'No summary available'}">Validate drill assignment from session plan</h2>
+                            <div class="hidden mt-3" data-field-edit="summary">
+                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-y min-h-[4rem]"
+                                          rows="3" data-field-textarea="summary" th:text="${detailsSummary ?: ''}"></textarea>
+                                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                    <button type="button" class="px-4 py-2 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="summary">Save</button>
+                                    <button type="button" class="px-4 py-2 border border-white/20 text-white/70 text-xs hover:border-white/40 transition-colors" data-field-cancel="summary">Cancel</button>
+                                    <span class="hidden text-xs text-red-400" data-field-error="summary"></span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="shrink-0 flex flex-wrap items-center gap-2">
-                            <span class="px-3 py-1 border border-white/15 text-xs text-white/70">Status: <span th:text="${detailsStatus ?: '-'}">Draft</span></span>
-                            <span class="px-3 py-1 border border-white/15 text-xs text-white/70">Priority: <span th:text="${detailsPriority ?: '-'}">Medium</span></span>
-                            <span class="px-3 py-1 border border-white/15 text-xs text-white/70">Steps: <span th:text="${detailsSteps != null ? #lists.size(detailsSteps) : 0}">0</span></span>
-                            <span class="px-3 py-1 border border-[#E7FF02]/55 text-xs text-black" style="background-color: #E7FF02;">Read only</span>
+
+                        <!-- Status / Priority badges -->
+                        <div class="shrink-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="px-3 py-1 border border-white/15 text-xs text-white/70">
+                                    Status: <span data-field-display="status"
+                                                  th:attr="data-raw-value=${detailsStatus ?: ''}"
+                                                  th:text="${detailsStatus ?: '-'}">Draft</span>
+                                </span>
+                                <button type="button"
+                                        class="text-xs text-white/40 hover:text-[#E7FF02] transition-colors"
+                                        data-edit-field="status"
+                                        th:if="${!#strings.isEmpty(detailsStatus)}">edit</button>
+
+                                <span class="px-3 py-1 border border-white/15 text-xs text-white/70">
+                                    Priority: <span data-field-display="priority"
+                                                    th:attr="data-raw-value=${detailsPriority ?: ''}"
+                                                    th:text="${detailsPriority ?: '-'}">Medium</span>
+                                </span>
+                                <button type="button"
+                                        class="text-xs text-white/40 hover:text-[#E7FF02] transition-colors"
+                                        data-edit-field="priority"
+                                        th:if="${!#strings.isEmpty(detailsPriority)}">edit</button>
+
+                                <span class="px-3 py-1 border border-white/15 text-xs text-white/70">Steps: <span th:text="${detailsSteps != null ? #lists.size(detailsSteps) : 0}">0</span></span>
+                            </div>
+
+                            <!-- Status edit form -->
+                            <div class="hidden mt-3" data-field-edit="status">
+                                <input type="text"
+                                       class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm px-3 py-2"
+                                       data-field-input="status"
+                                       th:value="${detailsStatus ?: ''}">
+                                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                    <button type="button" class="px-4 py-2 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="status">Save</button>
+                                    <button type="button" class="px-4 py-2 border border-white/20 text-white/70 text-xs hover:border-white/40 transition-colors" data-field-cancel="status">Cancel</button>
+                                    <span class="hidden text-xs text-red-400" data-field-error="status"></span>
+                                </div>
+                            </div>
+
+                            <!-- Priority edit form -->
+                            <div class="hidden mt-3" data-field-edit="priority">
+                                <input type="text"
+                                       class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm px-3 py-2"
+                                       data-field-input="priority"
+                                       th:value="${detailsPriority ?: ''}">
+                                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                    <button type="button" class="px-4 py-2 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="priority">Save</button>
+                                    <button type="button" class="px-4 py-2 border border-white/20 text-white/70 text-xs hover:border-white/40 transition-colors" data-field-cancel="priority">Cancel</button>
+                                    <span class="hidden text-xs text-red-400" data-field-error="priority"></span>
+                                </div>
+                            </div>
                         </div>
+
                     </div>
 
+                    <!-- Folder context -->
                     <div class="mt-5 border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-                        <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Folder context</p>
-                        <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/80" th:if="${detailsFolderSegments != null and !#lists.isEmpty(detailsFolderSegments)}">
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Folder context</p>
+                            <button type="button"
+                                    class="shrink-0 text-xs text-white/45 hover:text-[#E7FF02] border border-white/15 hover:border-[#E7FF02] px-2 py-0.5 transition-colors"
+                                    data-edit-field="folder"
+                                    th:if="${!#strings.isEmpty(detailsFolder)}">Edit</button>
+                        </div>
+                        <div id="folderSegmentsContainer"
+                             class="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/80"
+                             th:if="${detailsFolderSegments != null and !#lists.isEmpty(detailsFolderSegments)}">
                             <th:block th:each="segment, stat : ${detailsFolderSegments}">
                                 <span class="px-2 py-1 border border-white/15 bg-black/20" th:text="${segment}">Device</span>
                                 <span class="text-white/40" th:if="${!stat.last}">/</span>
                             </th:block>
                         </div>
-                        <p class="mt-3 text-xs text-white/60 break-all" th:text="${detailsFolder ?: '-'}">Device/HeadCoach Skill/HeadCoach Skill Pitch</p>
+                        <p class="mt-3 text-xs text-white/60 break-all"
+                           data-field-display="folder"
+                           th:attr="data-raw-value=${detailsFolder ?: ''}"
+                           th:text="${detailsFolder ?: '-'}">Device/HeadCoach Skill/HeadCoach Skill Pitch</p>
+
+                        <!-- Folder edit form -->
+                        <div class="hidden mt-3" data-field-edit="folder">
+                            <input type="text"
+                                   class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm px-3 py-2"
+                                   data-field-input="folder"
+                                   th:value="${detailsFolder ?: ''}">
+                            <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                <button type="button" class="px-4 py-2 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="folder">Save</button>
+                                <button type="button" class="px-4 py-2 border border-white/20 text-white/70 text-xs hover:border-white/40 transition-colors" data-field-cancel="folder">Cancel</button>
+                                <span class="hidden text-xs text-red-400" data-field-error="folder"></span>
+                            </div>
+                        </div>
                     </div>
+
                 </section>
 
+                <!-- Main content grid -->
                 <section class="mt-6 grid grid-cols-1 xl:grid-cols-12 gap-6">
                     <div class="xl:col-span-8 space-y-6">
+
+                        <!-- Description -->
                         <article class="border border-white/10 bg-[#202020] p-5 sm:p-6" th:if="${!#strings.isEmpty(detailsDescription)}">
-                            <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Description</p>
-                            <div class="mt-3 text-sm leading-7 text-white/80 break-words" data-md="true" th:text="${detailsDescription}">Coach assigns a planned drill to a swimmer and verifies it appears in the daily training view with the correct configuration.</div>
+                            <div class="flex items-center justify-between gap-3">
+                                <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Description</p>
+                                <button type="button"
+                                        class="shrink-0 text-xs text-white/45 hover:text-[#E7FF02] border border-white/15 hover:border-[#E7FF02] px-2 py-0.5 transition-colors"
+                                        data-edit-field="description">Edit</button>
+                            </div>
+                            <div class="mt-3 text-sm leading-7 text-white/80 break-words"
+                                 data-md="true"
+                                 data-field-display="description"
+                                 data-empty-label="Not provided"
+                                 th:attr="data-raw-value=${detailsDescription}"
+                                 th:text="${detailsDescription}">Coach assigns a planned drill to a swimmer and verifies it appears in the daily training view with the correct configuration.</div>
+                            <div class="hidden mt-3" data-field-edit="description">
+                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-y min-h-[6rem]"
+                                          rows="6" data-field-textarea="description" th:text="${detailsDescription}"></textarea>
+                                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                    <button type="button" class="px-4 py-2 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="description">Save</button>
+                                    <button type="button" class="px-4 py-2 border border-white/20 text-white/70 text-xs hover:border-white/40 transition-colors" data-field-cancel="description">Cancel</button>
+                                    <span class="hidden text-xs text-red-400" data-field-error="description"></span>
+                                </div>
+                            </div>
                         </article>
 
+                        <!-- Precondition -->
                         <article class="border border-white/10 bg-[#202020] p-5 sm:p-6" th:if="${!#strings.isEmpty(detailsPrecondition)}">
-                            <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Precondition</p>
-                            <div class="mt-3 text-sm leading-7 text-white/80 break-words" data-md="true" th:text="${detailsPrecondition}">User is authenticated, swimmer profile exists, and the session plan has at least one unpublished drill.</div>
+                            <div class="flex items-center justify-between gap-3">
+                                <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Precondition</p>
+                                <button type="button"
+                                        class="shrink-0 text-xs text-white/45 hover:text-[#E7FF02] border border-white/15 hover:border-[#E7FF02] px-2 py-0.5 transition-colors"
+                                        data-edit-field="precondition">Edit</button>
+                            </div>
+                            <div class="mt-3 text-sm leading-7 text-white/80 break-words"
+                                 data-md="true"
+                                 data-field-display="precondition"
+                                 data-empty-label="Not provided"
+                                 th:attr="data-raw-value=${detailsPrecondition}"
+                                 th:text="${detailsPrecondition}">User is authenticated, swimmer profile exists, and the session plan has at least one unpublished drill.</div>
+                            <div class="hidden mt-3" data-field-edit="precondition">
+                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-y min-h-[4rem]"
+                                          rows="4" data-field-textarea="precondition" th:text="${detailsPrecondition}"></textarea>
+                                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                    <button type="button" class="px-4 py-2 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="precondition">Save</button>
+                                    <button type="button" class="px-4 py-2 border border-white/20 text-white/70 text-xs hover:border-white/40 transition-colors" data-field-cancel="precondition">Cancel</button>
+                                    <span class="hidden text-xs text-red-400" data-field-error="precondition"></span>
+                                </div>
+                            </div>
                         </article>
 
+                        <!-- Execution timeline -->
                         <article class="border border-white/10 bg-[#202020] p-5 sm:p-6">
                             <div class="flex items-center justify-between gap-3">
                                 <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Execution timeline</p>
@@ -86,20 +237,102 @@
                                     <li th:each="step : ${detailsSteps}" th:id="${'step-' + step.stepNumber}" class="relative">
                                         <span class="absolute -left-[1.875rem] top-1.5 h-3 w-3 rounded-full border border-[#E7FF02] bg-[#202020]"></span>
                                         <div class="border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-                                            <p class="text-xs uppercase tracking-wider text-white/55" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">
-                                                Step <span th:text="${step.stepNumber}">1</span>
-                                            </p>
-                                            <div class="mt-2 text-sm text-white/85 leading-7 break-words" data-md="true" data-md-kind="summary" data-empty-label="No step summary" th:text="${step.stepSummary}">Open session plan and select the target swimmer.</div>
 
+                                            <!-- Step label and step summary edit trigger -->
+                                            <div class="flex items-center justify-between gap-3">
+                                                <p class="text-xs uppercase tracking-wider text-white/55" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">
+                                                    Step <span th:text="${step.stepNumber}">1</span>
+                                                </p>
+                                                <button type="button"
+                                                        class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] border border-white/15 hover:border-[#E7FF02] px-2 py-0.5 transition-colors"
+                                                        th:attr="data-edit-field=${'step-' + step.stepNumber + '-stepSummary'}"
+                                                        th:if="${!#strings.isEmpty(step.stepSummary)}">Edit action</button>
+                                            </div>
+
+                                            <!-- Step summary display -->
+                                            <div class="mt-2 text-sm text-white/85 leading-7 break-words"
+                                                 data-md="true"
+                                                 data-empty-label="No step summary"
+                                                 th:attr="data-field-display=${'step-' + step.stepNumber + '-stepSummary'}, data-raw-value=${step.stepSummary ?: ''}"
+                                                 th:text="${step.stepSummary}">Open session plan and select the target swimmer.</div>
+
+                                            <!-- Step summary edit form -->
+                                            <div class="hidden mt-2" th:attr="data-field-edit=${'step-' + step.stepNumber + '-stepSummary'}">
+                                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-y min-h-[3rem]"
+                                                          rows="3"
+                                                          th:attr="data-field-textarea=${'step-' + step.stepNumber + '-stepSummary'}"
+                                                          th:text="${step.stepSummary}"></textarea>
+                                                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                                    <button type="button" class="px-3 py-1.5 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors"
+                                                            th:attr="data-field-save=${'step-' + step.stepNumber + '-stepSummary'}">Save</button>
+                                                    <button type="button" class="px-3 py-1.5 border border-white/20 text-white/70 text-xs hover:border-white/40 transition-colors"
+                                                            th:attr="data-field-cancel=${'step-' + step.stepNumber + '-stepSummary'}">Cancel</button>
+                                                    <span class="hidden text-xs text-red-400"
+                                                          th:attr="data-field-error=${'step-' + step.stepNumber + '-stepSummary'}"></span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Test data and expected result -->
                                             <div class="mt-4 grid grid-cols-1 gap-3" th:classappend="${!#strings.isEmpty(step.testData)} ? ' sm:grid-cols-2' : ''">
+
+                                                <!-- Test data -->
                                                 <div class="border border-white/10 bg-black/20 p-3" th:if="${!#strings.isEmpty(step.testData)}">
-                                                    <p class="text-xs text-white/50">Test data</p>
-                                                    <div class="mt-1 text-sm text-white/80 leading-7 break-words" data-md="true" data-md-kind="test-data" th:text="${step.testData}">Swimmer: Maya T. | Plan: Endurance - Week 4</div>
+                                                    <div class="flex items-center justify-between gap-2">
+                                                        <p class="text-xs text-white/50">Test data</p>
+                                                        <button type="button"
+                                                                class="text-xs text-white/40 hover:text-[#E7FF02] transition-colors"
+                                                                th:attr="data-edit-field=${'step-' + step.stepNumber + '-testData'}">edit</button>
+                                                    </div>
+                                                    <div class="mt-1 text-sm text-white/80 leading-7 break-words"
+                                                         data-md="true"
+                                                         th:attr="data-field-display=${'step-' + step.stepNumber + '-testData'}, data-raw-value=${step.testData ?: ''}"
+                                                         th:text="${step.testData}">Swimmer: Maya T. | Plan: Endurance - Week 4</div>
+                                                    <div class="hidden mt-2" th:attr="data-field-edit=${'step-' + step.stepNumber + '-testData'}">
+                                                        <textarea class="w-full bg-black/30 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-2 leading-6 resize-y min-h-[3rem]"
+                                                                  rows="3"
+                                                                  th:attr="data-field-textarea=${'step-' + step.stepNumber + '-testData'}"
+                                                                  th:text="${step.testData}"></textarea>
+                                                        <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                                            <button type="button" class="px-3 py-1.5 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors"
+                                                                    th:attr="data-field-save=${'step-' + step.stepNumber + '-testData'}">Save</button>
+                                                            <button type="button" class="px-3 py-1.5 border border-white/20 text-white/70 text-xs hover:border-white/40 transition-colors"
+                                                                    th:attr="data-field-cancel=${'step-' + step.stepNumber + '-testData'}">Cancel</button>
+                                                            <span class="hidden text-xs text-red-400"
+                                                                  th:attr="data-field-error=${'step-' + step.stepNumber + '-testData'}"></span>
+                                                        </div>
+                                                    </div>
                                                 </div>
+
+                                                <!-- Expected result -->
                                                 <div class="border border-white/10 bg-black/20 p-3">
-                                                    <p class="text-xs text-white/50">Expected result</p>
-                                                    <div class="mt-1 text-sm text-white/80 leading-7 break-words" data-md="true" data-md-kind="expected" data-empty-label="No expected result" th:text="${step.expectedResult}">Swimmer profile opens with the selected session plan visible.</div>
+                                                    <div class="flex items-center justify-between gap-2">
+                                                        <p class="text-xs text-white/50">Expected result</p>
+                                                        <button type="button"
+                                                                class="text-xs text-white/40 hover:text-[#E7FF02] transition-colors"
+                                                                th:attr="data-edit-field=${'step-' + step.stepNumber + '-expectedResult'}"
+                                                                th:if="${!#strings.isEmpty(step.expectedResult)}">edit</button>
+                                                    </div>
+                                                    <div class="mt-1 text-sm text-white/80 leading-7 break-words"
+                                                         data-md="true"
+                                                         data-empty-label="No expected result"
+                                                         th:attr="data-field-display=${'step-' + step.stepNumber + '-expectedResult'}, data-raw-value=${step.expectedResult ?: ''}"
+                                                         th:text="${step.expectedResult}">Swimmer profile opens with the selected session plan visible.</div>
+                                                    <div class="hidden mt-2" th:attr="data-field-edit=${'step-' + step.stepNumber + '-expectedResult'}">
+                                                        <textarea class="w-full bg-black/30 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-2 leading-6 resize-y min-h-[3rem]"
+                                                                  rows="3"
+                                                                  th:attr="data-field-textarea=${'step-' + step.stepNumber + '-expectedResult'}"
+                                                                  th:text="${step.expectedResult}"></textarea>
+                                                        <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                                            <button type="button" class="px-3 py-1.5 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors"
+                                                                    th:attr="data-field-save=${'step-' + step.stepNumber + '-expectedResult'}">Save</button>
+                                                            <button type="button" class="px-3 py-1.5 border border-white/20 text-white/70 text-xs hover:border-white/40 transition-colors"
+                                                                    th:attr="data-field-cancel=${'step-' + step.stepNumber + '-expectedResult'}">Cancel</button>
+                                                            <span class="hidden text-xs text-red-400"
+                                                                  th:attr="data-field-error=${'step-' + step.stepNumber + '-expectedResult'}"></span>
+                                                        </div>
+                                                    </div>
                                                 </div>
+
                                             </div>
                                         </div>
                                     </li>
@@ -111,53 +344,243 @@
                             </div>
                         </article>
 
+                        <!-- Story linkages -->
                         <article class="border border-white/10 bg-[#202020] p-5 sm:p-6" th:if="${!#strings.isEmpty(detailsStoryLinkages)}">
-                            <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Story linkage</p>
-                            <div class="mt-3 text-sm text-white/80 break-words" data-md="true" th:text="${detailsStoryLinkages}">https://tracker.example.com/story/TC-2481</div>
+                            <div class="flex items-center justify-between gap-3">
+                                <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Story linkage</p>
+                                <button type="button"
+                                        class="shrink-0 text-xs text-white/45 hover:text-[#E7FF02] border border-white/15 hover:border-[#E7FF02] px-2 py-0.5 transition-colors"
+                                        data-edit-field="storyLinkages">Edit</button>
+                            </div>
+                            <div class="mt-3 text-sm text-white/80 break-words"
+                                 data-md="true"
+                                 data-field-display="storyLinkages"
+                                 th:attr="data-raw-value=${detailsStoryLinkages}"
+                                 th:text="${detailsStoryLinkages}">https://tracker.example.com/story/TC-2481</div>
+                            <div class="hidden mt-3" data-field-edit="storyLinkages">
+                                <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-y min-h-[3rem]"
+                                          rows="3" data-field-textarea="storyLinkages" th:text="${detailsStoryLinkages}"></textarea>
+                                <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                    <button type="button" class="px-4 py-2 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="storyLinkages">Save</button>
+                                    <button type="button" class="px-4 py-2 border border-white/20 text-white/70 text-xs hover:border-white/40 transition-colors" data-field-cancel="storyLinkages">Cancel</button>
+                                    <span class="hidden text-xs text-red-400" data-field-error="storyLinkages"></span>
+                                </div>
+                            </div>
                         </article>
+
                     </div>
 
+                    <!-- Aside: Classification, Release context, Timeline -->
                     <aside class="xl:col-span-4 space-y-6">
-                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6" th:if="${!#strings.isEmpty(detailsComponents) or !#strings.isEmpty(detailsTestCaseType) or !#strings.isEmpty(detailsLabels)}">
+
+                        <!-- Classification -->
+                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6"
+                                 th:if="${!#strings.isEmpty(detailsComponents) or !#strings.isEmpty(detailsTestCaseType) or !#strings.isEmpty(detailsLabels)}">
                             <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Classification</p>
-                            <dl class="mt-4 space-y-3 text-sm">
-                                <div class="flex items-start justify-between gap-4" th:if="${!#strings.isEmpty(detailsComponents)}">
-                                    <dt class="text-white/50">Components</dt>
-                                    <dd class="text-white/80 text-right break-all" th:text="${detailsComponents}">HeadCoach, Device</dd>
+                            <dl class="mt-4 space-y-4 text-sm">
+
+                                <!-- Components -->
+                                <div th:if="${!#strings.isEmpty(detailsComponents)}">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <dt class="text-white/50 shrink-0">Components</dt>
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <dd class="text-white/80 text-right break-all"
+                                                data-field-display="components"
+                                                th:attr="data-raw-value=${detailsComponents}"
+                                                th:text="${detailsComponents}">HeadCoach, Device</dd>
+                                            <button type="button"
+                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    data-edit-field="components">edit</button>
+                                        </div>
+                                    </div>
+                                    <div class="hidden mt-2" data-field-edit="components">
+                                        <input type="text"
+                                               class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm px-3 py-2"
+                                               data-field-input="components"
+                                               th:value="${detailsComponents}">
+                                        <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                            <button type="button" class="px-3 py-1.5 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="components">Save</button>
+                                            <button type="button" class="px-3 py-1.5 border border-white/15 text-white/60 text-xs hover:border-white/30 transition-colors" data-field-cancel="components">Cancel</button>
+                                            <span class="hidden text-xs text-red-400" data-field-error="components"></span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="flex items-start justify-between gap-4" th:if="${!#strings.isEmpty(detailsTestCaseType)}">
-                                    <dt class="text-white/50">Test case type</dt>
-                                    <dd class="text-white/80 text-right break-all" th:text="${detailsTestCaseType}">Functional</dd>
+
+                                <!-- Test case type -->
+                                <div th:if="${!#strings.isEmpty(detailsTestCaseType)}">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <dt class="text-white/50 shrink-0">Test case type</dt>
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <dd class="text-white/80 text-right break-all"
+                                                data-field-display="testCaseType"
+                                                th:attr="data-raw-value=${detailsTestCaseType}"
+                                                th:text="${detailsTestCaseType}">Functional</dd>
+                                            <button type="button"
+                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    data-edit-field="testCaseType">edit</button>
+                                        </div>
+                                    </div>
+                                    <div class="hidden mt-2" data-field-edit="testCaseType">
+                                        <input type="text"
+                                               class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm px-3 py-2"
+                                               data-field-input="testCaseType"
+                                               th:value="${detailsTestCaseType}">
+                                        <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                            <button type="button" class="px-3 py-1.5 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="testCaseType">Save</button>
+                                            <button type="button" class="px-3 py-1.5 border border-white/15 text-white/60 text-xs hover:border-white/30 transition-colors" data-field-cancel="testCaseType">Cancel</button>
+                                            <span class="hidden text-xs text-red-400" data-field-error="testCaseType"></span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="flex items-start justify-between gap-4" th:if="${!#strings.isEmpty(detailsLabels)}">
-                                    <dt class="text-white/50">Labels</dt>
-                                    <dd class="text-white/80 text-right break-all" th:text="${detailsLabels}">training, assignment, mobile</dd>
+
+                                <!-- Labels -->
+                                <div th:if="${!#strings.isEmpty(detailsLabels)}">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <dt class="text-white/50 shrink-0">Labels</dt>
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <dd class="text-white/80 text-right break-all"
+                                                data-field-display="labels"
+                                                th:attr="data-raw-value=${detailsLabels}"
+                                                th:text="${detailsLabels}">training, assignment, mobile</dd>
+                                            <button type="button"
+                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    data-edit-field="labels">edit</button>
+                                        </div>
+                                    </div>
+                                    <div class="hidden mt-2" data-field-edit="labels">
+                                        <input type="text"
+                                               class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm px-3 py-2"
+                                               data-field-input="labels"
+                                               th:value="${detailsLabels}">
+                                        <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                            <button type="button" class="px-3 py-1.5 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="labels">Save</button>
+                                            <button type="button" class="px-3 py-1.5 border border-white/15 text-white/60 text-xs hover:border-white/30 transition-colors" data-field-cancel="labels">Cancel</button>
+                                            <span class="hidden text-xs text-red-400" data-field-error="labels"></span>
+                                        </div>
+                                    </div>
                                 </div>
+
                             </dl>
                         </article>
 
-                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6" th:if="${!#strings.isEmpty(detailsSprint) or !#strings.isEmpty(detailsFixVersions) or !#strings.isEmpty(detailsVersion) or !#strings.isEmpty(detailsEstimatedTime)}">
+                        <!-- Release context -->
+                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6"
+                                 th:if="${!#strings.isEmpty(detailsSprint) or !#strings.isEmpty(detailsFixVersions) or !#strings.isEmpty(detailsVersion) or !#strings.isEmpty(detailsEstimatedTime)}">
                             <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Release context</p>
-                            <dl class="mt-4 space-y-3 text-sm">
-                                <div class="flex items-start justify-between gap-4" th:if="${!#strings.isEmpty(detailsSprint)}">
-                                    <dt class="text-white/50">Sprint</dt>
-                                    <dd class="text-white/80 text-right break-all" th:text="${detailsSprint}">Sprint 14</dd>
+                            <dl class="mt-4 space-y-4 text-sm">
+
+                                <!-- Sprint -->
+                                <div th:if="${!#strings.isEmpty(detailsSprint)}">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <dt class="text-white/50 shrink-0">Sprint</dt>
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <dd class="text-white/80 text-right break-all"
+                                                data-field-display="sprint"
+                                                th:attr="data-raw-value=${detailsSprint}"
+                                                th:text="${detailsSprint}">Sprint 14</dd>
+                                            <button type="button"
+                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    data-edit-field="sprint">edit</button>
+                                        </div>
+                                    </div>
+                                    <div class="hidden mt-2" data-field-edit="sprint">
+                                        <input type="text"
+                                               class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm px-3 py-2"
+                                               data-field-input="sprint"
+                                               th:value="${detailsSprint}">
+                                        <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                            <button type="button" class="px-3 py-1.5 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="sprint">Save</button>
+                                            <button type="button" class="px-3 py-1.5 border border-white/15 text-white/60 text-xs hover:border-white/30 transition-colors" data-field-cancel="sprint">Cancel</button>
+                                            <span class="hidden text-xs text-red-400" data-field-error="sprint"></span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="flex items-start justify-between gap-4" th:if="${!#strings.isEmpty(detailsFixVersions)}">
-                                    <dt class="text-white/50">Fix versions</dt>
-                                    <dd class="text-white/80 text-right break-all" th:text="${detailsFixVersions}">v0.14.0</dd>
+
+                                <!-- Fix versions -->
+                                <div th:if="${!#strings.isEmpty(detailsFixVersions)}">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <dt class="text-white/50 shrink-0">Fix versions</dt>
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <dd class="text-white/80 text-right break-all"
+                                                data-field-display="fixVersions"
+                                                th:attr="data-raw-value=${detailsFixVersions}"
+                                                th:text="${detailsFixVersions}">v0.14.0</dd>
+                                            <button type="button"
+                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    data-edit-field="fixVersions">edit</button>
+                                        </div>
+                                    </div>
+                                    <div class="hidden mt-2" data-field-edit="fixVersions">
+                                        <input type="text"
+                                               class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm px-3 py-2"
+                                               data-field-input="fixVersions"
+                                               th:value="${detailsFixVersions}">
+                                        <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                            <button type="button" class="px-3 py-1.5 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="fixVersions">Save</button>
+                                            <button type="button" class="px-3 py-1.5 border border-white/15 text-white/60 text-xs hover:border-white/30 transition-colors" data-field-cancel="fixVersions">Cancel</button>
+                                            <span class="hidden text-xs text-red-400" data-field-error="fixVersions"></span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="flex items-start justify-between gap-4" th:if="${!#strings.isEmpty(detailsVersion)}">
-                                    <dt class="text-white/50">Version</dt>
-                                    <dd class="text-white/80 text-right break-all" th:text="${detailsVersion}">2</dd>
+
+                                <!-- Version -->
+                                <div th:if="${!#strings.isEmpty(detailsVersion)}">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <dt class="text-white/50 shrink-0">Version</dt>
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <dd class="text-white/80 text-right break-all"
+                                                data-field-display="version"
+                                                th:attr="data-raw-value=${detailsVersion}"
+                                                th:text="${detailsVersion}">2</dd>
+                                            <button type="button"
+                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    data-edit-field="version">edit</button>
+                                        </div>
+                                    </div>
+                                    <div class="hidden mt-2" data-field-edit="version">
+                                        <input type="text"
+                                               class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm px-3 py-2"
+                                               data-field-input="version"
+                                               th:value="${detailsVersion}">
+                                        <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                            <button type="button" class="px-3 py-1.5 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="version">Save</button>
+                                            <button type="button" class="px-3 py-1.5 border border-white/15 text-white/60 text-xs hover:border-white/30 transition-colors" data-field-cancel="version">Cancel</button>
+                                            <span class="hidden text-xs text-red-400" data-field-error="version"></span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="flex items-start justify-between gap-4" th:if="${!#strings.isEmpty(detailsEstimatedTime)}">
-                                    <dt class="text-white/50">Estimated time</dt>
-                                    <dd class="text-white/80 text-right break-all" th:text="${detailsEstimatedTime}">5m</dd>
+
+                                <!-- Estimated time -->
+                                <div th:if="${!#strings.isEmpty(detailsEstimatedTime)}">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <dt class="text-white/50 shrink-0">Estimated time</dt>
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <dd class="text-white/80 text-right break-all"
+                                                data-field-display="estimatedTime"
+                                                th:attr="data-raw-value=${detailsEstimatedTime}"
+                                                th:text="${detailsEstimatedTime}">5m</dd>
+                                            <button type="button"
+                                                    class="shrink-0 text-xs text-white/40 hover:text-[#E7FF02] transition-colors whitespace-nowrap"
+                                                    data-edit-field="estimatedTime">edit</button>
+                                        </div>
+                                    </div>
+                                    <div class="hidden mt-2" data-field-edit="estimatedTime">
+                                        <input type="text"
+                                               class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm px-3 py-2"
+                                               data-field-input="estimatedTime"
+                                               th:value="${detailsEstimatedTime}">
+                                        <div class="mt-1 flex items-center gap-2 flex-wrap">
+                                            <button type="button" class="px-3 py-1.5 bg-[#E7FF02] text-black text-xs font-semibold hover:bg-[#f3ff7a] transition-colors" data-field-save="estimatedTime">Save</button>
+                                            <button type="button" class="px-3 py-1.5 border border-white/15 text-white/60 text-xs hover:border-white/30 transition-colors" data-field-cancel="estimatedTime">Cancel</button>
+                                            <span class="hidden text-xs text-red-400" data-field-error="estimatedTime"></span>
+                                        </div>
+                                    </div>
                                 </div>
+
                             </dl>
                         </article>
 
+                        <!-- Timeline (read-only — system-managed fields) -->
                         <article class="border border-white/10 bg-[#202020] p-5 sm:p-6">
                             <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Timeline</p>
                             <dl class="mt-4 space-y-3 text-sm">
@@ -171,8 +594,10 @@
                                 </div>
                             </dl>
                         </article>
+
                     </aside>
                 </section>
+
             </div>
         </main>
     </div>
