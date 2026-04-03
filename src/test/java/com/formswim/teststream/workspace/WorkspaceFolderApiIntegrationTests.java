@@ -101,6 +101,19 @@ class WorkspaceFolderApiIntegrationTests {
     }
 
             @Test
+            void postFolderRejectsNameLongerThan255Characters() throws Exception {
+            String oversized = "A".repeat(256);
+
+            mockMvc.perform(post("/api/folders")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of("name", oversized))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Folder name cannot exceed 255 characters."));
+            }
+
+            @Test
             void postFolderReturnsNotFoundWhenParentMissing() throws Exception {
             mockMvc.perform(post("/api/folders")
                 .with(csrf())
@@ -250,6 +263,16 @@ class WorkspaceFolderApiIntegrationTests {
             .isEqualTo("Target/Legacy/Child");
         assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-113").orElseThrow().getFolder())
             .isEqualTo("Elsewhere");
+    }
+
+    @Test
+    void backfillSkipsOversizedSegmentsWithoutThrowing() {
+        String oversized = "A".repeat(256);
+        testCaseRepository.save(TestCaseFixtures.basicCase("TEAM1", "TC-901", oversized + "/Child"));
+
+        int created = folderBackfillService.backfillFoldersFromTestCases();
+        assertThat(created).isEqualTo(0);
+        assertThat(folderRepository.findByTeamKeyOrderByIdAsc("TEAM1")).isEmpty();
     }
 
     private Long createFolder(String name, Long parentId) throws Exception {

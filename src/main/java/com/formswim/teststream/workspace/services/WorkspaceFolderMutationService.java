@@ -17,6 +17,8 @@ import com.formswim.teststream.workspace.repository.FolderRepository;
 @Service
 public class WorkspaceFolderMutationService {
 
+    private static final int MAX_FOLDER_NAME_LENGTH = 255;
+
     private final FolderRepository folderRepository;
     private final TestCaseRepository testCaseRepository;
 
@@ -148,6 +150,10 @@ public class WorkspaceFolderMutationService {
         String name = rawName == null ? "" : rawName.trim();
         if (name.isBlank()) {
             throw new FolderBadRequestException("Folder name is required.");
+        }
+
+        if (name.length() > MAX_FOLDER_NAME_LENGTH) {
+            throw new FolderBadRequestException("Folder name cannot exceed 255 characters.");
         }
 
         if (name.contains("/") || name.contains("\\")) {

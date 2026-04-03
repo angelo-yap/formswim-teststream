@@ -3,6 +3,7 @@ package com.formswim.teststream.bulk.service;
 import com.formswim.teststream.bulk.dto.BulkMoveRequest;
 import com.formswim.teststream.bulk.dto.BulkMoveResult;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
+import com.formswim.teststream.workspace.services.FolderPathSyncService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,11 +19,15 @@ public class TestCaseBulkMoveService {
     private static final String FAILURE_INVALID = "INVALID_WORK_KEY";
     private static final String FAILURE_FORBIDDEN = "FORBIDDEN";
     private static final String FAILURE_NOT_FOUND = "NOT_FOUND";
+    private static final String FOLDER_SYNC_ACTOR = "bulk-move";
 
     private final TestCaseRepository testCaseRepository;
+    private final FolderPathSyncService folderPathSyncService;
 
-    public TestCaseBulkMoveService(TestCaseRepository testCaseRepository) {
+    public TestCaseBulkMoveService(TestCaseRepository testCaseRepository,
+                                   FolderPathSyncService folderPathSyncService) {
         this.testCaseRepository = testCaseRepository;
+        this.folderPathSyncService = folderPathSyncService;
     }
 
     @Transactional
@@ -79,6 +84,7 @@ public class TestCaseBulkMoveService {
         }
 
         String trimmedTargetFolder = request.getTargetFolder().trim();
+        folderPathSyncService.ensureFolderPathExists(teamKey, trimmedTargetFolder, FOLDER_SYNC_ACTOR);
         // Apply one scoped update statement for all eligible keys in this request.
         int movedCount = testCaseRepository.bulkMoveToFolderByTeamKeyAndWorkKeys(teamKey, allowedWorkKeys, trimmedTargetFolder);
         result.setMovedCount(movedCount);

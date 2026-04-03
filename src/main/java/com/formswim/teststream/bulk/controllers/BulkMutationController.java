@@ -70,8 +70,12 @@ public class BulkMutationController {
             return ResponseEntity.badRequest().build();
         }
 
-        BulkMoveResult result = testCaseBulkMoveService.bulkMoveByWorkKeys(user.getTeamKey(), request);
-        return ResponseEntity.ok(result);
+        try {
+            BulkMoveResult result = testCaseBulkMoveService.bulkMoveByWorkKeys(user.getTeamKey(), request);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     /**

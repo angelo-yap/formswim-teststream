@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,7 +17,9 @@ import com.formswim.teststream.workspace.repository.FolderRepository;
 @Service
 public class FolderBackfillService {
 
+    private static final Logger log = LoggerFactory.getLogger(FolderBackfillService.class);
     private static final String BACKFILL_ACTOR = "system-backfill";
+    private static final int MAX_FOLDER_NAME_LENGTH = 255;
 
     private final TestCaseRepository testCaseRepository;
     private final FolderRepository folderRepository;
@@ -128,6 +132,10 @@ public class FolderBackfillService {
         for (String part : rawSegments) {
             String segment = part == null ? "" : part.trim();
             if (!segment.isBlank()) {
+                if (segment.length() > MAX_FOLDER_NAME_LENGTH) {
+                    log.warn("Skipping backfill path with oversized segment (>{} chars): {}", MAX_FOLDER_NAME_LENGTH, rawPath);
+                    return List.of();
+                }
                 segments.add(segment);
             }
         }

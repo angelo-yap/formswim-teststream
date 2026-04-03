@@ -26,6 +26,7 @@ import com.formswim.teststream.ingestion.repository.UploadReviewSessionRepositor
 import com.formswim.teststream.shared.domain.TestCase;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
 import com.formswim.teststream.shared.domain.TestStep;
+import com.formswim.teststream.workspace.services.FolderPathSyncService;
 
 @Service
 public class UploadReviewService {
@@ -34,15 +35,18 @@ public class UploadReviewService {
     private final UploadReviewSessionRepository uploadReviewSessionRepository;
     private final UploadHistoryRepository uploadHistoryRepository;
     private final TestCaseRepository testCaseRepository;
+    private final FolderPathSyncService folderPathSyncService;
 
     public UploadReviewService(ObjectMapper objectMapper,
                                UploadReviewSessionRepository uploadReviewSessionRepository,
                                UploadHistoryRepository uploadHistoryRepository,
-                               TestCaseRepository testCaseRepository) {
+                               TestCaseRepository testCaseRepository,
+                               FolderPathSyncService folderPathSyncService) {
         this.objectMapper = objectMapper;
         this.uploadReviewSessionRepository = uploadReviewSessionRepository;
         this.uploadHistoryRepository = uploadHistoryRepository;
         this.testCaseRepository = testCaseRepository;
+        this.folderPathSyncService = folderPathSyncService;
     }
 
     @Transactional
@@ -110,6 +114,7 @@ public class UploadReviewService {
         for (UploadReviewItem item : session.getItems()) {
             if (UploadReviewItem.TYPE_NEW.equals(item.getConflictType())) {
                 ReviewCaseSnapshot newSnapshot = readSnapshot(item.getIncomingSnapshotJson());
+                folderPathSyncService.ensureFolderPathExists(teamKey, newSnapshot.getFolder(), "upload-review");
                 testCaseRepository.save(toEntity(teamKey, newSnapshot));
                 importedNewCount++;
                 continue;
@@ -121,6 +126,7 @@ public class UploadReviewService {
             if (UploadReviewItem.ACTION_MERGE.equals(action)) {
                 ReviewCaseSnapshot editedSnapshot = buildEditedSnapshot(readSnapshot(item.getIncomingSnapshotJson()), parameters, item.getId());
                 item.setEditedSnapshotJson(writeJson(editedSnapshot));
+                folderPathSyncService.ensureFolderPathExists(teamKey, editedSnapshot.getFolder(), "upload-review");
                 mergeIntoExisting(teamKey, editedSnapshot);
                 mergedCount++;
             } else {

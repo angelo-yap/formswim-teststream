@@ -5,6 +5,7 @@ import com.formswim.teststream.bulk.dto.BulkEditResult;
 import com.formswim.teststream.shared.domain.TestCase;
 import com.formswim.teststream.shared.domain.TestStep;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
+import com.formswim.teststream.workspace.services.FolderPathSyncService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -87,11 +88,14 @@ public class TestCaseBulkEditService {
     );
 
     private final TestCaseRepository testCaseRepository;
+    private final FolderPathSyncService folderPathSyncService;
     private final int maxWorkKeys;
 
     public TestCaseBulkEditService(TestCaseRepository testCaseRepository,
+                                   FolderPathSyncService folderPathSyncService,
                                    @Value("${teststream.bulk-edit.max-work-keys:5000}") int maxWorkKeys) {
         this.testCaseRepository = testCaseRepository;
+        this.folderPathSyncService = folderPathSyncService;
         this.maxWorkKeys = maxWorkKeys;
     }
 
@@ -176,6 +180,7 @@ public class TestCaseBulkEditService {
         int updatedCaseCount = 0;
         int updatedStepCount = 0;
         int totalReplacements = 0;
+        Set<String> syncedFolders = new LinkedHashSet<>();
 
         for (TestCase testCase : cases) {
             boolean caseChanged = false;
@@ -249,6 +254,9 @@ public class TestCaseBulkEditService {
             testCase.setFolder(folderOutcome.updatedValue());
             caseChanged = caseChanged || folderOutcome.changed();
             totalReplacements += folderOutcome.replacementCount();
+            if (folderOutcome.changed() && folderOutcome.updatedValue() != null && !folderOutcome.updatedValue().isBlank()) {
+                syncedFolders.add(folderOutcome.updatedValue());
+            }
 
             ReplaceOutcome testCaseTypeOutcome = updateIfRequested(requestedFields.contains("testCaseType"), testCase.getTestCaseType(), findText, replaceText);
             testCase.setTestCaseType(testCaseTypeOutcome.updatedValue());
@@ -318,6 +326,7 @@ public class TestCaseBulkEditService {
             }
         }
 
+        folderPathSyncService.ensureFolderPathsExist(teamKey, syncedFolders, "bulk-edit");
         testCaseRepository.saveAll(cases);
 
         result.setUpdatedCaseCount(updatedCaseCount);
