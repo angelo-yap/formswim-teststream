@@ -31,6 +31,24 @@ TestStream is a working Spring Boot and Thymeleaf application with core authenti
 - stronger test coverage across auth, workspace, ingestion, export, and bulk features
 - GitHub Actions CI running tests against PostgreSQL
 
+### Iteration 3 — Single Field Editing (branch 45-single-test-edit-adapt-width, delivered 2026-04-03)
+
+- single-field inline editing on the test case details page using the existing bulk edit API (`PATCH /api/testcases/bulk-edit`)
+- team-scoped and auth-enforced; consistent with bulk edit security model
+- double-click to edit for content-heavy fields (summary, description, precondition, story linkages, step summary, test data, expected result)
+- click to edit for metadata fields (status, priority, folder, components, test case type, labels, sprint, fix versions, version, estimated time)
+- `updatedOn` auto-stamped in `TestCaseBulkEditService` on every successful case or step mutation, formatted `dd/MMM/yyyy HH:mm`
+- keyboard shortcuts: Escape to cancel, Ctrl+Enter to save in textareas
+- unsaved changes warning via `beforeunload`
+- inline yellow flash on field display after successful save
+- color-coded notice banner (yellow dot for success, red dot for error, dim dot for no-changes)
+- no-changes short-circuit with neutral banner feedback
+- auto-growing textareas (grows on input, capped at `max-h-96`, scrollable beyond)
+- pencil icon discoverability on hover for all double-click fields
+- trailing whitespace trimmed from textarea on open to avoid empty-space bloat from imported data
+- adaptive page width (max-width cap removed)
+- 4 integration tests covering single-field edit, cross-team rejection, auth guard, and step field edit; `updatedOn` format assertion added
+
 ## Iteration 3 Focus
 
 Iteration 3 is in progress.
@@ -41,6 +59,10 @@ Primary active goals:
 - reduce controller and service duplication
 - implement undo/redo safely
 - harden Docker and Render deployment readiness
+
+Completed in Iteration 3 so far:
+
+- single-field editing on the test case details page (see above)
 
 ## Codebase Snapshot
 
@@ -78,6 +100,7 @@ Known frontend hotspots:
 
 - `upload-review.html` still embeds significant review logic in the template
 - shared layout fragments are not established yet across the rest of the app
+- `test-case-details.html` and `test-case-details.js` are now feature-complete for single-field editing but are growing large; future work may want to split the JS into sub-modules
 
 ### Tests
 
@@ -99,6 +122,8 @@ This is a strength of the current project and should remain part of the definiti
 - Shared domain and repository code is growing faster than the module boundaries around it.
 - Frontend organization is behind the pace of feature growth.
 - Render-specific deployment configuration is not checked into the repo yet.
+- Empty fields on the test case details page cannot be edited (the find/replace API requires existing text); users must set initial values via bulk edit in the workspace.
+- The folder edit field has no click target when no folder is currently assigned to the test case.
 
 ## Known Debt And Risks
 
