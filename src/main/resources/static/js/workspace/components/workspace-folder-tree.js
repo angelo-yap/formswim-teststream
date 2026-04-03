@@ -678,14 +678,6 @@ export function createWorkspaceFolderTree(options) {
                 toggle.innerHTML = '<span class="block w-4 h-4"></span>';
             }
 
-            const selectButton = document.createElement('button');
-            selectButton.type = 'button';
-            selectButton.className = rowSelectButtonClasses;
-            selectButton.setAttribute('aria-label', 'Filter by folder ' + node.path);
-            if (isSelected) {
-                selectButton.setAttribute('aria-current', 'true');
-            }
-
             const iconHtml = isOpen
                 ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M3 8a2 2 0 0 1 2-2h4l2 2h9a2 2 0 0 1 2 2v1" /><path d="M3 11h18l-1.5 8.5a2 2 0 0 1-2 1.5H6.5a2 2 0 0 1-2-1.5L3 11z" /></svg>'
                 : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" /></svg>';
@@ -698,8 +690,15 @@ export function createWorkspaceFolderTree(options) {
             labelSpan.className = 'min-w-0 truncate';
             labelSpan.textContent = node.name;
 
-            selectButton.appendChild(iconSpan);
-            if (inlineEditorState && inlineEditorState.mode === 'rename' && inlineEditorState.targetPath === node.path) {
+            const isRenameEditing = Boolean(inlineEditorState && inlineEditorState.mode === 'rename' && inlineEditorState.targetPath === node.path);
+
+            if (isRenameEditing) {
+                const editContainer = document.createElement('div');
+                editContainer.className = rowSelectButtonClasses;
+                editContainer.setAttribute('role', 'group');
+                editContainer.setAttribute('aria-label', 'Rename folder ' + node.path);
+                editContainer.appendChild(iconSpan);
+
                 const editInput = document.createElement('input');
                 editInput.type = 'text';
                 editInput.value = inlineEditorState.value || node.name;
@@ -722,21 +721,39 @@ export function createWorkspaceFolderTree(options) {
                     }
                     await submitInlineEditor(editInput.value);
                 });
-                selectButton.appendChild(editInput);
+                editContainer.appendChild(editInput);
+                rowInner.appendChild(toggle);
+                rowInner.appendChild(editContainer);
+                rowWrap.appendChild(rowInner);
+                folderTree.appendChild(rowWrap);
+
                 window.requestAnimationFrame(() => {
                     editInput.focus();
                     editInput.select();
                 });
             } else {
-                selectButton.appendChild(labelSpan);
-            }
+                const selectButton = document.createElement('button');
+                selectButton.type = 'button';
+                selectButton.className = rowSelectButtonClasses;
+                selectButton.setAttribute('aria-label', 'Filter by folder ' + node.path);
+                if (isSelected) {
+                    selectButton.setAttribute('aria-current', 'true');
+                }
 
-            selectButton.addEventListener('click', () => {
-                const next = uiState.getSelectedFolder() === node.path ? '' : node.path;
-                uiState.setSelectedFolder(next);
-                renderFolderTree();
-                emitFolderChanged(next);
-            });
+                selectButton.appendChild(iconSpan);
+                selectButton.appendChild(labelSpan);
+                selectButton.addEventListener('click', () => {
+                    const next = uiState.getSelectedFolder() === node.path ? '' : node.path;
+                    uiState.setSelectedFolder(next);
+                    renderFolderTree();
+                    emitFolderChanged(next);
+                });
+
+                rowInner.appendChild(toggle);
+                rowInner.appendChild(selectButton);
+                rowWrap.appendChild(rowInner);
+                folderTree.appendChild(rowWrap);
+            }
 
             rowInner.addEventListener('contextmenu', (event) => {
                 event.preventDefault();
@@ -805,11 +822,6 @@ export function createWorkspaceFolderTree(options) {
                 clearFolderDropHover();
                 await handleFolderDrop(dragPayload, targetNode, dropMode);
             });
-
-            rowInner.appendChild(toggle);
-            rowInner.appendChild(selectButton);
-            rowWrap.appendChild(rowInner);
-            folderTree.appendChild(rowWrap);
 
             if (inlineEditorState && inlineEditorState.mode === 'create' && inlineEditorState.parentPath === node.path) {
                 renderInlineEditorRow(node, depth + 1);

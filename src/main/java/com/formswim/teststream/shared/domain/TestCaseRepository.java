@@ -203,7 +203,7 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                                                 where testCase.teamKey = :teamKey
                                                         and (
                                                                                 lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) = lower(:folderPath)
-                                                                                or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) like lower(concat(:folderPath, '/%'))
+                                                                                or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) like lower(concat(function('replace', function('replace', function('replace', :folderPath, '\\', '\\\\'), '%', '\\%'), '_', '\\_'), '/%')) escape '\\'
                                                         )
                                                 """)
                 long countByTeamKeyAndFolderPathHierarchy(@Param("teamKey") String teamKey,

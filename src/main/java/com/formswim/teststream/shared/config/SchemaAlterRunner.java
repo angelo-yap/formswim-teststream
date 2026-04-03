@@ -52,7 +52,7 @@ public class SchemaAlterRunner implements ApplicationRunner {
             int createdFolders = folderBackfillService.backfillFoldersFromTestCases();
             log.info("Folder backfill completed. Created {} folder rows.", createdFolders);
         } catch (Exception exception) {
-            log.warn("Folder backfill failed: {}", exception.getMessage());
+            log.warn("Folder backfill failed.", exception);
         }
     }
 
