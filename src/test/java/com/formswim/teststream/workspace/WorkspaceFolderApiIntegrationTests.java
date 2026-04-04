@@ -205,6 +205,36 @@ class WorkspaceFolderApiIntegrationTests {
     }
 
     @Test
+    void deleteFolderReturnsConflictWhenFolderContainsTestCasesWithLeadingSlashPath() throws Exception {
+        Long rootId = createFolder("Root", null);
+        createFolder("Child", rootId);
+
+        TestCase testCase = TestCaseFixtures.basicCase("TEAM1", "TC-102", "/Root/Child");
+        testCaseRepository.save(testCase);
+
+        MvcResult childNodeResult = mockMvc.perform(get("/api/folders/nodes")
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isOk())
+            .andReturn();
+
+        List<Map<String, Object>> nodes = objectMapper.readValue(
+            childNodeResult.getResponse().getContentAsByteArray(),
+            new TypeReference<List<Map<String, Object>>>() {}
+        );
+        Long childId = nodes.stream()
+            .filter(node -> "Root/Child".equals(String.valueOf(node.get("path"))))
+            .map(node -> Long.valueOf(String.valueOf(node.get("id"))))
+            .findFirst()
+            .orElseThrow();
+
+        mockMvc.perform(delete("/api/folders/{id}", childId)
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("Folder cannot be deleted because it contains test cases."));
+    }
+
+    @Test
     void deleteFolderRemovesEmptyLeaf() throws Exception {
         Long rootId = createFolder("Root", null);
         Long childId = createFolder("Child", rootId);

@@ -2,6 +2,7 @@ package com.formswim.teststream.workspace.services;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
@@ -109,12 +110,46 @@ public class WorkspaceFolderMutationService {
 
         Map<Long, Folder> byId = indexById(folderRepository.findByTeamKeyOrderByIdAsc(teamKey));
         String folderPath = derivePath(folder, byId, new HashMap<>());
-        long boundCases = testCaseRepository.countByTeamKeyAndFolderPathHierarchy(teamKey, folderPath);
+        long boundCases = countTestCasesInHierarchy(teamKey, folderPath);
         if (boundCases > 0) {
             throw new FolderConflictException("Folder cannot be deleted because it contains test cases.");
         }
 
         folderRepository.delete(folder);
+    }
+
+    private long countTestCasesInHierarchy(String teamKey, String folderPath) {
+        String normalizedTarget = normalizeFolderPath(folderPath);
+        if (normalizedTarget.isBlank()) {
+            return 0L;
+        }
+
+        long count = 0L;
+        String hierarchyPrefix = normalizedTarget + "/";
+        for (var testCase : testCaseRepository.findByTeamKey(teamKey)) {
+            String normalizedCaseFolder = normalizeFolderPath(testCase.getFolder());
+            if (normalizedCaseFolder.isBlank()) {
+                continue;
+            }
+            if (normalizedCaseFolder.equals(normalizedTarget)
+                || normalizedCaseFolder.startsWith(hierarchyPrefix)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private String normalizeFolderPath(String rawPath) {
+        if (rawPath == null) {
+            return "";
+        }
+
+        String normalized = rawPath.trim().replace('\\', '/');
+        while (normalized.contains("//")) {
+            normalized = normalized.replace("//", "/");
+        }
+        normalized = normalized.replaceAll("^/+", "").replaceAll("/+$", "");
+        return normalized.toLowerCase(Locale.ROOT);
     }
 
     private Folder resolveParent(String teamKey, Long parentId) {

@@ -25,6 +25,7 @@ export function createWorkspaceFolderTree(options) {
     let activeFolderDropTargetEl = null;
     let activeFolderDropMode = null;
     let isFolderLoading = false;
+    let pendingDeletePrompt = null;
 
     function snapshotExpandedState(model) {
         const expandedByPath = new Map();
@@ -167,7 +168,7 @@ export function createWorkspaceFolderTree(options) {
                             path: currentPath,
                             parentPath,
                             children: new Map(),
-                            expanded: true
+                            expanded: false
                         });
                     }
 
@@ -205,7 +206,7 @@ export function createWorkspaceFolderTree(options) {
                         path: currentPath,
                         parentPath,
                         children: new Map(),
-                        expanded: true
+                        expanded: false
                     });
                 }
                 current = current.children.get(part);
@@ -242,6 +243,106 @@ export function createWorkspaceFolderTree(options) {
         if (message) {
             window.alert(String(message));
         }
+    }
+
+    function dismissDeletePrompt(confirmed) {
+        if (!pendingDeletePrompt) {
+            return;
+        }
+
+        const { root, resolve, onKeyDown } = pendingDeletePrompt;
+        pendingDeletePrompt = null;
+
+        if (onKeyDown) {
+            document.removeEventListener('keydown', onKeyDown);
+        }
+        if (root && root.parentNode) {
+            root.parentNode.removeChild(root);
+        }
+        resolve(Boolean(confirmed));
+    }
+
+    function confirmDeleteFolder(path) {
+        if (pendingDeletePrompt) {
+            dismissDeletePrompt(false);
+        }
+
+        return new Promise((resolve) => {
+            const root = document.createElement('div');
+            root.className = 'fixed right-4 top-4 z-[1400] w-[min(28rem,calc(100vw-2rem))]';
+
+            const notice = document.createElement('div');
+            notice.className = 'border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80 shadow-[0_18px_48px_rgba(0,0,0,0.55)]';
+            notice.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+
+            const headingRow = document.createElement('div');
+            headingRow.className = 'flex items-start justify-between gap-3';
+
+            const headingWrap = document.createElement('div');
+            headingWrap.className = 'min-w-0';
+
+            const badge = document.createElement('span');
+            badge.className = 'font-bold text-black px-2 py-1 mr-3 bg-white/70';
+            badge.textContent = 'Confirm';
+
+            const heading = document.createElement('span');
+            heading.className = 'font-medium text-white';
+            heading.textContent = 'Delete folder?';
+
+            const message = document.createElement('p');
+            message.className = 'mt-2 break-words text-white/75';
+            message.textContent = 'Delete "' + String(path || '') + '"? Only empty folders can be deleted.';
+
+            const actions = document.createElement('div');
+            actions.className = 'mt-3 flex items-center justify-end gap-2';
+
+            const cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.className = 'px-3 py-1.5 border border-white/20 hover:border-white/40 text-white/85 hover:text-white transition-colors text-xs';
+            cancelButton.textContent = 'Cancel';
+
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'px-3 py-1.5 border text-black font-semibold text-xs transition-colors';
+            deleteButton.style.borderColor = '#E7FF02';
+            deleteButton.style.backgroundColor = '#E7FF02';
+            deleteButton.textContent = 'Delete';
+
+            headingWrap.appendChild(badge);
+            headingWrap.appendChild(heading);
+            headingWrap.appendChild(message);
+
+            actions.appendChild(cancelButton);
+            actions.appendChild(deleteButton);
+
+            headingRow.appendChild(headingWrap);
+            notice.appendChild(headingRow);
+            notice.appendChild(actions);
+            root.appendChild(notice);
+            document.body.appendChild(root);
+
+            const onKeyDown = (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    dismissDeletePrompt(false);
+                }
+            };
+
+            pendingDeletePrompt = {
+                root,
+                resolve,
+                onKeyDown
+            };
+
+            document.addEventListener('keydown', onKeyDown);
+
+            cancelButton.addEventListener('click', () => dismissDeletePrompt(false));
+            deleteButton.addEventListener('click', () => dismissDeletePrompt(true));
+
+            window.requestAnimationFrame(() => {
+                deleteButton.focus();
+            });
+        });
     }
 
     function closeContextMenu() {
@@ -421,13 +522,18 @@ export function createWorkspaceFolderTree(options) {
     }
 
     async function handleDeleteFolder(node) {
+        if (node?.children && node.children.size > 0) {
+            notify('error', 'Folder cannot be deleted because it contains subfolders.');
+            return;
+        }
+
         const meta = getNodeMetaByPath(node.path);
         if (!meta?.id) {
             notify('error', 'Cannot delete this folder because its id is unavailable.');
             return;
         }
 
-        const confirmed = window.confirm('Delete folder "' + node.path + '"?');
+        const confirmed = await confirmDeleteFolder(node.path);
         if (!confirmed) {
             return;
         }
