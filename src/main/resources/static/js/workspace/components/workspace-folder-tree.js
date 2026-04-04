@@ -26,6 +26,53 @@ export function createWorkspaceFolderTree(options) {
     let activeFolderDropMode = null;
     let isFolderLoading = false;
 
+    function snapshotExpandedState(model) {
+        const expandedByPath = new Map();
+        if (!model || !model.pathIndex) {
+            return expandedByPath;
+        }
+
+        for (const [path, node] of model.pathIndex.entries()) {
+            if (!path || !node) {
+                continue;
+            }
+            expandedByPath.set(path, Boolean(node.expanded));
+        }
+        return expandedByPath;
+    }
+
+    function applyExpandedState(model, expandedByPath) {
+        if (!model || !model.pathIndex || !expandedByPath) {
+            return;
+        }
+
+        for (const [path, node] of model.pathIndex.entries()) {
+            if (!path || !node) {
+                continue;
+            }
+            if (expandedByPath.has(path)) {
+                node.expanded = expandedByPath.get(path);
+            }
+        }
+    }
+
+    function expandPath(path) {
+        const normalized = uiState.normalizeFolder(path || '');
+        if (!normalized || !folderTreeModel || !folderTreeModel.pathIndex) {
+            return;
+        }
+
+        const segments = normalized.split('/').filter(Boolean);
+        let currentPath = '';
+        for (const segment of segments) {
+            currentPath = currentPath ? currentPath + '/' + segment : segment;
+            const node = folderTreeModel.pathIndex.get(currentPath);
+            if (node) {
+                node.expanded = true;
+            }
+        }
+    }
+
     function setSidebarExpanded(expanded) {
         uiState.setSidebarExpanded(expanded);
         const isSidebarExpanded = uiState.isSidebarExpanded();
@@ -286,6 +333,9 @@ export function createWorkspaceFolderTree(options) {
             parentId: parentMeta?.id ?? null,
             value: ''
         };
+        if (parentPath) {
+            expandPath(parentPath);
+        }
         renderFolderTree();
     }
 
@@ -856,6 +906,8 @@ export function createWorkspaceFolderTree(options) {
     }
 
     function loadFolders() {
+        const expandedByPath = snapshotExpandedState(folderTreeModel);
+
         isFolderLoading = true;
         if (folderLoading) {
             folderLoading.classList.add('hidden');
@@ -883,6 +935,7 @@ export function createWorkspaceFolderTree(options) {
                 }
 
                 folderTreeModel = createFolderTreeModel(folders, nodes);
+                applyExpandedState(folderTreeModel, expandedByPath);
 
                 if (folderLoading) {
                     folderLoading.classList.add('hidden');
