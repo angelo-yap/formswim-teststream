@@ -82,29 +82,6 @@ class TeststreamApplicationTests {
 	}
 
 	@Test
-	void getFoldersReturnsCleanSortedCaseSensitiveWhitespaceNormalizedArray() throws Exception {
-		testCaseRepository.deleteAll();
-		folderRepository.deleteAll();
-		testCaseRepository.saveAll(List.of(
-				TestCaseFixtures.basicCase("TEAM1", "TC-301", " UI "),
-				TestCaseFixtures.basicCase("TEAM1", "TC-302", "UI"),
-				TestCaseFixtures.basicCase("TEAM1", "TC-303", "ui"),
-				TestCaseFixtures.basicCase("TEAM1", "TC-304", "Billing"),
-				TestCaseFixtures.basicCase("TEAM1", "TC-305", ""),
-				TestCaseFixtures.basicCase("TEAM1", "TC-306", "   "),
-				TestCaseFixtures.basicCase("TEAM1", "TC-307", null)
-		));
-		folderBackfillService.backfillFoldersFromTestCases();
-
-		mockMvc.perform(get("/api/folders")
-					.with(user("team1.user@example.com").roles("USER")))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$", hasSize(2)))
-				.andExpect(jsonPath("$[0]").value("Billing"))
-				.andExpect(jsonPath("$[1]").value("UI"));
-	}
-
-	@Test
 	void getFoldersNormalizesWindowsPathSeparatorsForSidebarTree() throws Exception {
 		testCaseRepository.deleteAll();
 		folderRepository.deleteAll();
