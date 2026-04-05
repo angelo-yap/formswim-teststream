@@ -43,14 +43,13 @@ export function createWorkspaceImportController(options) {
         importNoticeContainer.classList.remove('hidden');
         importNoticeMessage.textContent = message;
 
+        importNoticeBadge.textContent = 'OK';
         if (isSuccess) {
             importNotice.style.borderColor = 'rgba(231, 255, 2, 0.35)';
-            importNoticeBadge.textContent = 'OK';
             importNoticeBadge.classList.remove('bg-white/70');
             importNoticeBadge.style.backgroundColor = '#E7FF02';
         } else {
             importNotice.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-            importNoticeBadge.textContent = 'Error';
             importNoticeBadge.classList.add('bg-white/70');
             importNoticeBadge.style.backgroundColor = '';
         }
