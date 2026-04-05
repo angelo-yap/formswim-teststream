@@ -29,7 +29,7 @@ export function createWorkspaceFolderTree(options) {
     let isFolderLoading = false;
     let pendingDeletePrompt = null;
     let sidebarWidthPx = SIDEBAR_DEFAULT_WIDTH;
-    const TREE_BASE_PADDING_PX = 6;
+    const TREE_BASE_PADDING_PX = 0;
     const TREE_INDENT_STEP_PX = 12;
 
     function snapshotExpandedState(model) {
@@ -754,7 +754,7 @@ export function createWorkspaceFolderTree(options) {
         const selectedRowClasses = 'bg-[#E7FF02]/30 text-white';
         const unselectedRowClasses = 'text-white/80 hover:bg-white/5';
         const rowWrapClasses = 'select-none';
-        const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pl-2 pr-2 text-sm rounded-md transition-colors w-full';
+        const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pl-0 pr-2 text-sm rounded-md transition-colors w-full';
         const rowSelectButtonClasses = 'min-w-0 flex-1 flex items-center gap-2 text-left';
 
         const showAllWrap = document.createElement('div');
@@ -766,7 +766,7 @@ export function createWorkspaceFolderTree(options) {
 
         const showAllButton = document.createElement('button');
         showAllButton.type = 'button';
-        showAllButton.className = rowSelectButtonClasses;
+        showAllButton.className = rowSelectButtonClasses + ' pl-2';
         showAllButton.setAttribute('aria-label', 'Show all test cases');
         if (!selectedFolder) {
             showAllButton.setAttribute('aria-current', 'true');
