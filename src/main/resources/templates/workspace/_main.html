@@ -7,16 +7,17 @@
 				<aside id="wsSidebar" class="w-[18rem] sm:w-[20rem] border-r border-white/10 bg-black shrink-0">
 					<div id="wsSidebarInner" class="px-6 py-5">
 						<div id="wsSidebarHeader" class="flex items-center justify-between gap-3">
-							<div class="flex items-center gap-2 min-w-0">
-								<p id="wsSidebarTitle" class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Directory</p>
-								<button
-									id="wsNewFolderButton"
-									type="button"
-									class="px-2 py-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-[10px] uppercase tracking-wider text-white/75"
-								>
-									New Folder
-								</button>
-							</div>
+							<button
+								id="wsNewFolderButton"
+								type="button"
+								class="px-2 py-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-[10px] uppercase tracking-wider text-white/75"
+							>
+								New Folder
+							</button>
+							<p id="wsSidebarTitle" class="text-[11px] uppercase tracking-wider text-white/45 whitespace-nowrap" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">
+								Test cases:
+								<span id="wsTotalCount" class="text-white/70" th:text="${testCaseCount != null ? testCaseCount : '-'}">-</span>
+							</p>
 						</div>
 						<div id="wsSidebarContent" class="mt-4" aria-label="Folder tree">
 							<div id="wsFolderLoading" class="hidden text-xs text-white/45" aria-hidden="true">Loading folders...</div>
