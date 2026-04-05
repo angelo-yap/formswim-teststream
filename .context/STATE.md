@@ -61,6 +61,7 @@ Recent delivery:
 - folder APIs now support create, rename/reparent with cycle rejection, and explicit delete with conflict safeguards
 - workspace sidebar now supports New Folder, folder context-menu actions, and folder drag/reparent behavior
 - workspace theme now defaults to a softer dark gray and includes a header theme selector (`Dark Gray` / `High Contrast`) persisted in `localStorage`
+- workspace header now uses a single animated settings menu (theme selector, team code, account, logout), with account controls removed from the main header row
 
 Primary active goals:
 
