@@ -1,6 +1,7 @@
 package com.formswim.teststream.workspace.services;
 
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -233,8 +234,65 @@ public class WorkspaceFolderMutationService {
             return;
         }
 
-        testCaseRepository.bulkRepathExact(teamKey, previousPath, nextPath);
-        testCaseRepository.bulkRepathDescendants(teamKey, previousPath, nextPath, previousPath.length() + 1);
+        String normalizedPreviousPath = normalizeFolderPath(previousPath);
+        String normalizedNextPath = canonicalFolderPath(nextPath);
+        if (normalizedPreviousPath.isBlank() || normalizedNextPath.isBlank()) {
+            return;
+        }
+
+        List<com.formswim.teststream.shared.domain.TestCase> changedCases = new ArrayList<>();
+        String descendantPrefix = normalizedPreviousPath + "/";
+
+        for (var testCase : testCaseRepository.findByTeamKey(teamKey)) {
+            String rawFolder = testCase.getFolder();
+            String normalizedCurrentPath = normalizeFolderPath(rawFolder);
+            if (normalizedCurrentPath.isBlank()) {
+                continue;
+            }
+
+            boolean exactMatch = normalizedCurrentPath.equals(normalizedPreviousPath);
+            boolean descendantMatch = normalizedCurrentPath.startsWith(descendantPrefix);
+            if (!exactMatch && !descendantMatch) {
+                continue;
+            }
+
+            String canonicalCurrentPath = canonicalFolderPath(rawFolder);
+            if (canonicalCurrentPath.isBlank() || canonicalCurrentPath.length() < normalizedPreviousPath.length()) {
+                continue;
+            }
+
+            String suffix = canonicalCurrentPath.substring(normalizedPreviousPath.length());
+            String replacement = normalizedNextPath + suffix;
+            if (rawFolder != null) {
+                String trimmedRaw = rawFolder.trim();
+                if (trimmedRaw.startsWith("/") || trimmedRaw.startsWith("\\")) {
+                    replacement = "/" + replacement;
+                }
+            }
+
+            if (!replacement.equals(rawFolder)) {
+                testCase.setFolder(replacement);
+                changedCases.add(testCase);
+            }
+        }
+
+        if (changedCases.isEmpty()) {
+            return;
+        }
+
+        testCaseRepository.saveAll(changedCases);
+    }
+
+    private String canonicalFolderPath(String rawPath) {
+        if (rawPath == null) {
+            return "";
+        }
+
+        String normalized = rawPath.trim().replace('\\', '/');
+        while (normalized.contains("//")) {
+            normalized = normalized.replace("//", "/");
+        }
+        return normalized.replaceAll("^/+", "").replaceAll("/+$", "");
     }
 
     private FolderResponse toResponse(Folder folder, Map<Long, Folder> byId, Map<Long, String> pathMemo) {

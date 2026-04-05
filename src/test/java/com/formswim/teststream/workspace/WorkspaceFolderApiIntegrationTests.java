@@ -296,6 +296,47 @@ class WorkspaceFolderApiIntegrationTests {
     }
 
     @Test
+    void patchFolderReparentUpdatesTestCaseFolderPathsWithLeadingSlashInSubtree() throws Exception {
+        Long sourceRootId = createFolder("Source", null);
+        createFolder("Legacy", sourceRootId);
+        Long targetRootId = createFolder("Target", null);
+
+        testCaseRepository.saveAll(List.of(
+            TestCaseFixtures.basicCase("TEAM1", "TC-211", "/Source/Legacy"),
+            TestCaseFixtures.basicCase("TEAM1", "TC-212", "/Source/Legacy/Child")
+        ));
+
+        MvcResult childNodeResult = mockMvc.perform(get("/api/folders/nodes")
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isOk())
+            .andReturn();
+
+        List<Map<String, Object>> nodes = objectMapper.readValue(
+            childNodeResult.getResponse().getContentAsByteArray(),
+            new TypeReference<List<Map<String, Object>>>() {}
+        );
+
+        Long legacyId = nodes.stream()
+            .filter(node -> "Source/Legacy".equals(String.valueOf(node.get("path"))))
+            .map(node -> Long.valueOf(String.valueOf(node.get("id"))))
+            .findFirst()
+            .orElseThrow();
+
+        mockMvc.perform(patch("/api/folders/{id}", legacyId)
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of("parentId", targetRootId))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.path").value("Target/Legacy"));
+
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-211").orElseThrow().getFolder())
+            .isEqualTo("/Target/Legacy");
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-212").orElseThrow().getFolder())
+            .isEqualTo("/Target/Legacy/Child");
+    }
+
+    @Test
     void backfillSkipsOversizedSegmentsWithoutThrowing() {
         String oversized = "A".repeat(256);
         testCaseRepository.save(TestCaseFixtures.basicCase("TEAM1", "TC-901", oversized + "/Child"));
