@@ -637,6 +637,10 @@ export function createBulkEdit(options) {
                 await config.refreshCurrentPage();
             }
 
+            if (didChange && typeof config.refreshFolders === 'function') {
+                await config.refreshFolders();
+            }
+
             if (didChange) {
                 close(true);
             }

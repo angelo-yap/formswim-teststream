@@ -256,6 +256,9 @@ const bulkEdit = createBulkEdit({
     refreshCurrentPage: async () => {
         await dataController.loadCurrentPage();
     },
+    refreshFolders: async () => {
+        await folderTreeController.loadFolders();
+    },
     showNotice: (type, message) => {
         importController.showNotice(type, message);
     }
