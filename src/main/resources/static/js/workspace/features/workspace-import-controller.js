@@ -1,4 +1,5 @@
 export function createWorkspaceImportController(options) {
+    const NOTICE_AUTO_DISMISS_MS = 5000;
     const api = options.api;
     const importBtn = options.importBtn;
     const importFile = options.importFile;
@@ -10,8 +11,14 @@ export function createWorkspaceImportController(options) {
     const importNoticeMessage = options.importNoticeMessage;
     const importNoticeClose = options.importNoticeClose;
     const onUploadComplete = options.onUploadComplete;
+    let noticeAutoDismissHandle = 0;
 
     function clearNotice() {
+        if (noticeAutoDismissHandle) {
+            window.clearTimeout(noticeAutoDismissHandle);
+            noticeAutoDismissHandle = 0;
+        }
+
         if (!importNoticeContainer) {
             return;
         }
@@ -25,6 +32,11 @@ export function createWorkspaceImportController(options) {
     function showNotice(type, message) {
         if (!importNoticeContainer || !importNotice || !importNoticeBadge || !importNoticeMessage || !message) {
             return;
+        }
+
+        if (noticeAutoDismissHandle) {
+            window.clearTimeout(noticeAutoDismissHandle);
+            noticeAutoDismissHandle = 0;
         }
 
         const isSuccess = type === 'success';
@@ -42,6 +54,10 @@ export function createWorkspaceImportController(options) {
             importNoticeBadge.classList.add('bg-white/70');
             importNoticeBadge.style.backgroundColor = '';
         }
+
+        noticeAutoDismissHandle = window.setTimeout(() => {
+            clearNotice();
+        }, NOTICE_AUTO_DISMISS_MS);
     }
 
     if (importNoticeClose) {
