@@ -11,6 +11,7 @@ import { createWorkspaceMoveController } from './features/workspace-move-control
 import { createWorkspaceOrganizeModal } from './features/workspace-organize-modal.js';
 import { bindWorkspacePreviewControls } from './features/workspace-preview-controls.js';
 import { bindWorkspaceRowActions } from './features/workspace-row-actions.js';
+import { bindWorkspaceThemeControls } from './features/workspace-theme-controls.js';
 import { createGrid } from './grid.js';
 import { createSelection } from './selection.js';
 import { createWorkspaceUiState } from './state/workspace-ui-state.js';
@@ -236,6 +237,7 @@ createWorkspaceOrganizeModal({
 });
 
 bindWorkspaceHeaderControls();
+bindWorkspaceThemeControls();
 
 const bulkEdit = createBulkEdit({
     bulkEditButton: bulkEditOpen,
