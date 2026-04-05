@@ -2,20 +2,37 @@ package com.formswim.teststream.workspace.controllers;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.TransactionSystemException;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.service.CurrentUserService;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
+import com.formswim.teststream.workspace.dto.FolderCreateRequest;
+import com.formswim.teststream.workspace.dto.FolderResponse;
+import com.formswim.teststream.workspace.dto.FolderUpdateRequest;
+import com.formswim.teststream.workspace.services.FolderBadRequestException;
+import com.formswim.teststream.workspace.services.FolderConflictException;
+import com.formswim.teststream.workspace.services.FolderNotFoundException;
+import com.formswim.teststream.workspace.services.WorkspaceFolderService;
+import com.formswim.teststream.workspace.services.WorkspaceFolderMutationService;
 import com.formswim.teststream.workspace.services.WorkspaceQueryService;
 
 import jakarta.servlet.http.HttpSession;
@@ -28,15 +45,21 @@ public class WorkspaceMetadataController {
     private final TestCaseRepository testCaseRepository;
     private final CurrentUserService currentUserService;
     private final WorkspaceQueryService workspaceQueryService;
+    private final WorkspaceFolderService workspaceFolderService;
+    private final WorkspaceFolderMutationService workspaceFolderMutationService;
 
 
     public WorkspaceMetadataController(TestCaseRepository testCaseRepository,
                                        CurrentUserService currentUserService,
-                                        WorkspaceQueryService workspaceQueryService
+                                        WorkspaceQueryService workspaceQueryService,
+                                       WorkspaceFolderService workspaceFolderService,
+                                       WorkspaceFolderMutationService workspaceFolderMutationService
     ) {
         this.testCaseRepository = testCaseRepository;
         this.currentUserService = currentUserService;
         this.workspaceQueryService = workspaceQueryService;
+        this.workspaceFolderService = workspaceFolderService;
+        this.workspaceFolderMutationService = workspaceFolderMutationService;
     }
     /**
      * GET /api/folders
@@ -57,11 +80,122 @@ public class WorkspaceMetadataController {
         if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
             return ResponseEntity.status(403).build();
         }
-        List<String> folders = testCaseRepository.findDistinctFolderByTeamKey(user.getTeamKey())
-            .stream()
-            .sorted()
-            .collect(Collectors.toList());
+        List<String> folders = workspaceFolderService.listFolderPathsByTeamKey(user.getTeamKey());
         return ResponseEntity.ok(folders);
+    }
+
+    @GetMapping("/api/folders/nodes")
+    @ResponseBody
+    public ResponseEntity<List<FolderResponse>> getFolderNodesByTeamKey(HttpSession session, Authentication authentication) {
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        List<FolderResponse> folders = workspaceFolderMutationService.listFolderNodesByTeamKey(user.getTeamKey());
+        return ResponseEntity.ok(folders);
+    }
+
+    @PostMapping("/api/folders")
+    @ResponseBody
+    public ResponseEntity<?> createFolder(@RequestBody FolderCreateRequest request,
+                                          HttpSession session,
+                                          Authentication authentication) {
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        try {
+            FolderResponse created = workspaceFolderMutationService.createFolder(user.getTeamKey(), user.getEmail(), request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        } catch (FolderNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
+        } catch (FolderBadRequestException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        } catch (FolderConflictException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+        } catch (DataIntegrityViolationException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", "Folder could not be created due to a conflicting update. Please retry."));
+        } catch (TransactionSystemException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Folder request failed validation."));
+        }
+    }
+
+    @PatchMapping("/api/folders/{id}")
+    @ResponseBody
+    public ResponseEntity<?> updateFolder(@PathVariable Long id,
+                                          @RequestBody FolderUpdateRequest request,
+                                          HttpSession session,
+                                          Authentication authentication) {
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        try {
+            FolderResponse updated = workspaceFolderMutationService.updateFolder(user.getTeamKey(), id, request);
+            return ResponseEntity.ok(updated);
+        } catch (FolderNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
+        } catch (FolderBadRequestException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        } catch (FolderConflictException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+        } catch (DataIntegrityViolationException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", "Folder update conflicted with another request. Please retry."));
+        } catch (TransactionSystemException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Folder update failed validation."));
+        }
+    }
+
+    @DeleteMapping("/api/folders/{id}")
+    @ResponseBody
+    public ResponseEntity<?> deleteFolder(@PathVariable Long id,
+                                          HttpSession session,
+                                          Authentication authentication) {
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        try {
+            workspaceFolderMutationService.deleteFolder(user.getTeamKey(), id);
+            return ResponseEntity.noContent().build();
+        } catch (FolderNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
+        } catch (FolderBadRequestException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        } catch (FolderConflictException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+        } catch (DataIntegrityViolationException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", "Folder could not be deleted because it is still referenced."));
+        } catch (TransactionSystemException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Folder delete request failed validation."));
+        }
     }
 
     @GetMapping("/api/tags")

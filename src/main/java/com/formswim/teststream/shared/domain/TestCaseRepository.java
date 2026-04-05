@@ -144,6 +144,16 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
     List<String> findDistinctFolderByTeamKey(String teamKey);
 
     @Query("""
+            select distinct testCase.teamKey
+            from TestCase testCase
+            where testCase.teamKey is not null
+              and trim(testCase.teamKey) <> ''
+              and testCase.folder is not null
+              and trim(testCase.folder) <> ''
+            """)
+    List<String> findDistinctTeamKeysWithFolders();
+
+    @Query("""
             select distinct trim(testCase.components)
             from TestCase testCase
             where testCase.teamKey = :teamKey
@@ -186,6 +196,43 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
     boolean existsByTeamKeyAndWorkKey(String teamKey, String workKey);
 
     List<TestCase> findByTeamKeyAndFolder(String teamKey, String folder);
+
+                @Query("""
+                                                select count(testCase)
+                                                from TestCase testCase
+                                                where testCase.teamKey = :teamKey
+                                                        and (
+                                                                                lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) = lower(:folderPath)
+                                                                                or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) like lower(concat(function('replace', function('replace', function('replace', :folderPath, '\\', '\\\\'), '%', '\\%'), '_', '\\_'), '/%')) escape '\\'
+                                                        )
+                                                """)
+                long countByTeamKeyAndFolderPathHierarchy(@Param("teamKey") String teamKey,
+                                                                                                                                                                                        @Param("folderPath") String folderPath);
+
+                @Modifying(clearAutomatically = true, flushAutomatically = true)
+                @Query("""
+                                                update TestCase testCase
+                                                set testCase.folder = :nextPath
+                                                where testCase.teamKey = :teamKey
+                                                        and lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) = lower(:previousPath)
+                                                """)
+                int bulkRepathExact(@Param("teamKey") String teamKey,
+                                                                                                @Param("previousPath") String previousPath,
+                                                                                                @Param("nextPath") String nextPath);
+
+                @Modifying(clearAutomatically = true, flushAutomatically = true)
+                @Query("""
+                                                update TestCase testCase
+                                                set testCase.folder = concat(:nextPath,
+                                                                                                                                                                 substring(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/')),
+                                                                                                                                                                                                         :suffixStartIndex))
+                                                where testCase.teamKey = :teamKey
+                                                        and lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) like lower(concat(function('replace', function('replace', function('replace', :previousPath, '\\', '\\\\'), '%', '\\%'), '_', '\\_'), '/%')) escape '\\'
+                                                """)
+                int bulkRepathDescendants(@Param("teamKey") String teamKey,
+                                                                                                                        @Param("previousPath") String previousPath,
+                                                                                                                        @Param("nextPath") String nextPath,
+                                                                                                                        @Param("suffixStartIndex") int suffixStartIndex);
 
     List<TestCase> findByTeamKeyAndStatus(String teamKey, String status);
 }

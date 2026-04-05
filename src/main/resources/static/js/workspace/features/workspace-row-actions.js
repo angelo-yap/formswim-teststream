@@ -2,6 +2,26 @@ function isInteractiveTarget(target) {
     return Boolean(target?.closest?.('.ws-interactive, a, button, input, select, textarea, label'));
 }
 
+function clearBrowserTextSelection() {
+    if (typeof window === 'undefined' || typeof window.getSelection !== 'function') {
+        return;
+    }
+
+    const selection = window.getSelection();
+    if (selection && typeof selection.removeAllRanges === 'function') {
+        selection.removeAllRanges();
+    }
+}
+
+function syncCheckboxElement(selection, checkbox) {
+    if (!checkbox) {
+        return;
+    }
+
+    const workKey = checkbox.dataset.workKey || '';
+    checkbox.checked = selection.isSelected(workKey);
+}
+
 export function bindWorkspaceRowActions(options) {
     const tbody = options.tbody;
     const selection = options.selection;
@@ -21,6 +41,11 @@ export function bindWorkspaceRowActions(options) {
             const workKey = row.dataset.workKey || '';
             const isSelected = selection.isSelected(workKey);
             row.classList.toggle('ws-row-selected', isSelected);
+
+            const checkbox = row.querySelector('.ws-row-check');
+            if (checkbox) {
+                checkbox.checked = isSelected;
+            }
         });
 
         const previewCards = tbody.querySelectorAll('[data-preview-card-for]');
@@ -37,15 +62,68 @@ export function bindWorkspaceRowActions(options) {
         });
     }
 
+    function applyRowSelection(workKey, event) {
+        if (!workKey) {
+            return;
+        }
+
+        const hasShift = Boolean(event?.shiftKey);
+        const selectedCount = selection.getSelectedIds().length;
+
+        if (hasShift) {
+            const anchor = selectedCount === 0
+                ? selection.getFirstVisibleId()
+                : (selection.getSelectionAnchor() || selection.getFirstVisibleId());
+
+            if (anchor) {
+                selection.selectRange(anchor, workKey);
+                syncRowSelectionUi();
+                return;
+            }
+        }
+
+        selection.toggleSingle(workKey);
+        selection.setSelectionAnchor(workKey);
+        syncRowSelectionUi();
+    }
+
     if (tbody) {
-        tbody.addEventListener('change', (event) => {
-            const target = event.target;
-            if (!target || !target.classList || !target.classList.contains('ws-row-check')) {
+        tbody.addEventListener('mousedown', (event) => {
+            if (event.button !== 0) {
                 return;
             }
 
-            selection.toggleSelection(target.dataset.workKey || '', target.checked);
-            syncRowSelectionUi();
+            const row = event.target?.closest?.('tr[data-work-key]');
+            if (!row) {
+                return;
+            }
+
+            const isCheckbox = Boolean(event.target?.closest?.('.ws-row-check'));
+            if (isCheckbox) {
+                return;
+            }
+
+            if (isInteractiveTarget(event.target)) {
+                return;
+            }
+
+            event.preventDefault();
+            clearBrowserTextSelection();
+        });
+
+        tbody.addEventListener('change', (event) => {
+            const checkbox = event.target?.closest?.('.ws-row-check');
+            if (!checkbox) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            syncCheckboxElement(selection, checkbox);
+            window.requestAnimationFrame(() => {
+                syncCheckboxElement(selection, checkbox);
+                syncRowSelectionUi();
+            });
         });
 
         tbody.addEventListener('click', (event) => {
@@ -93,6 +171,20 @@ export function bindWorkspaceRowActions(options) {
                 return;
             }
 
+            const checkbox = event.target?.closest?.('.ws-row-check');
+            if (checkbox) {
+                event.preventDefault();
+                event.stopPropagation();
+                clearBrowserTextSelection();
+                applyRowSelection(checkbox.dataset.workKey || '', event);
+                syncCheckboxElement(selection, checkbox);
+                window.requestAnimationFrame(() => {
+                    syncCheckboxElement(selection, checkbox);
+                    syncRowSelectionUi();
+                });
+                return;
+            }
+
             if (isInteractiveTarget(event.target)) {
                 return;
             }
@@ -102,19 +194,8 @@ export function bindWorkspaceRowActions(options) {
                 return;
             }
 
-            const workKey = row.dataset.workKey || '';
-            if (!workKey) {
-                return;
-            }
-
-            const nextChecked = !selection.isSelected(workKey);
-            selection.setSelected(workKey, nextChecked);
-
-            const check = row.querySelector('.ws-row-check');
-            if (check) {
-                check.checked = nextChecked;
-            }
-            syncRowSelectionUi();
+            clearBrowserTextSelection();
+            applyRowSelection(row.dataset.workKey || '', event);
         });
     }
 

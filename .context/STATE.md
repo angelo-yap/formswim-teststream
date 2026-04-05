@@ -27,7 +27,7 @@ TestStream is a working Spring Boot and Thymeleaf application with core authenti
 - dedicated test case details page
 - duplicate upload conflict review flow with apply/cancel
 - bulk move endpoint and workspace flow
-- bulk edit backend and modal-driven workspace support
+- bulk edit backend and modal-driven workspace support with fixed status assignment, case-sensitive replacement, and Last updated refresh
 - stronger test coverage across auth, workspace, ingestion, export, and bulk features
 - GitHub Actions CI running tests against PostgreSQL
 
@@ -52,6 +52,14 @@ TestStream is a working Spring Boot and Thymeleaf application with core authenti
 ## Iteration 3 Focus
 
 Iteration 3 is in progress.
+
+Recent delivery:
+
+- folders are now first-class entities in a dedicated `folders` table with parent-child relationships (`parent_id`)
+- startup backfill now hydrates folder rows from legacy slash-delimited `test_case.folder` values
+- `GET /api/folders` now reads derived paths from the folder table while keeping the existing `List<String>` response shape
+- folder APIs now support create, rename/reparent with cycle rejection, and explicit delete with conflict safeguards
+- workspace sidebar now supports New Folder, folder context-menu actions, and folder drag/reparent behavior
 
 Primary active goals:
 
@@ -90,6 +98,7 @@ Current frontend shape:
 
 - the workspace page now uses feature-scoped JS modules under `src/main/resources/static/js/workspace`
 - the workspace template now composes fragments from `src/main/resources/templates/workspace`
+- workspace bulk edit now supports explicit field selection, fixed status changes, case-sensitive matching, and drawer preview access from the modal
 - workspace row preview now uses inline expandable rows in the grid (multi-expand), rather than opening from row actions into the right-side drawer
 - workspace preview UX now includes in-card collapse controls, a global `Collapse all previews` control, and selected-row/preview linked highlighting
 - workspace grid now includes truncation-aware title tooltips (hover/focus only when truncated)
@@ -131,7 +140,6 @@ This is a strength of the current project and should remain part of the definiti
 - oversized feature hotspots such as bulk edit logic and upload review orchestration
 - direct use of shared domain entities across multiple feature boundaries
 - `spring.jpa.hibernate.ddl-auto=update` plus startup schema adjustment is fast for iteration, but risky as production deployment matures
-- bulk edit rollout state is mid-refactor; the workspace page currently forces `bulkEditEnabled` in controller code
 
 ## Deployment State
 

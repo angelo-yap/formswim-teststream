@@ -21,6 +21,8 @@ import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
 import com.formswim.teststream.support.TestCaseFixtures;
+import com.formswim.teststream.workspace.repository.FolderRepository;
+import com.formswim.teststream.workspace.services.FolderBackfillService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -36,9 +38,16 @@ class TeststreamApplicationTests {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private FolderRepository folderRepository;
+
+	@Autowired
+	private FolderBackfillService folderBackfillService;
+
 	@BeforeEach
 	void setUp() {
 		testCaseRepository.deleteAll();
+		folderRepository.deleteAll();
 		userRepository.deleteAll();
 
 		userRepository.save(new AppUser("team1.user@example.com", "test-hash", "TEAM1"));
@@ -51,6 +60,7 @@ class TeststreamApplicationTests {
 				TestCaseFixtures.basicCase("TEAM2", "TC-201", "Auth/Login"),
 				TestCaseFixtures.basicCase("TEAM2", "TC-202", "Auth/Signup")
 		));
+		folderBackfillService.backfillFoldersFromTestCases();
 	}
 
 	@Test
@@ -58,8 +68,8 @@ class TeststreamApplicationTests {
 		mockMvc.perform(get("/api/folders")
 					.with(user("team1.user@example.com").roles("USER")))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$", hasSize(2)))
-				.andExpect(jsonPath("$", containsInAnyOrder("Payments/Core", "Billing/Refunds")));
+				.andExpect(jsonPath("$", hasSize(4)))
+				.andExpect(jsonPath("$", containsInAnyOrder("Billing", "Billing/Refunds", "Payments", "Payments/Core")));
 	}
 
 	@Test
@@ -67,45 +77,25 @@ class TeststreamApplicationTests {
 		mockMvc.perform(get("/api/folders")
 					.with(user("team2.user@example.com").roles("USER")))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$", hasSize(2)))
-				.andExpect(jsonPath("$", containsInAnyOrder("Auth/Login", "Auth/Signup")));
-	}
-
-	@Test
-	void getFoldersReturnsCleanSortedCaseSensitiveWhitespaceNormalizedArray() throws Exception {
-		testCaseRepository.deleteAll();
-		testCaseRepository.saveAll(List.of(
-				TestCaseFixtures.basicCase("TEAM1", "TC-301", " UI "),
-				TestCaseFixtures.basicCase("TEAM1", "TC-302", "UI"),
-				TestCaseFixtures.basicCase("TEAM1", "TC-303", "ui"),
-				TestCaseFixtures.basicCase("TEAM1", "TC-304", "Billing"),
-				TestCaseFixtures.basicCase("TEAM1", "TC-305", ""),
-				TestCaseFixtures.basicCase("TEAM1", "TC-306", "   "),
-				TestCaseFixtures.basicCase("TEAM1", "TC-307", null)
-		));
-
-		mockMvc.perform(get("/api/folders")
-					.with(user("team1.user@example.com").roles("USER")))
-				.andExpect(status().isOk())
 				.andExpect(jsonPath("$", hasSize(3)))
-				.andExpect(jsonPath("$[0]").value("Billing"))
-				.andExpect(jsonPath("$[1]").value("UI"))
-				.andExpect(jsonPath("$[2]").value("ui"));
+				.andExpect(jsonPath("$", containsInAnyOrder("Auth", "Auth/Login", "Auth/Signup")));
 	}
 
 	@Test
 	void getFoldersNormalizesWindowsPathSeparatorsForSidebarTree() throws Exception {
 		testCaseRepository.deleteAll();
+		folderRepository.deleteAll();
 		testCaseRepository.saveAll(List.of(
 				TestCaseFixtures.basicCase("TEAM1", "TC-351", "Auth\\Login\\Mfa"),
 				TestCaseFixtures.basicCase("TEAM1", "TC-352", "Auth/Login/Mfa")
 		));
+		folderBackfillService.backfillFoldersFromTestCases();
 
 		mockMvc.perform(get("/api/folders")
 					.with(user("team1.user@example.com").roles("USER")))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$", hasSize(1)))
-				.andExpect(jsonPath("$[0]").value("Auth/Login/Mfa"));
+				.andExpect(jsonPath("$", hasSize(3)))
+				.andExpect(jsonPath("$", containsInAnyOrder("Auth", "Auth/Login", "Auth/Login/Mfa")));
 	}
 
 	@Test

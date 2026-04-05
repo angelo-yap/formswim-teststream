@@ -5,6 +5,7 @@ import com.formswim.teststream.bulk.dto.BulkEditResult;
 import com.formswim.teststream.shared.domain.TestCase;
 import com.formswim.teststream.shared.domain.TestStep;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
+import com.formswim.teststream.workspace.services.FolderPathSyncService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +22,7 @@ import java.util.Set;
 
 @Service
 /**
- * Service for large-scale exact text replacement across test cases and child steps.
+ * Service for bulk text replacement and fixed-status assignment across test cases and child steps.
  *
  * <p>The public mutation method is transactional so partial writes are rolled back
  * if any persistence error occurs during processing.</p>
@@ -34,12 +35,12 @@ public class TestCaseBulkEditService {
     private static final String FAILURE_INVALID = "INVALID_WORK_KEY";
     private static final String FAILURE_FORBIDDEN = "FORBIDDEN";
     private static final String FAILURE_NOT_FOUND = "NOT_FOUND";
+    private static final Set<String> ALLOWED_STATUS_VALUES = Set.of("Done", "Draft", "Pass", "Fail");
 
     private static final Set<String> SUPPORTED_FIELDS = Set.of(
         "summary",
         "description",
         "precondition",
-        "status",
         "priority",
         "assignee",
         "reporter",
@@ -54,7 +55,6 @@ public class TestCaseBulkEditService {
         "createdBy",
         "createdOn",
         "updatedBy",
-        "updatedOn",
         "storyLinkages",
         "isSharableStep",
         "flakyScore",
@@ -67,7 +67,6 @@ public class TestCaseBulkEditService {
         Map.entry("summary", "summary"),
         Map.entry("description", "description"),
         Map.entry("precondition", "precondition"),
-        Map.entry("status", "status"),
         Map.entry("priority", "priority"),
         Map.entry("assignee", "assignee"),
         Map.entry("reporter", "reporter"),
@@ -82,7 +81,6 @@ public class TestCaseBulkEditService {
         Map.entry("createdby", "createdBy"),
         Map.entry("createdon", "createdOn"),
         Map.entry("updatedby", "updatedBy"),
-        Map.entry("updatedon", "updatedOn"),
         Map.entry("storylinkages", "storyLinkages"),
         Map.entry("issharablestep", "isSharableStep"),
         Map.entry("flakyscore", "flakyScore"),
@@ -92,23 +90,26 @@ public class TestCaseBulkEditService {
     );
 
     private final TestCaseRepository testCaseRepository;
+    private final FolderPathSyncService folderPathSyncService;
     private final int maxWorkKeys;
 
     public TestCaseBulkEditService(TestCaseRepository testCaseRepository,
+                                   FolderPathSyncService folderPathSyncService,
                                    @Value("${teststream.bulk-edit.max-work-keys:5000}") int maxWorkKeys) {
         this.testCaseRepository = testCaseRepository;
+        this.folderPathSyncService = folderPathSyncService;
         this.maxWorkKeys = maxWorkKeys;
     }
 
     /**
-     * Applies literal text replacement for a team-scoped set of work keys.
+     * Applies team-scoped text replacement and optional fixed-status assignment for work keys.
      *
      * <p>Processing flow:</p>
      * <ol>
      *     <li>Validate request size and normalize work keys.</li>
      *     <li>Classify non-owned/missing keys as failures.</li>
-     *     <li>Resolve and validate requested fields (including aliases).</li>
-     *     <li>Apply exact replacements to parent and child fields.</li>
+     *     <li>Resolve and validate requested text fields (including aliases).</li>
+     *     <li>Apply requested text replacements and status updates.</li>
      *     <li>Persist once; transaction rolls back if persistence fails.</li>
      * </ol>
      *
@@ -147,9 +148,12 @@ public class TestCaseBulkEditService {
             return result;
         }
 
-        Set<String> requestedFields = resolveRequestedFields(request.getFields());
         String findText = request.getFindText();
         String replaceText = request.getReplaceText();
+        boolean caseSensitive = request.getCaseSensitive() == null || request.getCaseSensitive();
+        String requestedStatusValue = normalizeStatusValue(request.getStatusValue());
+        boolean hasTextOperation = findText != null && !findText.isEmpty();
+        Set<String> requestedFields = hasTextOperation ? resolveRequestedFields(request.getFields()) : Set.of();
 
         List<String> normalizedWorkKeys = new ArrayList<>(normalizedUniqueWorkKeys);
         Set<String> ownedWorkKeys = new HashSet<>(testCaseRepository.findOwnedWorkKeysIn(teamKey, normalizedWorkKeys));
@@ -181,119 +185,120 @@ public class TestCaseBulkEditService {
         int updatedCaseCount = 0;
         int updatedStepCount = 0;
         int totalReplacements = 0;
+        String updatedOnValue = LocalDate.now().toString();
+        Set<String> syncedFolders = new LinkedHashSet<>();
 
         for (TestCase testCase : cases) {
             boolean caseChanged = false;
+            boolean stepChanged = false;
 
-            ReplaceOutcome summaryOutcome = updateIfRequested(requestedFields.contains("summary"), testCase.getSummary(), findText, replaceText);
+            ReplaceOutcome summaryOutcome = updateIfRequested(requestedFields.contains("summary"), testCase.getSummary(), findText, replaceText, caseSensitive);
             testCase.setSummary(summaryOutcome.updatedValue());
             caseChanged = caseChanged || summaryOutcome.changed();
             totalReplacements += summaryOutcome.replacementCount();
 
-            ReplaceOutcome descriptionOutcome = updateIfRequested(requestedFields.contains("description"), testCase.getDescription(), findText, replaceText);
+            ReplaceOutcome descriptionOutcome = updateIfRequested(requestedFields.contains("description"), testCase.getDescription(), findText, replaceText, caseSensitive);
             testCase.setDescription(descriptionOutcome.updatedValue());
             caseChanged = caseChanged || descriptionOutcome.changed();
             totalReplacements += descriptionOutcome.replacementCount();
 
-            ReplaceOutcome preconditionOutcome = updateIfRequested(requestedFields.contains("precondition"), testCase.getPrecondition(), findText, replaceText);
+            ReplaceOutcome preconditionOutcome = updateIfRequested(requestedFields.contains("precondition"), testCase.getPrecondition(), findText, replaceText, caseSensitive);
             testCase.setPrecondition(preconditionOutcome.updatedValue());
             caseChanged = caseChanged || preconditionOutcome.changed();
             totalReplacements += preconditionOutcome.replacementCount();
 
-            ReplaceOutcome statusOutcome = updateIfRequested(requestedFields.contains("status"), testCase.getStatus(), findText, replaceText);
-            testCase.setStatus(statusOutcome.updatedValue());
-            caseChanged = caseChanged || statusOutcome.changed();
-            totalReplacements += statusOutcome.replacementCount();
-
-            ReplaceOutcome priorityOutcome = updateIfRequested(requestedFields.contains("priority"), testCase.getPriority(), findText, replaceText);
+            ReplaceOutcome priorityOutcome = updateIfRequested(requestedFields.contains("priority"), testCase.getPriority(), findText, replaceText, caseSensitive);
             testCase.setPriority(priorityOutcome.updatedValue());
             caseChanged = caseChanged || priorityOutcome.changed();
             totalReplacements += priorityOutcome.replacementCount();
 
-            ReplaceOutcome assigneeOutcome = updateIfRequested(requestedFields.contains("assignee"), testCase.getAssignee(), findText, replaceText);
+            ReplaceOutcome assigneeOutcome = updateIfRequested(requestedFields.contains("assignee"), testCase.getAssignee(), findText, replaceText, caseSensitive);
             testCase.setAssignee(assigneeOutcome.updatedValue());
             caseChanged = caseChanged || assigneeOutcome.changed();
             totalReplacements += assigneeOutcome.replacementCount();
 
-            ReplaceOutcome reporterOutcome = updateIfRequested(requestedFields.contains("reporter"), testCase.getReporter(), findText, replaceText);
+            ReplaceOutcome reporterOutcome = updateIfRequested(requestedFields.contains("reporter"), testCase.getReporter(), findText, replaceText, caseSensitive);
             testCase.setReporter(reporterOutcome.updatedValue());
             caseChanged = caseChanged || reporterOutcome.changed();
             totalReplacements += reporterOutcome.replacementCount();
 
-            ReplaceOutcome estimatedTimeOutcome = updateIfRequested(requestedFields.contains("estimatedTime"), testCase.getEstimatedTime(), findText, replaceText);
+            ReplaceOutcome estimatedTimeOutcome = updateIfRequested(requestedFields.contains("estimatedTime"), testCase.getEstimatedTime(), findText, replaceText, caseSensitive);
             testCase.setEstimatedTime(estimatedTimeOutcome.updatedValue());
             caseChanged = caseChanged || estimatedTimeOutcome.changed();
             totalReplacements += estimatedTimeOutcome.replacementCount();
 
-            ReplaceOutcome labelsOutcome = updateIfRequested(requestedFields.contains("labels"), testCase.getLabels(), findText, replaceText);
+            ReplaceOutcome labelsOutcome = updateIfRequested(requestedFields.contains("labels"), testCase.getLabels(), findText, replaceText, caseSensitive);
             testCase.setLabels(labelsOutcome.updatedValue());
             caseChanged = caseChanged || labelsOutcome.changed();
             totalReplacements += labelsOutcome.replacementCount();
 
-            ReplaceOutcome componentsOutcome = updateIfRequested(requestedFields.contains("components"), testCase.getComponents(), findText, replaceText);
+            ReplaceOutcome componentsOutcome = updateIfRequested(requestedFields.contains("components"), testCase.getComponents(), findText, replaceText, caseSensitive);
             testCase.setComponents(componentsOutcome.updatedValue());
             caseChanged = caseChanged || componentsOutcome.changed();
             totalReplacements += componentsOutcome.replacementCount();
 
-            ReplaceOutcome sprintOutcome = updateIfRequested(requestedFields.contains("sprint"), testCase.getSprint(), findText, replaceText);
+            ReplaceOutcome sprintOutcome = updateIfRequested(requestedFields.contains("sprint"), testCase.getSprint(), findText, replaceText, caseSensitive);
             testCase.setSprint(sprintOutcome.updatedValue());
             caseChanged = caseChanged || sprintOutcome.changed();
             totalReplacements += sprintOutcome.replacementCount();
 
-            ReplaceOutcome fixVersionsOutcome = updateIfRequested(requestedFields.contains("fixVersions"), testCase.getFixVersions(), findText, replaceText);
+            ReplaceOutcome fixVersionsOutcome = updateIfRequested(requestedFields.contains("fixVersions"), testCase.getFixVersions(), findText, replaceText, caseSensitive);
             testCase.setFixVersions(fixVersionsOutcome.updatedValue());
             caseChanged = caseChanged || fixVersionsOutcome.changed();
             totalReplacements += fixVersionsOutcome.replacementCount();
 
-            ReplaceOutcome versionOutcome = updateIfRequested(requestedFields.contains("version"), testCase.getVersion(), findText, replaceText);
+            ReplaceOutcome versionOutcome = updateIfRequested(requestedFields.contains("version"), testCase.getVersion(), findText, replaceText, caseSensitive);
             testCase.setVersion(versionOutcome.updatedValue());
             caseChanged = caseChanged || versionOutcome.changed();
             totalReplacements += versionOutcome.replacementCount();
 
-            ReplaceOutcome folderOutcome = updateIfRequested(requestedFields.contains("folder"), testCase.getFolder(), findText, replaceText);
+            ReplaceOutcome folderOutcome = updateIfRequested(requestedFields.contains("folder"), testCase.getFolder(), findText, replaceText, caseSensitive);
             testCase.setFolder(folderOutcome.updatedValue());
             caseChanged = caseChanged || folderOutcome.changed();
             totalReplacements += folderOutcome.replacementCount();
+            if (folderOutcome.changed() && folderOutcome.updatedValue() != null && !folderOutcome.updatedValue().isBlank()) {
+                syncedFolders.add(folderOutcome.updatedValue());
+            }
 
-            ReplaceOutcome testCaseTypeOutcome = updateIfRequested(requestedFields.contains("testCaseType"), testCase.getTestCaseType(), findText, replaceText);
+            ReplaceOutcome testCaseTypeOutcome = updateIfRequested(requestedFields.contains("testCaseType"), testCase.getTestCaseType(), findText, replaceText, caseSensitive);
             testCase.setTestCaseType(testCaseTypeOutcome.updatedValue());
             caseChanged = caseChanged || testCaseTypeOutcome.changed();
             totalReplacements += testCaseTypeOutcome.replacementCount();
 
-            ReplaceOutcome createdByOutcome = updateIfRequested(requestedFields.contains("createdBy"), testCase.getCreatedBy(), findText, replaceText);
+            ReplaceOutcome createdByOutcome = updateIfRequested(requestedFields.contains("createdBy"), testCase.getCreatedBy(), findText, replaceText, caseSensitive);
             testCase.setCreatedBy(createdByOutcome.updatedValue());
             caseChanged = caseChanged || createdByOutcome.changed();
             totalReplacements += createdByOutcome.replacementCount();
 
-            ReplaceOutcome createdOnOutcome = updateIfRequested(requestedFields.contains("createdOn"), testCase.getCreatedOn(), findText, replaceText);
+            ReplaceOutcome createdOnOutcome = updateIfRequested(requestedFields.contains("createdOn"), testCase.getCreatedOn(), findText, replaceText, caseSensitive);
             testCase.setCreatedOn(createdOnOutcome.updatedValue());
             caseChanged = caseChanged || createdOnOutcome.changed();
             totalReplacements += createdOnOutcome.replacementCount();
 
-            ReplaceOutcome updatedByOutcome = updateIfRequested(requestedFields.contains("updatedBy"), testCase.getUpdatedBy(), findText, replaceText);
+            ReplaceOutcome updatedByOutcome = updateIfRequested(requestedFields.contains("updatedBy"), testCase.getUpdatedBy(), findText, replaceText, caseSensitive);
             testCase.setUpdatedBy(updatedByOutcome.updatedValue());
             caseChanged = caseChanged || updatedByOutcome.changed();
             totalReplacements += updatedByOutcome.replacementCount();
 
-            ReplaceOutcome updatedOnOutcome = updateIfRequested(requestedFields.contains("updatedOn"), testCase.getUpdatedOn(), findText, replaceText);
-            testCase.setUpdatedOn(updatedOnOutcome.updatedValue());
-            caseChanged = caseChanged || updatedOnOutcome.changed();
-            totalReplacements += updatedOnOutcome.replacementCount();
-
-            ReplaceOutcome storyLinkagesOutcome = updateIfRequested(requestedFields.contains("storyLinkages"), testCase.getStoryLinkages(), findText, replaceText);
+            ReplaceOutcome storyLinkagesOutcome = updateIfRequested(requestedFields.contains("storyLinkages"), testCase.getStoryLinkages(), findText, replaceText, caseSensitive);
             testCase.setStoryLinkages(storyLinkagesOutcome.updatedValue());
             caseChanged = caseChanged || storyLinkagesOutcome.changed();
             totalReplacements += storyLinkagesOutcome.replacementCount();
 
-            ReplaceOutcome isSharableStepOutcome = updateIfRequested(requestedFields.contains("isSharableStep"), testCase.getIsSharableStep(), findText, replaceText);
+            ReplaceOutcome isSharableStepOutcome = updateIfRequested(requestedFields.contains("isSharableStep"), testCase.getIsSharableStep(), findText, replaceText, caseSensitive);
             testCase.setIsSharableStep(isSharableStepOutcome.updatedValue());
             caseChanged = caseChanged || isSharableStepOutcome.changed();
             totalReplacements += isSharableStepOutcome.replacementCount();
 
-            ReplaceOutcome flakyScoreOutcome = updateIfRequested(requestedFields.contains("flakyScore"), testCase.getFlakyScore(), findText, replaceText);
+            ReplaceOutcome flakyScoreOutcome = updateIfRequested(requestedFields.contains("flakyScore"), testCase.getFlakyScore(), findText, replaceText, caseSensitive);
             testCase.setFlakyScore(flakyScoreOutcome.updatedValue());
             caseChanged = caseChanged || flakyScoreOutcome.changed();
             totalReplacements += flakyScoreOutcome.replacementCount();
+
+            if (requestedStatusValue != null && !requestedStatusValue.equals(testCase.getStatus())) {
+                testCase.setStatus(requestedStatusValue);
+                caseChanged = true;
+            }
 
             if (caseChanged) {
                 updatedCaseCount++;
@@ -301,24 +306,24 @@ public class TestCaseBulkEditService {
 
             boolean anyStepChanged = false;
             for (TestStep step : testCase.getSteps()) {
-                boolean stepChanged = false;
+                boolean currentStepChanged = false;
 
-                ReplaceOutcome stepSummaryOutcome = updateIfRequested(requestedFields.contains("stepSummary"), step.getStepSummary(), findText, replaceText);
+                ReplaceOutcome stepSummaryOutcome = updateIfRequested(requestedFields.contains("stepSummary"), step.getStepSummary(), findText, replaceText, caseSensitive);
                 step.setStepSummary(stepSummaryOutcome.updatedValue());
-                stepChanged = stepChanged || stepSummaryOutcome.changed();
+                currentStepChanged = currentStepChanged || stepSummaryOutcome.changed();
                 totalReplacements += stepSummaryOutcome.replacementCount();
 
-                ReplaceOutcome testDataOutcome = updateIfRequested(requestedFields.contains("testData"), step.getTestData(), findText, replaceText);
+                ReplaceOutcome testDataOutcome = updateIfRequested(requestedFields.contains("testData"), step.getTestData(), findText, replaceText, caseSensitive);
                 step.setTestData(testDataOutcome.updatedValue());
-                stepChanged = stepChanged || testDataOutcome.changed();
+                currentStepChanged = currentStepChanged || testDataOutcome.changed();
                 totalReplacements += testDataOutcome.replacementCount();
 
-                ReplaceOutcome expectedResultOutcome = updateIfRequested(requestedFields.contains("expectedResult"), step.getExpectedResult(), findText, replaceText);
+                ReplaceOutcome expectedResultOutcome = updateIfRequested(requestedFields.contains("expectedResult"), step.getExpectedResult(), findText, replaceText, caseSensitive);
                 step.setExpectedResult(expectedResultOutcome.updatedValue());
-                stepChanged = stepChanged || expectedResultOutcome.changed();
+                currentStepChanged = currentStepChanged || expectedResultOutcome.changed();
                 totalReplacements += expectedResultOutcome.replacementCount();
 
-                if (stepChanged) {
+                if (currentStepChanged) {
                     updatedStepCount++;
                     anyStepChanged = true;
                 }
@@ -329,6 +334,7 @@ public class TestCaseBulkEditService {
             }
         }
 
+        folderPathSyncService.ensureFolderPathsExist(teamKey, syncedFolders, "bulk-edit");
         testCaseRepository.saveAll(cases);
 
         result.setUpdatedCaseCount(updatedCaseCount);
@@ -379,18 +385,22 @@ public class TestCaseBulkEditService {
     /**
      * Performs one literal replacement operation for a field when it is requested.
      */
-    private ReplaceOutcome updateIfRequested(boolean shouldEdit, String source, String findText, String replaceText) {
+    private ReplaceOutcome updateIfRequested(boolean shouldEdit, String source, String findText, String replaceText, boolean caseSensitive) {
         if (!shouldEdit || source == null || findText == null || findText.isEmpty()) {
             return new ReplaceOutcome(source, 0, false);
         }
 
-        int occurrences = countOccurrences(source, findText);
-        if (occurrences == 0) {
-            return new ReplaceOutcome(source, 0, false);
+        if (caseSensitive) {
+            int occurrences = countOccurrences(source, findText);
+            if (occurrences == 0) {
+                return new ReplaceOutcome(source, 0, false);
+            }
+
+            String updated = source.replace(findText, replaceText == null ? "" : replaceText);
+            return new ReplaceOutcome(updated, occurrences, true);
         }
 
-        String updated = source.replace(findText, replaceText == null ? "" : replaceText);
-        return new ReplaceOutcome(updated, occurrences, true);
+        return replaceLiteralIgnoreCase(source, findText, replaceText);
     }
 
     /**
@@ -411,6 +421,47 @@ public class TestCaseBulkEditService {
             count++;
             index = found + token.length();
         }
+    }
+
+    private ReplaceOutcome replaceLiteralIgnoreCase(String source, String findText, String replaceText) {
+        String needle = findText.toLowerCase(Locale.ROOT);
+        String haystack = source.toLowerCase(Locale.ROOT);
+        int searchIndex = 0;
+        int occurrences = 0;
+        int matchIndex;
+        String replacement = replaceText == null ? "" : replaceText;
+        StringBuilder builder = new StringBuilder(source.length());
+
+        while ((matchIndex = haystack.indexOf(needle, searchIndex)) >= 0) {
+            builder.append(source, searchIndex, matchIndex);
+            builder.append(replacement);
+            searchIndex = matchIndex + findText.length();
+            occurrences++;
+        }
+
+        if (occurrences == 0) {
+            return new ReplaceOutcome(source, 0, false);
+        }
+
+        builder.append(source, searchIndex, source.length());
+        return new ReplaceOutcome(builder.toString(), occurrences, true);
+    }
+
+    private String normalizeStatusValue(String rawStatusValue) {
+        if (rawStatusValue == null) {
+            return null;
+        }
+
+        String trimmed = rawStatusValue.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+
+        if (!ALLOWED_STATUS_VALUES.contains(trimmed)) {
+            throw new IllegalArgumentException("Unsupported status: " + trimmed);
+        }
+
+        return trimmed;
     }
 
     /**
