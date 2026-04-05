@@ -1,3 +1,5 @@
+import { createWorkspaceTooltip } from './workspace-tooltip.js';
+
 export function createWorkspaceFolderTree(options) {
     const uiState = options.uiState;
     const api = options.api;
@@ -31,6 +33,42 @@ export function createWorkspaceFolderTree(options) {
     let sidebarWidthPx = SIDEBAR_DEFAULT_WIDTH;
     const TREE_BASE_PADDING_PX = 0;
     const TREE_INDENT_STEP_PX = 12;
+    const folderLabelTooltip = createWorkspaceTooltip({
+        className: 'fixed z-50 border border-white/15 bg-black/90 px-2 py-1 text-xs text-white/85',
+        maxWidth: '20rem',
+        whiteSpace: 'normal',
+        wordBreak: 'break-word'
+    });
+
+    function isHorizontallyTruncated(element) {
+        if (!element) {
+            return false;
+        }
+        return element.scrollWidth > element.clientWidth + 1;
+    }
+
+    function bindTruncationTooltip(element, text) {
+        if (!element) {
+            return;
+        }
+        const fullText = String(text || '').trim();
+        if (!fullText) {
+            return;
+        }
+
+        const show = () => {
+            if (!isHorizontallyTruncated(element)) {
+                return;
+            }
+            folderLabelTooltip.show(element, fullText);
+        };
+        const hide = () => folderLabelTooltip.hide();
+
+        element.addEventListener('mouseenter', show);
+        element.addEventListener('mouseleave', hide);
+        element.addEventListener('focusin', show);
+        element.addEventListener('focusout', hide);
+    }
 
     function snapshotExpandedState(model) {
         const expandedByPath = new Map();
@@ -748,6 +786,7 @@ export function createWorkspaceFolderTree(options) {
             return;
         }
 
+        folderLabelTooltip.hide();
         folderTree.innerHTML = '';
 
         const selectedFolder = uiState.getSelectedFolder();
@@ -930,6 +969,7 @@ export function createWorkspaceFolderTree(options) {
             const labelSpan = document.createElement('span');
             labelSpan.className = 'min-w-0 truncate';
             labelSpan.textContent = node.name;
+            bindTruncationTooltip(labelSpan, node.name);
 
             const isRenameEditing = Boolean(inlineEditorState && inlineEditorState.mode === 'rename' && inlineEditorState.targetPath === node.path);
 
