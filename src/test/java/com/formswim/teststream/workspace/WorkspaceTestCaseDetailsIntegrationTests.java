@@ -143,7 +143,7 @@ class WorkspaceTestCaseDetailsIntegrationTests {
         assertThat(updated.getPrecondition()).isEqualTo("User has valid cart");
         assertThat(updated.getUpdatedOn()).isNotNull();
         assertThat(updated.getUpdatedOn()).isNotEqualTo("2026-03-02");
-        assertThat(updated.getUpdatedOn()).matches("\\d{2}/[A-Z][a-z]{2}/\\d{4} \\d{2}:\\d{2}");
+        assertThat(updated.getUpdatedOn()).matches("\\d{4}-\\d{2}-\\d{2}");
     }
 
     @Test
@@ -203,7 +203,7 @@ class WorkspaceTestCaseDetailsIntegrationTests {
 
         TestCase updated = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-101").orElseThrow();
         assertThat(updated.getFolder()).isEqualTo("Checkout/Payments/Refunds");
-        assertThat(updated.getUpdatedOn()).matches("\\d{2}/[A-Z][a-z]{2}/\\d{4} \\d{2}:\\d{2}");
+        assertThat(updated.getUpdatedOn()).matches("\\d{4}-\\d{2}-\\d{2}");
     }
 
     @Test
