@@ -1,4 +1,5 @@
 export function bindWorkspaceHeaderControls() {
+    const FLASH_AUTO_DISMISS_MS = 5000;
     const settingsToggle = document.getElementById('workspaceSettingsToggle');
     const settingsIcon = document.getElementById('workspaceSettingsIcon');
     const settingsDropdown = document.getElementById('workspaceSettingsDropdown');
@@ -19,12 +20,10 @@ export function bindWorkspaceHeaderControls() {
         }
     }
 
-    function dismissWorkspaceFlash(button) {
-        const item = button.closest('[data-flash-item]');
+    function dismissWorkspaceFlashItem(item) {
         if (item) {
             item.classList.add('hidden');
         }
-
         const container = document.getElementById('workspaceFlashContainer');
         if (!container) {
             return;
@@ -34,6 +33,27 @@ export function bindWorkspaceHeaderControls() {
         if (visibleItems.length === 0) {
             container.classList.add('hidden');
         }
+    }
+
+    function dismissWorkspaceFlash(button) {
+        const item = button.closest('[data-flash-item]');
+        dismissWorkspaceFlashItem(item);
+    }
+
+    function scheduleWorkspaceFlashAutoDismiss() {
+        const items = Array.from(document.querySelectorAll('#workspaceFlashContainer [data-flash-item]:not(.hidden)'));
+        items.forEach((item) => {
+            if (!(item instanceof HTMLElement)) {
+                return;
+            }
+            if (item.dataset.autoDismissBound === 'true') {
+                return;
+            }
+            item.dataset.autoDismissBound = 'true';
+            window.setTimeout(() => {
+                dismissWorkspaceFlashItem(item);
+            }, FLASH_AUTO_DISMISS_MS);
+        });
     }
 
     async function copyWorkspaceTeamCode() {
@@ -119,6 +139,7 @@ export function bindWorkspaceHeaderControls() {
             dismissWorkspaceFlash(button);
         });
     });
+    scheduleWorkspaceFlashAutoDismiss();
 
     return {};
 }

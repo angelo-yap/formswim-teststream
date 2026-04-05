@@ -60,7 +60,7 @@ export function createWorkspaceFolderTree(options) {
             if (!isHorizontallyTruncated(element)) {
                 return;
             }
-            folderLabelTooltip.show(element, fullText);
+            folderLabelTooltip.show(element, fullText, { asText: true });
         };
         const hide = () => folderLabelTooltip.hide();
 
@@ -1204,6 +1204,7 @@ export function createWorkspaceFolderTree(options) {
                 return;
             }
 
+            const pointerId = event.pointerId;
             const startX = Number(event.clientX) || 0;
             const startWidth = sidebar.getBoundingClientRect().width || 0;
 
@@ -1212,13 +1213,37 @@ export function createWorkspaceFolderTree(options) {
                 setSidebarWidth(nextWidth);
             };
 
-            const onPointerUp = () => {
+            const cleanupDrag = () => {
                 document.removeEventListener('pointermove', onPointerMove);
                 document.removeEventListener('pointerup', onPointerUp);
+                document.removeEventListener('pointercancel', onPointerCancel);
+                window.removeEventListener('blur', onWindowBlur);
+                if (
+                    typeof sidebarResizeHandle.hasPointerCapture === 'function' &&
+                    typeof sidebarResizeHandle.releasePointerCapture === 'function' &&
+                    sidebarResizeHandle.hasPointerCapture(pointerId)
+                ) {
+                    sidebarResizeHandle.releasePointerCapture(pointerId);
+                }
             };
 
+            const onPointerUp = () => {
+                cleanupDrag();
+            };
+            const onPointerCancel = () => {
+                cleanupDrag();
+            };
+            const onWindowBlur = () => {
+                cleanupDrag();
+            };
+
+            if (typeof sidebarResizeHandle.setPointerCapture === 'function') {
+                sidebarResizeHandle.setPointerCapture(pointerId);
+            }
             document.addEventListener('pointermove', onPointerMove);
             document.addEventListener('pointerup', onPointerUp);
+            document.addEventListener('pointercancel', onPointerCancel);
+            window.addEventListener('blur', onWindowBlur);
             event.preventDefault();
         });
     }

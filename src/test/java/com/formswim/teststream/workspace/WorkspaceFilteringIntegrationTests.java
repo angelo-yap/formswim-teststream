@@ -178,7 +178,21 @@ class WorkspaceFilteringIntegrationTests {
             .andExpect(content().string(containsString("<option value=\"Fail\">Fail</option>")))
             .andExpect(content().string(containsString("id=\"organizeModal\"")))
             .andExpect(content().string(containsString("id=\"drawer\"")))
+            .andExpect(content().string(containsString("id=\"workspaceSettingsToggle\"")))
+            .andExpect(content().string(containsString("id=\"wsSidebarResizeHandle\"")))
             .andExpect(content().string(containsString("id=\"workspaceAccountToggle\"")));
+    }
+
+    @Test
+    void workspacePageRendersServerFlashNoticeHooksWhenMessagesProvided() throws Exception {
+        mockMvc.perform(get("/workspace")
+                .with(user("team1.user@example.com").roles("USER"))
+                .param("importSuccess", "Upload applied"))
+            .andExpect(status().isOk())
+            .andExpect(view().name("workspace"))
+            .andExpect(content().string(containsString("id=\"workspaceFlashContainer\"")))
+            .andExpect(content().string(containsString("data-workspace-flash-dismiss")))
+            .andExpect(content().string(containsString("Upload applied")));
     }
 
     @Test
