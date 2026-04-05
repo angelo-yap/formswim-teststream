@@ -1,6 +1,7 @@
 export function createSelection(selectAll, bulkBar, bulkCount) {
     const selectedIds = new Set();
     let visibleIds = [];
+    let selectionAnchor = null;
     let onSelectionChange = null;
 
     function setSelectionChangeHandler(handler) {
@@ -9,6 +10,28 @@ export function createSelection(selectAll, bulkBar, bulkCount) {
 
     function setVisibleIds(ids) {
         visibleIds = Array.isArray(ids) ? ids.slice() : [];
+
+        if (selectionAnchor && !visibleIds.includes(selectionAnchor)) {
+            selectionAnchor = null;
+        }
+
+        syncMasterCheckbox();
+        updateBulkBar();
+    }
+
+    function getFirstVisibleId() {
+        return visibleIds.length > 0 ? visibleIds[0] : null;
+    }
+
+    function setSelectionAnchor(workKey) {
+        selectionAnchor = workKey ? String(workKey) : null;
+    }
+
+    function getSelectionAnchor() {
+        return selectionAnchor;
+    }
+
+    function updateSelectionState() {
         syncMasterCheckbox();
         updateBulkBar();
     }
@@ -24,8 +47,40 @@ export function createSelection(selectAll, bulkBar, bulkCount) {
             selectedIds.delete(workKey);
         }
 
-        syncMasterCheckbox();
-        updateBulkBar();
+        updateSelectionState();
+    }
+
+    function toggleSingle(workKey) {
+        if (!workKey) {
+            return;
+        }
+
+        if (selectedIds.has(workKey)) {
+            selectedIds.delete(workKey);
+        } else {
+            selectedIds.add(workKey);
+        }
+
+        setSelectionAnchor(workKey);
+        updateSelectionState();
+    }
+
+    function selectOnly(workKey) {
+        if (!workKey) {
+            clearSelection();
+            return;
+        }
+
+        selectedIds.clear();
+        selectedIds.add(workKey);
+        setSelectionAnchor(workKey);
+        updateSelectionState();
+    }
+
+    function clearSelection() {
+        selectedIds.clear();
+        selectionAnchor = null;
+        updateSelectionState();
     }
 
     function isSelected(workKey) {
@@ -38,6 +93,35 @@ export function createSelection(selectAll, bulkBar, bulkCount) {
 
     function setSelected(workKey, shouldBeSelected) {
         toggleSelection(workKey, Boolean(shouldBeSelected));
+    }
+
+    function selectRange(anchorWorkKey, targetWorkKey) {
+        const anchor = anchorWorkKey ? String(anchorWorkKey) : '';
+        const target = targetWorkKey ? String(targetWorkKey) : '';
+        if (!anchor || !target) {
+            return;
+        }
+
+        const anchorIndex = visibleIds.indexOf(anchor);
+        const targetIndex = visibleIds.indexOf(target);
+        if (anchorIndex === -1 || targetIndex === -1) {
+            selectOnly(target);
+            return;
+        }
+
+        const start = Math.min(anchorIndex, targetIndex);
+        const end = Math.max(anchorIndex, targetIndex);
+
+        selectedIds.clear();
+        for (let index = start; index <= end; index += 1) {
+            const visibleId = visibleIds[index];
+            if (visibleId) {
+                selectedIds.add(visibleId);
+            }
+        }
+
+        setSelectionAnchor(anchor);
+        updateSelectionState();
     }
 
     function removeSelectedIds(workKeys) {
@@ -55,12 +139,15 @@ export function createSelection(selectAll, bulkBar, bulkCount) {
             }
         }
 
+        if (selectionAnchor && !selectedIds.has(selectionAnchor) && !visibleIds.includes(selectionAnchor)) {
+            selectionAnchor = null;
+        }
+
         if (!changed) {
             return;
         }
 
-        syncMasterCheckbox();
-        updateBulkBar();
+        updateSelectionState();
     }
 
     function retainSelectedIds(workKeys) {
@@ -75,14 +162,16 @@ export function createSelection(selectAll, bulkBar, bulkCount) {
             changed = true;
         }
 
+        if (selectionAnchor && !allowed.has(selectionAnchor)) {
+            selectionAnchor = null;
+        }
+
         if (!changed) {
-            syncMasterCheckbox();
-            updateBulkBar();
+            updateSelectionState();
             return;
         }
 
-        syncMasterCheckbox();
-        updateBulkBar();
+        updateSelectionState();
     }
 
     function bindRowCheckboxes(root) {
@@ -144,20 +233,26 @@ export function createSelection(selectAll, bulkBar, bulkCount) {
                 }
             }
             bindRowCheckboxes(document);
-            syncMasterCheckbox();
-            updateBulkBar();
+            updateSelectionState();
         });
     }
 
     return {
         bindRowCheckboxes,
+        clearSelection,
+        getFirstVisibleId,
         getSelectedIds,
+        getSelectionAnchor,
         isSelected,
         removeSelectedIds,
         retainSelectedIds,
+        selectOnly,
+        selectRange,
         setSelected,
+        setSelectionAnchor,
         setSelectionChangeHandler,
         setVisibleIds,
-        toggleSelection
+        toggleSelection,
+        toggleSingle
     };
 }
