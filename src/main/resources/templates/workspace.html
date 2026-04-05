@@ -149,11 +149,40 @@
 		.ws-preview-card {
 			border-top: 1px solid rgba(255, 255, 255, 0.08);
 		}
+
+		/* Subtle, fixed-width sidebar scrollbar (no oversized hover growth). */
+		#wsSidebarContent {
+			scrollbar-width: thin;
+			scrollbar-color: rgba(163, 163, 163, 0.45) transparent;
+		}
+
+		#wsSidebarContent::-webkit-scrollbar {
+			width: 8px;
+		}
+
+		#wsSidebarContent::-webkit-scrollbar-track {
+			background: transparent;
+		}
+
+		#wsSidebarContent::-webkit-scrollbar-thumb {
+			background-color: rgba(163, 163, 163, 0.45);
+			border-radius: 999px;
+			border: 2px solid transparent;
+			background-clip: padding-box;
+		}
+
+		#wsSidebarContent:hover::-webkit-scrollbar {
+			width: 8px;
+		}
+
+		#wsSidebarContent:hover::-webkit-scrollbar-thumb {
+			background-color: rgba(163, 163, 163, 0.62);
+		}
 	</style>
 </head>
 
-<body class="bg-black text-white workspace-theme-soft">
-	<div class="min-h-screen">
+<body class="bg-black text-white workspace-theme-soft overflow-hidden">
+	<div class="h-dvh min-h-screen flex flex-col overflow-hidden">
 		<th:block th:replace="~{workspace/_header :: header}"></th:block>
 		<th:block th:replace="~{workspace/_notices :: notices}"></th:block>
 		<th:block th:replace="~{workspace/_main :: mainContent}"></th:block>

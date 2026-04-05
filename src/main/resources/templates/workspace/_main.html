@@ -2,8 +2,8 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 	<th:block th:fragment="mainContent">
-		<main class="w-full px-0 sm:px-0">
-			<div class="flex min-h-[calc(100vh-12rem)]">
+		<main class="w-full px-0 sm:px-0 flex-1 min-h-0 flex flex-col">
+			<div class="flex flex-1 min-h-0">
 				<aside id="wsSidebar" class="w-[18rem] sm:w-[20rem] border-r border-white/10 bg-black shrink-0 self-stretch min-h-0 flex flex-col">
 					<div id="wsSidebarInner" class="px-6 py-5 flex-1 min-h-0 flex flex-col">
 						<div id="wsSidebarHeader" class="flex items-center justify-between gap-3">
@@ -34,8 +34,8 @@
 					aria-orientation="vertical"
 				></div>
 
-				<section class="flex-1 min-w-0">
-					<div id="wsGridFrame" class="overflow-x-hidden">
+				<section class="flex-1 min-w-0 min-h-0 flex flex-col">
+					<div id="wsGridFrame" class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
 						<table id="wsGridTable" class="w-full table-fixed text-sm">
 							<thead class="text-white/50">
 								<tr class="border-b border-white/10">
