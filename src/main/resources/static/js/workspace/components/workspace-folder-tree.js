@@ -402,7 +402,11 @@ export function createWorkspaceFolderTree(options) {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'block w-full px-3 py-2 text-left text-sm transition-colors';
-            button.classList.add(action.disabled ? 'text-white/35 cursor-not-allowed' : 'hover:bg-white/10');
+            if (action.disabled) {
+                button.classList.add('text-white/35', 'cursor-not-allowed');
+            } else {
+                button.classList.add('hover:bg-white/10');
+            }
             button.textContent = action.label;
             button.disabled = Boolean(action.disabled);
             button.addEventListener('click', (clickEvent) => {
@@ -470,6 +474,9 @@ export function createWorkspaceFolderTree(options) {
 
         try {
             if (inlineEditorState.mode === 'create') {
+                if (typeof api.createFolder !== 'function') {
+                    throw new Error('Folder create API is unavailable (frontend assets may be out of sync).');
+                }
                 const created = await api.createFolder({
                     name,
                     parentId: inlineEditorState.parentId
@@ -491,6 +498,9 @@ export function createWorkspaceFolderTree(options) {
             }
 
             if (inlineEditorState.mode === 'rename') {
+                if (typeof api.updateFolder !== 'function') {
+                    throw new Error('Folder update API is unavailable (frontend assets may be out of sync).');
+                }
                 const updated = await api.updateFolder(inlineEditorState.targetId, { name });
                 const previousSelected = uiState.getSelectedFolder();
                 const renamedPath = inlineEditorState.targetPath;
@@ -539,6 +549,9 @@ export function createWorkspaceFolderTree(options) {
         }
 
         try {
+            if (typeof api.deleteFolder !== 'function') {
+                throw new Error('Folder delete API is unavailable (frontend assets may be out of sync).');
+            }
             await api.deleteFolder(meta.id);
             const selected = uiState.getSelectedFolder();
             if (selected && (selected === node.path || selected.startsWith(node.path + '/'))) {
@@ -1024,6 +1037,13 @@ export function createWorkspaceFolderTree(options) {
         }
 
         renderFolderTree();
+
+        if (typeof api.fetchFolders !== 'function') {
+            notify('error', 'Folder list API is unavailable (frontend assets may be out of sync).');
+            isFolderLoading = false;
+            renderFolderTree();
+            return Promise.resolve();
+        }
 
         const folderNodesPromise = typeof api.fetchFolderNodes === 'function'
             ? api.fetchFolderNodes().catch(() => [])
