@@ -6,6 +6,7 @@ export function createWorkspaceImportController(options) {
     const importNoticeContainer = options.importNoticeContainer;
     const importNotice = options.importNotice;
     const importNoticeBadge = options.importNoticeBadge;
+    const importNoticeOk = options.importNoticeOk;
     const importNoticeMessage = options.importNoticeMessage;
     const importNoticeClose = options.importNoticeClose;
     const onUploadComplete = options.onUploadComplete;
@@ -45,6 +46,9 @@ export function createWorkspaceImportController(options) {
 
     if (importNoticeClose) {
         importNoticeClose.addEventListener('click', clearNotice);
+    }
+    if (importNoticeOk) {
+        importNoticeOk.addEventListener('click', clearNotice);
     }
 
     if (importBtn && importFile) {

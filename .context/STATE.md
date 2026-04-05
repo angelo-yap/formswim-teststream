@@ -62,6 +62,7 @@ Recent delivery:
 - workspace sidebar now supports New Folder, folder context-menu actions, and folder drag/reparent behavior
 - workspace theme now defaults to a softer dark gray and includes a header theme selector (`Dark Gray` / `High Contrast`) persisted in `localStorage`
 - workspace header now uses a single animated settings menu (theme selector, team code, account, logout), with account controls removed from the main header row
+- workspace notice popup can now be dismissed via both `OK` and `X`, and notice/bulk bars now visually follow the selected workspace theme
 
 Primary active goals:
 

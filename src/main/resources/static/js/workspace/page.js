@@ -37,6 +37,7 @@ const collapseAllPreviews = document.getElementById('wsCollapsePreviews');
 const importNoticeContainer = document.getElementById('importNoticeContainer');
 const importNotice = document.getElementById('importNotice');
 const importNoticeBadge = document.getElementById('importNoticeBadge');
+const importNoticeOk = document.getElementById('importNoticeOk');
 const importNoticeMessage = document.getElementById('importNoticeMessage');
 const importNoticeClose = document.getElementById('importNoticeClose');
 
@@ -181,7 +182,8 @@ importController = createWorkspaceImportController({
     importForm,
     importNoticeContainer,
     importNotice,
-    importNoticeBadge,
+    importNoticeBadge: importNoticeBadge || importNoticeOk,
+    importNoticeOk,
     importNoticeMessage,
     importNoticeClose,
     onUploadComplete: async () => {
