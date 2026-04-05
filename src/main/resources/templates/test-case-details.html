@@ -85,26 +85,20 @@
                                 <button type="button"
                                         class="px-3 py-1 border border-white/15 text-xs text-white/70 hover:border-white/40 transition-colors cursor-pointer"
                                         data-edit-field="status"
-                                        th:if="${!#strings.isEmpty(detailsStatus)}"
                                         title="Click to edit">
                                     Status: <span data-field-display="status"
                                                   th:attr="data-raw-value=${detailsStatus ?: ''}"
                                                   th:text="${detailsStatus ?: '-'}">Draft</span>
                                 </button>
-                                <span class="px-3 py-1 border border-white/15 text-xs text-white/70"
-                                      th:unless="${!#strings.isEmpty(detailsStatus)}">Status: -</span>
 
                                 <button type="button"
                                         class="px-3 py-1 border border-white/15 text-xs text-white/70 hover:border-white/40 transition-colors cursor-pointer"
                                         data-edit-field="priority"
-                                        th:if="${!#strings.isEmpty(detailsPriority)}"
                                         title="Click to edit">
                                     Priority: <span data-field-display="priority"
                                                     th:attr="data-raw-value=${detailsPriority ?: ''}"
                                                     th:text="${detailsPriority ?: '-'}">Medium</span>
                                 </button>
-                                <span class="px-3 py-1 border border-white/15 text-xs text-white/70"
-                                      th:unless="${!#strings.isEmpty(detailsPriority)}">Priority: -</span>
 
                                 <span class="px-3 py-1 border border-white/15 text-xs text-white/70">Steps: <span th:text="${detailsSteps != null ? #lists.size(detailsSteps) : 0}">0</span></span>
                             </div>
@@ -145,14 +139,16 @@
                              class="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/80 cursor-pointer hover:opacity-80 transition-opacity"
                              data-edit-field="folder"
                              title="Click to edit"
-                             th:if="${detailsFolderSegments != null and !#lists.isEmpty(detailsFolderSegments)}">
+                             th:classappend="${detailsFolderSegments == null or #lists.isEmpty(detailsFolderSegments)} ? ' hidden' : ''">
                             <th:block th:each="segment, stat : ${detailsFolderSegments}">
                                 <span class="px-2 py-1 border border-white/15 bg-black/20" th:text="${segment}">Device</span>
                                 <span class="text-white/40" th:if="${!stat.last}">/</span>
                             </th:block>
                         </div>
-                        <p th:classappend="${detailsFolderSegments != null and !#lists.isEmpty(detailsFolderSegments)} ? 'sr-only' : 'mt-3 text-xs text-white/60 break-all'"
+                        <p class="mt-3 text-xs text-white/60 break-all cursor-pointer hover:text-white/80 transition-colors"
+                           th:classappend="${detailsFolderSegments != null and !#lists.isEmpty(detailsFolderSegments)} ? ' sr-only' : ''"
                            data-field-display="folder"
+                           data-edit-field="folder"
                            th:attr="data-raw-value=${detailsFolder ?: ''}"
                            th:text="${detailsFolder ?: '-'}">Device/HeadCoach Skill/HeadCoach Skill Pitch</p>
 
@@ -177,7 +173,7 @@
                     <div class="space-y-6">
 
                         <!-- Description -->
-                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6 group relative" th:if="${!#strings.isEmpty(detailsDescription)}">
+                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6 group relative">
                             <div class="flex items-center justify-between">
                                 <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Description</p>
                                 <span class="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-white/35 select-none" aria-hidden="true">
@@ -190,8 +186,8 @@
                                  data-dblclick-edit="true"
                                  data-empty-label="Not provided"
                                  title="Double-click to edit"
-                                 th:attr="data-raw-value=${detailsDescription}"
-                                 th:text="${detailsDescription}">Coach assigns a planned drill to a swimmer and verifies it appears in the daily training view with the correct configuration.</div>
+                                 th:attr="data-raw-value=${detailsDescription ?: ''}"
+                                 th:text="${detailsDescription ?: ''}">Coach assigns a planned drill to a swimmer and verifies it appears in the daily training view with the correct configuration.</div>
                             <div class="hidden mt-3" data-field-edit="description">
                                 <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-none overflow-y-auto max-h-96 min-h-[6rem]"
                                           rows="6" data-field-textarea="description" th:text="${detailsDescription}"></textarea>
@@ -204,7 +200,7 @@
                         </article>
 
                         <!-- Precondition -->
-                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6 group relative" th:if="${!#strings.isEmpty(detailsPrecondition)}">
+                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6 group relative">
                             <div class="flex items-center justify-between">
                                 <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Precondition</p>
                                 <span class="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-white/35 select-none" aria-hidden="true">
@@ -217,8 +213,8 @@
                                  data-dblclick-edit="true"
                                  data-empty-label="Not provided"
                                  title="Double-click to edit"
-                                 th:attr="data-raw-value=${detailsPrecondition}"
-                                 th:text="${detailsPrecondition}">User is authenticated, swimmer profile exists, and the session plan has at least one unpublished drill.</div>
+                                 th:attr="data-raw-value=${detailsPrecondition ?: ''}"
+                                 th:text="${detailsPrecondition ?: ''}">User is authenticated, swimmer profile exists, and the session plan has at least one unpublished drill.</div>
                             <div class="hidden mt-3" data-field-edit="precondition">
                                 <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-none overflow-y-auto max-h-96 min-h-[4rem]"
                                           rows="4" data-field-textarea="precondition" th:text="${detailsPrecondition}"></textarea>
@@ -231,7 +227,7 @@
                         </article>
 
                         <!-- Story linkages -->
-                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6 group relative" th:if="${!#strings.isEmpty(detailsStoryLinkages)}">
+                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6 group relative">
                             <div class="flex items-center justify-between">
                                 <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Story linkage</p>
                                 <span class="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-white/35 select-none" aria-hidden="true">
@@ -242,9 +238,10 @@
                                  data-md="true"
                                  data-field-display="storyLinkages"
                                  data-dblclick-edit="true"
+                                 data-empty-label="Not provided"
                                  title="Double-click to edit"
-                                 th:attr="data-raw-value=${detailsStoryLinkages}"
-                                 th:text="${detailsStoryLinkages}">https://tracker.example.com/story/TC-2481</div>
+                                 th:attr="data-raw-value=${detailsStoryLinkages ?: ''}"
+                                 th:text="${detailsStoryLinkages ?: ''}">https://tracker.example.com/story/TC-2481</div>
                             <div class="hidden mt-3" data-field-edit="storyLinkages">
                                 <textarea class="w-full bg-black/20 border border-white/20 focus:border-[#E7FF02] focus:outline-none text-white/90 text-sm p-3 leading-6 resize-none overflow-y-auto max-h-96 min-h-[3rem]"
                                           rows="3" data-field-textarea="storyLinkages" th:text="${detailsStoryLinkages}"></textarea>
@@ -262,21 +259,20 @@
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
 
                         <!-- Classification -->
-                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6"
-                                 th:if="${!#strings.isEmpty(detailsComponents) or !#strings.isEmpty(detailsTestCaseType) or !#strings.isEmpty(detailsLabels)}">
+                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6">
                             <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Classification</p>
                             <dl class="mt-4 space-y-4 text-sm">
 
                                 <!-- Components -->
-                                <div th:if="${!#strings.isEmpty(detailsComponents)}">
+                                <div>
                                     <div class="flex items-center justify-between gap-4">
                                         <dt class="text-white/50 shrink-0">Components</dt>
                                         <dd class="text-white/80 text-right break-all cursor-pointer hover:text-white transition-colors"
                                             data-field-display="components"
                                             data-edit-field="components"
                                             title="Click to edit"
-                                            th:attr="data-raw-value=${detailsComponents}"
-                                            th:text="${detailsComponents}">HeadCoach, Device</dd>
+                                            th:attr="data-raw-value=${detailsComponents ?: ''}"
+                                            th:text="${detailsComponents ?: '-'}">HeadCoach, Device</dd>
                                     </div>
                                     <div class="hidden mt-2" data-field-edit="components">
                                         <input type="text"
@@ -292,15 +288,15 @@
                                 </div>
 
                                 <!-- Test case type -->
-                                <div th:if="${!#strings.isEmpty(detailsTestCaseType)}">
+                                <div>
                                     <div class="flex items-center justify-between gap-4">
                                         <dt class="text-white/50 shrink-0">Test case type</dt>
                                         <dd class="text-white/80 text-right break-all cursor-pointer hover:text-white transition-colors"
                                             data-field-display="testCaseType"
                                             data-edit-field="testCaseType"
                                             title="Click to edit"
-                                            th:attr="data-raw-value=${detailsTestCaseType}"
-                                            th:text="${detailsTestCaseType}">Functional</dd>
+                                            th:attr="data-raw-value=${detailsTestCaseType ?: ''}"
+                                            th:text="${detailsTestCaseType ?: '-'}">Functional</dd>
                                     </div>
                                     <div class="hidden mt-2" data-field-edit="testCaseType">
                                         <input type="text"
@@ -316,15 +312,15 @@
                                 </div>
 
                                 <!-- Labels -->
-                                <div th:if="${!#strings.isEmpty(detailsLabels)}">
+                                <div>
                                     <div class="flex items-center justify-between gap-4">
                                         <dt class="text-white/50 shrink-0">Labels</dt>
                                         <dd class="text-white/80 text-right break-all cursor-pointer hover:text-white transition-colors"
                                             data-field-display="labels"
                                             data-edit-field="labels"
                                             title="Click to edit"
-                                            th:attr="data-raw-value=${detailsLabels}"
-                                            th:text="${detailsLabels}">training, assignment, mobile</dd>
+                                            th:attr="data-raw-value=${detailsLabels ?: ''}"
+                                            th:text="${detailsLabels ?: '-'}">training, assignment, mobile</dd>
                                     </div>
                                     <div class="hidden mt-2" data-field-edit="labels">
                                         <input type="text"
@@ -343,21 +339,20 @@
                         </article>
 
                         <!-- Release context -->
-                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6"
-                                 th:if="${!#strings.isEmpty(detailsSprint) or !#strings.isEmpty(detailsFixVersions) or !#strings.isEmpty(detailsVersion) or !#strings.isEmpty(detailsEstimatedTime)}">
+                        <article class="border border-white/10 bg-[#202020] p-5 sm:p-6">
                             <p class="text-xs uppercase tracking-wider text-white/50" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Release context</p>
                             <dl class="mt-4 space-y-4 text-sm">
 
                                 <!-- Sprint -->
-                                <div th:if="${!#strings.isEmpty(detailsSprint)}">
+                                <div>
                                     <div class="flex items-center justify-between gap-4">
                                         <dt class="text-white/50 shrink-0">Sprint</dt>
                                         <dd class="text-white/80 text-right break-all cursor-pointer hover:text-white transition-colors"
                                             data-field-display="sprint"
                                             data-edit-field="sprint"
                                             title="Click to edit"
-                                            th:attr="data-raw-value=${detailsSprint}"
-                                            th:text="${detailsSprint}">Sprint 14</dd>
+                                            th:attr="data-raw-value=${detailsSprint ?: ''}"
+                                            th:text="${detailsSprint ?: '-'}">Sprint 14</dd>
                                     </div>
                                     <div class="hidden mt-2" data-field-edit="sprint">
                                         <input type="text"
@@ -373,15 +368,15 @@
                                 </div>
 
                                 <!-- Fix versions -->
-                                <div th:if="${!#strings.isEmpty(detailsFixVersions)}">
+                                <div>
                                     <div class="flex items-center justify-between gap-4">
                                         <dt class="text-white/50 shrink-0">Fix versions</dt>
                                         <dd class="text-white/80 text-right break-all cursor-pointer hover:text-white transition-colors"
                                             data-field-display="fixVersions"
                                             data-edit-field="fixVersions"
                                             title="Click to edit"
-                                            th:attr="data-raw-value=${detailsFixVersions}"
-                                            th:text="${detailsFixVersions}">v0.14.0</dd>
+                                            th:attr="data-raw-value=${detailsFixVersions ?: ''}"
+                                            th:text="${detailsFixVersions ?: '-'}">v0.14.0</dd>
                                     </div>
                                     <div class="hidden mt-2" data-field-edit="fixVersions">
                                         <input type="text"
@@ -397,15 +392,15 @@
                                 </div>
 
                                 <!-- Version -->
-                                <div th:if="${!#strings.isEmpty(detailsVersion)}">
+                                <div>
                                     <div class="flex items-center justify-between gap-4">
                                         <dt class="text-white/50 shrink-0">Version</dt>
                                         <dd class="text-white/80 text-right break-all cursor-pointer hover:text-white transition-colors"
                                             data-field-display="version"
                                             data-edit-field="version"
                                             title="Click to edit"
-                                            th:attr="data-raw-value=${detailsVersion}"
-                                            th:text="${detailsVersion}">2</dd>
+                                            th:attr="data-raw-value=${detailsVersion ?: ''}"
+                                            th:text="${detailsVersion ?: '-'}">2</dd>
                                     </div>
                                     <div class="hidden mt-2" data-field-edit="version">
                                         <input type="text"
@@ -421,15 +416,15 @@
                                 </div>
 
                                 <!-- Estimated time -->
-                                <div th:if="${!#strings.isEmpty(detailsEstimatedTime)}">
+                                <div>
                                     <div class="flex items-center justify-between gap-4">
                                         <dt class="text-white/50 shrink-0">Estimated time</dt>
                                         <dd class="text-white/80 text-right break-all cursor-pointer hover:text-white transition-colors"
                                             data-field-display="estimatedTime"
                                             data-edit-field="estimatedTime"
                                             title="Click to edit"
-                                            th:attr="data-raw-value=${detailsEstimatedTime}"
-                                            th:text="${detailsEstimatedTime}">5m</dd>
+                                            th:attr="data-raw-value=${detailsEstimatedTime ?: ''}"
+                                            th:text="${detailsEstimatedTime ?: '-'}">5m</dd>
                                     </div>
                                     <div class="hidden mt-2" data-field-edit="estimatedTime">
                                         <input type="text"

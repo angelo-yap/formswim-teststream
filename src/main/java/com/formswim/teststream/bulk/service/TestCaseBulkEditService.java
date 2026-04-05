@@ -12,11 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -57,6 +59,22 @@ public class TestCaseBulkEditService {
         "stepSummary",
         "testData",
         "expectedResult"
+    );
+
+    private static final Set<String> DIRECT_ASSIGNABLE_FIELDS = Set.of(
+        "summary",
+        "description",
+        "precondition",
+        "priority",
+        "components",
+        "sprint",
+        "fixVersions",
+        "version",
+        "folder",
+        "testCaseType",
+        "labels",
+        "estimatedTime",
+        "storyLinkages"
     );
 
     private static final Map<String, String> FIELD_ALIASES = Map.ofEntries(
@@ -150,6 +168,7 @@ public class TestCaseBulkEditService {
         String requestedStatusValue = normalizeStatusValue(request.getStatusValue());
         boolean hasTextOperation = findText != null && !findText.isEmpty();
         Set<String> requestedFields = hasTextOperation ? resolveRequestedFields(request.getFields()) : Set.of();
+        Map<String, String> directFieldAssignments = resolveDirectFieldAssignments(request.getFieldValues());
 
         List<String> normalizedWorkKeys = new ArrayList<>(normalizedUniqueWorkKeys);
         Set<String> ownedWorkKeys = new HashSet<>(testCaseRepository.findOwnedWorkKeysIn(teamKey, normalizedWorkKeys));
@@ -186,26 +205,33 @@ public class TestCaseBulkEditService {
 
         for (TestCase testCase : cases) {
             boolean caseChanged = false;
-            boolean stepChanged = false;
 
+            String originalSummary = testCase.getSummary();
             ReplaceOutcome summaryOutcome = updateIfRequested(requestedFields.contains("summary"), testCase.getSummary(), findText, replaceText, caseSensitive);
-            testCase.setSummary(summaryOutcome.updatedValue());
-            caseChanged = caseChanged || summaryOutcome.changed();
+            String summaryValue = applyDirectAssignment("summary", summaryOutcome.updatedValue(), directFieldAssignments);
+            testCase.setSummary(summaryValue);
+            caseChanged = caseChanged || summaryOutcome.changed() || !equalsValue(originalSummary, summaryValue);
             totalReplacements += summaryOutcome.replacementCount();
 
+            String originalDescription = testCase.getDescription();
             ReplaceOutcome descriptionOutcome = updateIfRequested(requestedFields.contains("description"), testCase.getDescription(), findText, replaceText, caseSensitive);
-            testCase.setDescription(descriptionOutcome.updatedValue());
-            caseChanged = caseChanged || descriptionOutcome.changed();
+            String descriptionValue = applyDirectAssignment("description", descriptionOutcome.updatedValue(), directFieldAssignments);
+            testCase.setDescription(descriptionValue);
+            caseChanged = caseChanged || descriptionOutcome.changed() || !equalsValue(originalDescription, descriptionValue);
             totalReplacements += descriptionOutcome.replacementCount();
 
+            String originalPrecondition = testCase.getPrecondition();
             ReplaceOutcome preconditionOutcome = updateIfRequested(requestedFields.contains("precondition"), testCase.getPrecondition(), findText, replaceText, caseSensitive);
-            testCase.setPrecondition(preconditionOutcome.updatedValue());
-            caseChanged = caseChanged || preconditionOutcome.changed();
+            String preconditionValue = applyDirectAssignment("precondition", preconditionOutcome.updatedValue(), directFieldAssignments);
+            testCase.setPrecondition(preconditionValue);
+            caseChanged = caseChanged || preconditionOutcome.changed() || !equalsValue(originalPrecondition, preconditionValue);
             totalReplacements += preconditionOutcome.replacementCount();
 
+            String originalPriority = testCase.getPriority();
             ReplaceOutcome priorityOutcome = updateIfRequested(requestedFields.contains("priority"), testCase.getPriority(), findText, replaceText, caseSensitive);
-            testCase.setPriority(priorityOutcome.updatedValue());
-            caseChanged = caseChanged || priorityOutcome.changed();
+            String priorityValue = applyDirectAssignment("priority", priorityOutcome.updatedValue(), directFieldAssignments);
+            testCase.setPriority(priorityValue);
+            caseChanged = caseChanged || priorityOutcome.changed() || !equalsValue(originalPriority, priorityValue);
             totalReplacements += priorityOutcome.replacementCount();
 
             ReplaceOutcome assigneeOutcome = updateIfRequested(requestedFields.contains("assignee"), testCase.getAssignee(), findText, replaceText, caseSensitive);
@@ -218,47 +244,64 @@ public class TestCaseBulkEditService {
             caseChanged = caseChanged || reporterOutcome.changed();
             totalReplacements += reporterOutcome.replacementCount();
 
+            String originalEstimatedTime = testCase.getEstimatedTime();
             ReplaceOutcome estimatedTimeOutcome = updateIfRequested(requestedFields.contains("estimatedTime"), testCase.getEstimatedTime(), findText, replaceText, caseSensitive);
-            testCase.setEstimatedTime(estimatedTimeOutcome.updatedValue());
-            caseChanged = caseChanged || estimatedTimeOutcome.changed();
+            String estimatedTimeValue = applyDirectAssignment("estimatedTime", estimatedTimeOutcome.updatedValue(), directFieldAssignments);
+            testCase.setEstimatedTime(estimatedTimeValue);
+            caseChanged = caseChanged || estimatedTimeOutcome.changed() || !equalsValue(originalEstimatedTime, estimatedTimeValue);
             totalReplacements += estimatedTimeOutcome.replacementCount();
 
+            String originalLabels = testCase.getLabels();
             ReplaceOutcome labelsOutcome = updateIfRequested(requestedFields.contains("labels"), testCase.getLabels(), findText, replaceText, caseSensitive);
-            testCase.setLabels(labelsOutcome.updatedValue());
-            caseChanged = caseChanged || labelsOutcome.changed();
+            String labelsValue = applyDirectAssignment("labels", labelsOutcome.updatedValue(), directFieldAssignments);
+            testCase.setLabels(labelsValue);
+            caseChanged = caseChanged || labelsOutcome.changed() || !equalsValue(originalLabels, labelsValue);
             totalReplacements += labelsOutcome.replacementCount();
 
+            String originalComponents = testCase.getComponents();
             ReplaceOutcome componentsOutcome = updateIfRequested(requestedFields.contains("components"), testCase.getComponents(), findText, replaceText, caseSensitive);
-            testCase.setComponents(componentsOutcome.updatedValue());
-            caseChanged = caseChanged || componentsOutcome.changed();
+            String componentsValue = applyDirectAssignment("components", componentsOutcome.updatedValue(), directFieldAssignments);
+            testCase.setComponents(componentsValue);
+            caseChanged = caseChanged || componentsOutcome.changed() || !equalsValue(originalComponents, componentsValue);
             totalReplacements += componentsOutcome.replacementCount();
 
+            String originalSprint = testCase.getSprint();
             ReplaceOutcome sprintOutcome = updateIfRequested(requestedFields.contains("sprint"), testCase.getSprint(), findText, replaceText, caseSensitive);
-            testCase.setSprint(sprintOutcome.updatedValue());
-            caseChanged = caseChanged || sprintOutcome.changed();
+            String sprintValue = applyDirectAssignment("sprint", sprintOutcome.updatedValue(), directFieldAssignments);
+            testCase.setSprint(sprintValue);
+            caseChanged = caseChanged || sprintOutcome.changed() || !equalsValue(originalSprint, sprintValue);
             totalReplacements += sprintOutcome.replacementCount();
 
+            String originalFixVersions = testCase.getFixVersions();
             ReplaceOutcome fixVersionsOutcome = updateIfRequested(requestedFields.contains("fixVersions"), testCase.getFixVersions(), findText, replaceText, caseSensitive);
-            testCase.setFixVersions(fixVersionsOutcome.updatedValue());
-            caseChanged = caseChanged || fixVersionsOutcome.changed();
+            String fixVersionsValue = applyDirectAssignment("fixVersions", fixVersionsOutcome.updatedValue(), directFieldAssignments);
+            testCase.setFixVersions(fixVersionsValue);
+            caseChanged = caseChanged || fixVersionsOutcome.changed() || !equalsValue(originalFixVersions, fixVersionsValue);
             totalReplacements += fixVersionsOutcome.replacementCount();
 
+            String originalVersion = testCase.getVersion();
             ReplaceOutcome versionOutcome = updateIfRequested(requestedFields.contains("version"), testCase.getVersion(), findText, replaceText, caseSensitive);
-            testCase.setVersion(versionOutcome.updatedValue());
-            caseChanged = caseChanged || versionOutcome.changed();
+            String versionValue = applyDirectAssignment("version", versionOutcome.updatedValue(), directFieldAssignments);
+            testCase.setVersion(versionValue);
+            caseChanged = caseChanged || versionOutcome.changed() || !equalsValue(originalVersion, versionValue);
             totalReplacements += versionOutcome.replacementCount();
 
             ReplaceOutcome folderOutcome = updateIfRequested(requestedFields.contains("folder"), testCase.getFolder(), findText, replaceText, caseSensitive);
-            testCase.setFolder(folderOutcome.updatedValue());
-            caseChanged = caseChanged || folderOutcome.changed();
+            String originalFolder = testCase.getFolder();
+            String folderValue = applyDirectAssignment("folder", folderOutcome.updatedValue(), directFieldAssignments);
+            testCase.setFolder(folderValue);
+            boolean folderChanged = !equalsValue(originalFolder, folderValue);
+            caseChanged = caseChanged || folderOutcome.changed() || folderChanged;
             totalReplacements += folderOutcome.replacementCount();
-            if (folderOutcome.changed() && folderOutcome.updatedValue() != null && !folderOutcome.updatedValue().isBlank()) {
-                syncedFolders.add(folderOutcome.updatedValue());
+            if (folderChanged && folderValue != null && !folderValue.isBlank()) {
+                syncedFolders.add(folderValue);
             }
 
+            String originalTestCaseType = testCase.getTestCaseType();
             ReplaceOutcome testCaseTypeOutcome = updateIfRequested(requestedFields.contains("testCaseType"), testCase.getTestCaseType(), findText, replaceText, caseSensitive);
-            testCase.setTestCaseType(testCaseTypeOutcome.updatedValue());
-            caseChanged = caseChanged || testCaseTypeOutcome.changed();
+            String testCaseTypeValue = applyDirectAssignment("testCaseType", testCaseTypeOutcome.updatedValue(), directFieldAssignments);
+            testCase.setTestCaseType(testCaseTypeValue);
+            caseChanged = caseChanged || testCaseTypeOutcome.changed() || !equalsValue(originalTestCaseType, testCaseTypeValue);
             totalReplacements += testCaseTypeOutcome.replacementCount();
 
             ReplaceOutcome createdByOutcome = updateIfRequested(requestedFields.contains("createdBy"), testCase.getCreatedBy(), findText, replaceText, caseSensitive);
@@ -276,9 +319,11 @@ public class TestCaseBulkEditService {
             caseChanged = caseChanged || updatedByOutcome.changed();
             totalReplacements += updatedByOutcome.replacementCount();
 
+            String originalStoryLinkages = testCase.getStoryLinkages();
             ReplaceOutcome storyLinkagesOutcome = updateIfRequested(requestedFields.contains("storyLinkages"), testCase.getStoryLinkages(), findText, replaceText, caseSensitive);
-            testCase.setStoryLinkages(storyLinkagesOutcome.updatedValue());
-            caseChanged = caseChanged || storyLinkagesOutcome.changed();
+            String storyLinkagesValue = applyDirectAssignment("storyLinkages", storyLinkagesOutcome.updatedValue(), directFieldAssignments);
+            testCase.setStoryLinkages(storyLinkagesValue);
+            caseChanged = caseChanged || storyLinkagesOutcome.changed() || !equalsValue(originalStoryLinkages, storyLinkagesValue);
             totalReplacements += storyLinkagesOutcome.replacementCount();
 
             ReplaceOutcome isSharableStepOutcome = updateIfRequested(requestedFields.contains("isSharableStep"), testCase.getIsSharableStep(), findText, replaceText, caseSensitive);
@@ -458,6 +503,49 @@ public class TestCaseBulkEditService {
         }
 
         return trimmed;
+    }
+
+    private Map<String, String> resolveDirectFieldAssignments(Map<String, String> rawFieldValues) {
+        if (rawFieldValues == null || rawFieldValues.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, String> resolved = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : rawFieldValues.entrySet()) {
+            String rawField = entry.getKey();
+            if (rawField == null) {
+                continue;
+            }
+
+            String normalized = rawField.trim();
+            if (normalized.isEmpty()) {
+                continue;
+            }
+
+            String canonicalField = toCanonicalField(normalized);
+            if (canonicalField == null || !DIRECT_ASSIGNABLE_FIELDS.contains(canonicalField)) {
+                throw new IllegalArgumentException("Unsupported direct field: " + normalized);
+            }
+
+            resolved.put(canonicalField, entry.getValue());
+        }
+
+        if (resolved.isEmpty()) {
+            throw new IllegalArgumentException("At least one valid direct field is required");
+        }
+
+        return resolved;
+    }
+
+    private String applyDirectAssignment(String fieldKey, String currentValue, Map<String, String> directFieldAssignments) {
+        if (!directFieldAssignments.containsKey(fieldKey)) {
+            return currentValue;
+        }
+        return directFieldAssignments.get(fieldKey);
+    }
+
+    private boolean equalsValue(String left, String right) {
+        return Objects.equals(left, right);
     }
 
     /**

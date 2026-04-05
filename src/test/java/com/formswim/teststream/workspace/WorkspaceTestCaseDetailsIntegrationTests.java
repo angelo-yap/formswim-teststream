@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
@@ -72,10 +73,24 @@ class WorkspaceTestCaseDetailsIntegrationTests {
         );
         team1Case.addStep(new TestStep(1, "Open checkout page", "Input cart", "Checkout page opens"));
 
+        TestCase blankTeam1Case = TestCaseFixtures.basicCase("TEAM1", "TC-102", "");
+        blankTeam1Case.setDescription("");
+        blankTeam1Case.setPrecondition("");
+        blankTeam1Case.setStoryLinkages("");
+        blankTeam1Case.setStatus("");
+        blankTeam1Case.setPriority("");
+        blankTeam1Case.setComponents("");
+        blankTeam1Case.setTestCaseType("");
+        blankTeam1Case.setLabels("");
+        blankTeam1Case.setSprint("");
+        blankTeam1Case.setFixVersions("");
+        blankTeam1Case.setVersion("");
+        blankTeam1Case.setEstimatedTime("");
+
         TestCase team2Case = TestCaseFixtures.basicCase("TEAM2", "TC-201", "OtherTeam/Auth");
         team2Case.addStep(new TestStep(1, "Open other team page", "", ""));
 
-        testCaseRepository.saveAll(List.of(team1Case, team2Case));
+        testCaseRepository.saveAll(List.of(team1Case, blankTeam1Case, team2Case));
     }
 
     @Test
@@ -118,6 +133,20 @@ class WorkspaceTestCaseDetailsIntegrationTests {
                 .with(user("team1.user@example.com").roles("USER")))
             .andExpect(status().is3xxRedirection())
             .andExpect(redirectedUrl("/workspace?importError=Test+case+not+found"));
+    }
+
+    @Test
+    void detailsPageRendersEditableEmptyFieldsInsteadOfHidingThem() throws Exception {
+        mockMvc.perform(get("/workspace/test-cases/TC-102")
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("data-edit-field=\"status\"")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("data-field-display=\"status\"")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("data-edit-field=\"priority\"")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("data-field-display=\"priority\"")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("data-field-display=\"components\"")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("data-field-display=\"sprint\"")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("data-field-display=\"folder\"")));
     }
 
     @Test
@@ -267,5 +296,25 @@ class WorkspaceTestCaseDetailsIntegrationTests {
         TestCase updated = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn("TEAM1", List.of("TC-101")).get(0);
         assertThat(updated.getSteps().get(0).getStepSummary()).isEqualTo("Navigate to checkout");
         assertThat(updated.getSummary()).isEqualTo("Checkout flow summary");
+    }
+
+    @Test
+    void singleCaseEditCanSetBlankPriorityViaDirectAssignment() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-102"));
+        payload.put("fieldValues", Map.of("priority", "Critical"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedCaseCount").value(1))
+            .andExpect(jsonPath("$.totalReplacements").value(0));
+
+        TestCase updated = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-102").orElseThrow();
+        assertThat(updated.getPriority()).isEqualTo("Critical");
+        assertThat(updated.getUpdatedOn()).matches("\\d{4}-\\d{2}-\\d{2}");
     }
 }

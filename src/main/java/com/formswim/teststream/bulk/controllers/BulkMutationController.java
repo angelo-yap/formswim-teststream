@@ -1,6 +1,7 @@
 package com.formswim.teststream.bulk.controllers;
 
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -116,10 +117,19 @@ public class BulkMutationController {
         String normalizedStatusValue = normalizeTrimmed(request.getStatusValue());
         request.setFindText(normalizedFindText);
         request.setStatusValue(normalizedStatusValue);
+        request.setFieldValues(request.getFieldValues().entrySet().stream()
+            .filter(entry -> entry.getKey() != null)
+            .collect(Collectors.toMap(
+                entry -> entry.getKey().trim(),
+                entry -> entry.getValue() == null ? "" : entry.getValue(),
+                (left, right) -> right,
+                java.util.LinkedHashMap::new
+            )));
 
         boolean hasTextOperation = !normalizedFindText.isBlank();
         boolean hasStatusOperation = !normalizedStatusValue.isBlank();
-        if (!hasTextOperation && !hasStatusOperation) {
+        boolean hasDirectSetOperation = !request.getFieldValues().isEmpty();
+        if (!hasTextOperation && !hasStatusOperation && !hasDirectSetOperation) {
             return ResponseEntity.badRequest().build();
         }
 
