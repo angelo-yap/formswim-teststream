@@ -63,6 +63,7 @@ Recent delivery:
 - workspace theme now defaults to a softer dark gray and includes a header theme selector (`Dark Gray` / `High Contrast`) persisted in `localStorage`
 - workspace header now uses a single animated settings menu (theme selector, team code, account, logout), with account controls removed from the main header row
 - workspace notice popup can now be dismissed via both `OK` and `X`, and notice/bulk bars now visually follow the selected workspace theme
+- folder delete confirmation is now a centered modal with blue-tinted backdrop, theme-aware styling, and keyboard focus trapping
 
 Primary active goals:
 

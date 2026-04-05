@@ -270,7 +270,7 @@ export function createWorkspaceFolderTree(options) {
             return;
         }
 
-        const { root, resolve, onKeyDown } = pendingDeletePrompt;
+        const { root, resolve, onKeyDown, previousActiveElement } = pendingDeletePrompt;
         pendingDeletePrompt = null;
 
         if (onKeyDown) {
@@ -278,6 +278,9 @@ export function createWorkspaceFolderTree(options) {
         }
         if (root && root.parentNode) {
             root.parentNode.removeChild(root);
+        }
+        if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
+            previousActiveElement.focus();
         }
         resolve(Boolean(confirmed));
     }
@@ -288,12 +291,22 @@ export function createWorkspaceFolderTree(options) {
         }
 
         return new Promise((resolve) => {
+            const isSoftTheme = document.body?.dataset?.workspaceTheme !== 'black';
+            const previousActiveElement = document.activeElement;
             const root = document.createElement('div');
-            root.className = 'fixed right-4 top-4 z-[1400] w-[min(28rem,calc(100vw-2rem))]';
+            root.className = 'fixed inset-0 z-[1400] flex items-center justify-center p-4';
+            root.style.backgroundColor = isSoftTheme
+                ? 'rgba(20, 20, 20, 0.46)'
+                : 'rgba(0, 0, 0, 0.62)';
+            root.style.backdropFilter = 'blur(2px)';
 
             const notice = document.createElement('div');
-            notice.className = 'border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80 shadow-[0_18px_48px_rgba(0,0,0,0.55)]';
-            notice.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            notice.className = 'w-[min(32rem,calc(100vw-2rem))] border px-5 py-5 text-sm text-white/85 rounded-md shadow-[0_24px_80px_rgba(0,0,0,0.55)]';
+            notice.style.backgroundColor = isSoftTheme ? '#2b2b2b' : 'rgba(0, 0, 0, 0.95)';
+            notice.style.borderColor = 'rgba(255, 255, 255, 0.24)';
+            notice.setAttribute('role', 'dialog');
+            notice.setAttribute('aria-modal', 'true');
+            notice.setAttribute('aria-label', 'Confirm folder delete');
 
             const headingRow = document.createElement('div');
             headingRow.className = 'flex items-start justify-between gap-3';
@@ -302,7 +315,8 @@ export function createWorkspaceFolderTree(options) {
             headingWrap.className = 'min-w-0';
 
             const badge = document.createElement('span');
-            badge.className = 'font-bold text-black px-2 py-1 mr-3 bg-white/70';
+            badge.className = 'font-bold text-black px-2 py-1 mr-3';
+            badge.style.backgroundColor = '#E7FF02';
             badge.textContent = 'Confirm';
 
             const heading = document.createElement('span');
@@ -314,7 +328,7 @@ export function createWorkspaceFolderTree(options) {
             message.textContent = 'Delete "' + String(path || '') + '"? Only empty folders can be deleted.';
 
             const actions = document.createElement('div');
-            actions.className = 'mt-3 flex items-center justify-end gap-2';
+            actions.className = 'mt-5 flex items-center justify-end gap-2';
 
             const cancelButton = document.createElement('button');
             cancelButton.type = 'button';
@@ -345,22 +359,46 @@ export function createWorkspaceFolderTree(options) {
                 if (event.key === 'Escape') {
                     event.preventDefault();
                     dismissDeletePrompt(false);
+                    return;
+                }
+
+                if (event.key === 'Tab') {
+                    const focusables = [cancelButton, deleteButton];
+                    const first = focusables[0];
+                    const last = focusables[focusables.length - 1];
+
+                    if (event.shiftKey && document.activeElement === first) {
+                        event.preventDefault();
+                        last.focus();
+                        return;
+                    }
+                    if (!event.shiftKey && document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                        return;
+                    }
                 }
             };
 
             pendingDeletePrompt = {
                 root,
                 resolve,
-                onKeyDown
+                onKeyDown,
+                previousActiveElement
             };
 
             document.addEventListener('keydown', onKeyDown);
 
             cancelButton.addEventListener('click', () => dismissDeletePrompt(false));
             deleteButton.addEventListener('click', () => dismissDeletePrompt(true));
+            root.addEventListener('click', (event) => {
+                if (event.target === root) {
+                    dismissDeletePrompt(false);
+                }
+            });
 
             window.requestAnimationFrame(() => {
-                deleteButton.focus();
+                cancelButton.focus();
             });
         });
     }
