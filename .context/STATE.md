@@ -35,6 +35,14 @@ TestStream is a working Spring Boot and Thymeleaf application with core authenti
 
 Iteration 3 is in progress.
 
+Recent delivery:
+
+- folders are now first-class entities in a dedicated `folders` table with parent-child relationships (`parent_id`)
+- startup backfill now hydrates folder rows from legacy slash-delimited `test_case.folder` values
+- `GET /api/folders` now reads derived paths from the folder table while keeping the existing `List<String>` response shape
+- folder APIs now support create, rename/reparent with cycle rejection, and explicit delete with conflict safeguards
+- workspace sidebar now supports New Folder, folder context-menu actions, and folder drag/reparent behavior
+
 Primary active goals:
 
 - modularize ETL code and finish architectural cleanup around the workspace backend

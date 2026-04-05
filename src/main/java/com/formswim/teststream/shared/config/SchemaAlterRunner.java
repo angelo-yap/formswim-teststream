@@ -5,10 +5,13 @@ import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+
+import com.formswim.teststream.workspace.services.FolderBackfillService;
 
 /**
  * Runs once on startup to widen any varchar(255) columns that need to be TEXT.
@@ -22,9 +25,15 @@ public class SchemaAlterRunner implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(SchemaAlterRunner.class);
 
     private final JdbcTemplate jdbc;
+    private final FolderBackfillService folderBackfillService;
+    private final boolean folderBackfillOnStartup;
 
-    public SchemaAlterRunner(JdbcTemplate jdbc) {
+    public SchemaAlterRunner(JdbcTemplate jdbc,
+                             FolderBackfillService folderBackfillService,
+                             @Value("${teststream.folders.backfill-on-startup:true}") boolean folderBackfillOnStartup) {
         this.jdbc = jdbc;
+        this.folderBackfillService = folderBackfillService;
+        this.folderBackfillOnStartup = folderBackfillOnStartup;
     }
 
     @Override
@@ -42,6 +51,20 @@ public class SchemaAlterRunner implements ApplicationRunner {
         // Older schemas enforced work_key uniqueness globally. The application model is
         // (team_key, work_key) unique, so migrate the constraint for Postgres.
         ensureTestCaseWorkKeyUniquePerTeam();
+        ensureRootFolderUniquePerTeam();
+        ensureChildFolderUniquePerTeam();
+
+        if (!folderBackfillOnStartup) {
+            log.info("Folder backfill skipped: teststream.folders.backfill-on-startup=false");
+            return;
+        }
+
+        try {
+            int createdFolders = folderBackfillService.backfillFoldersFromTestCases();
+            log.info("Folder backfill completed. Created {} folder rows.", createdFolders);
+        } catch (Exception exception) {
+            log.warn("Folder backfill failed.", exception);
+        }
     }
 
     private void ensureTestCaseWorkKeyUniquePerTeam() {
@@ -61,6 +84,43 @@ public class SchemaAlterRunner implements ApplicationRunner {
             }
         } catch (Exception e) {
             log.warn("Could not migrate test_case work_key uniqueness constraint: {}", e.getMessage());
+        }
+    }
+
+    private void ensureRootFolderUniquePerTeam() {
+        if (!isPostgres()) {
+            return;
+        }
+
+        try {
+            // UNIQUE(team_key, parent_id, name) allows duplicate roots on Postgres because
+            // parent_id is NULL at the root level. Enforce root uniqueness explicitly.
+            jdbc.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uk_folders_team_root_lower_name
+                ON folders (team_key, lower(name))
+                WHERE parent_id IS NULL
+                """);
+            log.info("Ensured index uk_folders_team_root_lower_name on folders(team_key, lower(name)) where parent_id is null");
+        } catch (Exception exception) {
+            log.warn("Could not enforce root folder uniqueness index: {}", exception.getMessage());
+        }
+    }
+
+    private void ensureChildFolderUniquePerTeam() {
+        if (!isPostgres()) {
+            return;
+        }
+
+        try {
+            // Keep DB semantics aligned with NameIgnoreCase sibling checks for non-root folders.
+            jdbc.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uk_folders_team_parent_lower_name
+                ON folders (team_key, parent_id, lower(name))
+                WHERE parent_id IS NOT NULL
+                """);
+            log.info("Ensured index uk_folders_team_parent_lower_name on folders(team_key, parent_id, lower(name)) where parent_id is not null");
+        } catch (Exception exception) {
+            log.warn("Could not enforce child folder uniqueness index: {}", exception.getMessage());
         }
     }
 
