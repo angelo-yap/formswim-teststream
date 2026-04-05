@@ -29,6 +29,8 @@ export function createWorkspaceFolderTree(options) {
     let isFolderLoading = false;
     let pendingDeletePrompt = null;
     let sidebarWidthPx = SIDEBAR_DEFAULT_WIDTH;
+    const TREE_BASE_PADDING_PX = 6;
+    const TREE_INDENT_STEP_PX = 12;
 
     function snapshotExpandedState(model) {
         const expandedByPath = new Map();
@@ -757,7 +759,7 @@ export function createWorkspaceFolderTree(options) {
 
         const showAllWrap = document.createElement('div');
         showAllWrap.className = rowWrapClasses;
-        showAllWrap.style.paddingLeft = '12px';
+        showAllWrap.style.paddingLeft = String(TREE_BASE_PADDING_PX) + 'px';
 
         const showAllInner = document.createElement('div');
         showAllInner.className = rowInnerBaseClasses + ' ' + (selectedFolder ? unselectedRowClasses : selectedRowClasses);
@@ -765,7 +767,7 @@ export function createWorkspaceFolderTree(options) {
         const showAllButton = document.createElement('button');
         showAllButton.type = 'button';
         showAllButton.className = rowSelectButtonClasses;
-        showAllButton.setAttribute('aria-label', 'Show all files');
+        showAllButton.setAttribute('aria-label', 'Show all test cases');
         if (!selectedFolder) {
             showAllButton.setAttribute('aria-current', 'true');
         }
@@ -773,7 +775,7 @@ export function createWorkspaceFolderTree(options) {
             '<span class="shrink-0 text-white/60">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></svg>' +
             '</span>' +
-            '<span class="min-w-0 truncate">Show all files <span id="wsTotalCount" class="text-white/55">(' + String(uiState.getPageState().totalCount) + ')</span></span>';
+            '<span class="min-w-0 truncate">Show all test cases</span>';
 
         if (isFolderLoading) {
             const loadingSpinner = document.createElement('span');
@@ -813,7 +815,7 @@ export function createWorkspaceFolderTree(options) {
         function renderInlineEditorRow(parentNode, depth) {
             const rowWrap = document.createElement('div');
             rowWrap.className = rowWrapClasses;
-            rowWrap.style.paddingLeft = String(12 + depth * 16) + 'px';
+            rowWrap.style.paddingLeft = String(TREE_BASE_PADDING_PX + depth * TREE_INDENT_STEP_PX) + 'px';
 
             const rowInner = document.createElement('div');
             rowInner.className = rowInnerBaseClasses + ' text-white/90 bg-white/5';
@@ -867,14 +869,14 @@ export function createWorkspaceFolderTree(options) {
             const isOpen = Boolean(hasChildren && node.expanded);
             const rowWrap = document.createElement('div');
             rowWrap.className = rowWrapClasses;
-            rowWrap.style.paddingLeft = String(12 + depth * 16) + 'px';
+            rowWrap.style.paddingLeft = String(TREE_BASE_PADDING_PX + depth * TREE_INDENT_STEP_PX) + 'px';
             rowWrap.style.position = 'relative';
 
             if (depth > 0) {
                 for (let guideLevel = 1; guideLevel <= depth; guideLevel++) {
                     const guide = document.createElement('span');
                     guide.className = 'pointer-events-none absolute top-0 bottom-0 w-px bg-white/20';
-                    guide.style.left = String(12 + (guideLevel - 1) * 16 + 8) + 'px';
+                    guide.style.left = String(TREE_BASE_PADDING_PX + (guideLevel - 1) * TREE_INDENT_STEP_PX + 8) + 'px';
                     rowWrap.appendChild(guide);
                 }
             }
