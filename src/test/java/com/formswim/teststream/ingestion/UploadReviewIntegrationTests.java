@@ -40,6 +40,7 @@ import com.formswim.teststream.shared.domain.TestCase;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
 import com.formswim.teststream.shared.domain.TestStep;
 import com.formswim.teststream.support.TestCaseFixtures;
+import com.formswim.teststream.workspace.repository.FolderRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -65,6 +66,9 @@ class UploadReviewIntegrationTests {
     private UploadReviewSessionRepository uploadReviewSessionRepository;
 
     @Autowired
+    private FolderRepository folderRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @BeforeEach
@@ -72,6 +76,7 @@ class UploadReviewIntegrationTests {
         uploadReviewSessionRepository.deleteAll();
         uploadHistoryRepository.deleteAll();
         testCaseRepository.deleteAll();
+        folderRepository.deleteAll();
         userRepository.deleteAll();
 
         userRepository.save(new AppUser(
@@ -126,6 +131,41 @@ class UploadReviewIntegrationTests {
         assertThat(secondResult.getMessage()).contains("exact file was already uploaded");
         assertThat(testCaseRepository.countByTeamKey("TEAM1")).isEqualTo(1);
         assertThat(uploadHistoryRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void directUploadGeneratesFolderNodesForImportedCases() throws Exception {
+        MockMultipartFile upload = new MockMultipartFile(
+            "file",
+            "direct-folder-sync.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            workbookBytes(
+                row("TC-110", "Folder sync case 1", "Draft", "UI", "Open payments", "", "Payments visible", "Checkout/Payments"),
+                row("TC-111", "Folder sync case 2", "Pass", "API", "Open refunds", "", "Refunds visible", "Checkout/Refunds")
+            )
+        );
+
+        MvcResult uploadResult = mockMvc.perform(multipart("/api/upload")
+                .file(upload)
+                .with(csrf())
+                .with(user("user@example.com").roles("USER")))
+            .andExpect(status().isOk())
+            .andReturn();
+
+        EtlResultSummary result = objectMapper.readValue(
+            uploadResult.getResponse().getContentAsByteArray(),
+            EtlResultSummary.class
+        );
+
+        assertThat(result.isReviewRequired()).isFalse();
+        assertThat(result.getImportedCount()).isEqualTo(2);
+
+        mockMvc.perform(get("/api/folders")
+                .with(user("user@example.com").roles("USER")))
+            .andExpect(status().isOk())
+            .andExpect(content().string(containsString("Checkout")))
+            .andExpect(content().string(containsString("Checkout/Payments")))
+            .andExpect(content().string(containsString("Checkout/Refunds")));
     }
 
     @Test
@@ -390,6 +430,17 @@ class UploadReviewIntegrationTests {
                          String stepSummary,
                          String testData,
                          String expectedResult) {
+        return row(workKey, summary, status, components, stepSummary, testData, expectedResult, "Folder/A");
+    }
+
+    private String[] row(String workKey,
+                         String summary,
+                         String status,
+                         String components,
+                         String stepSummary,
+                         String testData,
+                         String expectedResult,
+                         String folder) {
         String[] values = new String[ExcelParserService.CANONICAL_HEADERS.size()];
         values[0] = workKey;
         values[1] = summary;
@@ -408,7 +459,7 @@ class UploadReviewIntegrationTests {
         values[14] = testData;
         values[15] = expectedResult;
         values[16] = "V1";
-        values[17] = "Folder/A";
+        values[17] = folder;
         values[18] = "Regression";
         values[19] = "creator@example.com";
         values[20] = "2026-03-01";

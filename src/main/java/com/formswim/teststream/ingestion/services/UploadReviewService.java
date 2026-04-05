@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,26 +27,27 @@ import com.formswim.teststream.ingestion.repository.UploadReviewSessionRepositor
 import com.formswim.teststream.shared.domain.TestCase;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
 import com.formswim.teststream.shared.domain.TestStep;
+import com.formswim.teststream.workspace.services.FolderPathSyncService;
 
 @Service
 public class UploadReviewService {
 
     private final ObjectMapper objectMapper;
-    private final UploadDiffService uploadDiffService;
     private final UploadReviewSessionRepository uploadReviewSessionRepository;
     private final UploadHistoryRepository uploadHistoryRepository;
     private final TestCaseRepository testCaseRepository;
+    private final FolderPathSyncService folderPathSyncService;
 
     public UploadReviewService(ObjectMapper objectMapper,
-                               UploadDiffService uploadDiffService,
                                UploadReviewSessionRepository uploadReviewSessionRepository,
                                UploadHistoryRepository uploadHistoryRepository,
-                               TestCaseRepository testCaseRepository) {
+                               TestCaseRepository testCaseRepository,
+                               FolderPathSyncService folderPathSyncService) {
         this.objectMapper = objectMapper;
-        this.uploadDiffService = uploadDiffService;
         this.uploadReviewSessionRepository = uploadReviewSessionRepository;
         this.uploadHistoryRepository = uploadHistoryRepository;
         this.testCaseRepository = testCaseRepository;
+        this.folderPathSyncService = folderPathSyncService;
     }
 
     @Transactional
@@ -113,6 +115,7 @@ public class UploadReviewService {
         for (UploadReviewItem item : session.getItems()) {
             if (UploadReviewItem.TYPE_NEW.equals(item.getConflictType())) {
                 ReviewCaseSnapshot newSnapshot = readSnapshot(item.getIncomingSnapshotJson());
+                ensureFolderPathOrThrowValidation(teamKey, newSnapshot.getFolder());
                 testCaseRepository.save(toEntity(teamKey, newSnapshot));
                 importedNewCount++;
                 continue;
@@ -124,6 +127,7 @@ public class UploadReviewService {
             if (UploadReviewItem.ACTION_MERGE.equals(action)) {
                 ReviewCaseSnapshot editedSnapshot = buildEditedSnapshot(readSnapshot(item.getIncomingSnapshotJson()), parameters, item.getId());
                 item.setEditedSnapshotJson(writeJson(editedSnapshot));
+                ensureFolderPathOrThrowValidation(teamKey, editedSnapshot.getFolder());
                 mergeIntoExisting(teamKey, editedSnapshot);
                 mergedCount++;
             } else {
@@ -136,6 +140,16 @@ public class UploadReviewService {
         uploadHistoryRepository.save(new UploadHistory(session.getTeamKey(), session.getOriginalFilename(), session.getFileHash()));
 
         return new ReviewApplyResult(importedNewCount, mergedCount, skippedCount);
+    }
+
+    private void ensureFolderPathOrThrowValidation(String teamKey, String folderPath) {
+        try {
+            folderPathSyncService.ensureFolderPathExists(teamKey, folderPath, "upload-review");
+        } catch (IllegalArgumentException exception) {
+            throw exception;
+        } catch (DataIntegrityViolationException exception) {
+            throw new IllegalArgumentException("Folder path could not be synchronized due to a concurrent update. Please retry.");
+        }
     }
 
     @Transactional

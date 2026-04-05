@@ -1,9 +1,9 @@
 package com.formswim.teststream.bulk;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,8 +28,7 @@ import com.formswim.teststream.shared.domain.TestCase;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
 import com.formswim.teststream.shared.domain.TestStep;
 import com.formswim.teststream.support.TestCaseFixtures;
-
-import jakarta.servlet.ServletException;
+import com.formswim.teststream.workspace.repository.FolderRepository;
 
 @SpringBootTest(properties = {
     "teststream.bulk-edit.enabled=true",
@@ -52,9 +50,13 @@ class BulkEditIntegrationTests {
     @Autowired
     private TestCaseRepository testCaseRepository;
 
+    @Autowired
+    private FolderRepository folderRepository;
+
     @BeforeEach
     void setUp() {
         testCaseRepository.deleteAll();
+        folderRepository.deleteAll();
         userRepository.deleteAll();
 
         userRepository.save(new AppUser("team1.user@example.com", "test-hash", "TEAM1"));
@@ -252,19 +254,43 @@ class BulkEditIntegrationTests {
         payload.put("replaceText", oversizedReplacement);
         payload.put("fields", List.of("assignee"));
 
-        assertThatThrownBy(() -> mockMvc.perform(patch("/api/testcases/bulk-edit")
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(payload)))
-            .andReturn())
-            .isInstanceOf(ServletException.class)
-            .hasCauseInstanceOf(DataIntegrityViolationException.class);
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.requestedCount").value(2))
+            .andExpect(jsonPath("$.invalidCount").value(2))
+            .andExpect(jsonPath("$.failures[0].reason").value("CONFLICT"));
 
         TestCase first = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-101").orElseThrow();
         TestCase second = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-102").orElseThrow();
 
         assertThat(first.getAssignee()).isEqualTo("Assignee");
         assertThat(second.getAssignee()).isEqualTo("Assignee");
+    }
+
+    @Test
+    void bulkEditFolderReplacementCreatesMissingFolderNodes() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-101"));
+        payload.put("findText", "Payments/Core");
+        payload.put("replaceText", "QA/Edited");
+        payload.put("fields", List.of("folder"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedCaseCount").value(1));
+
+        mockMvc.perform(get("/api/folders")
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0]").value("QA"))
+            .andExpect(jsonPath("$[1]").value("QA/Edited"));
     }
 }

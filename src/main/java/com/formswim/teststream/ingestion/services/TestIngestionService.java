@@ -23,6 +23,7 @@ import com.formswim.teststream.ingestion.model.UploadHistory;
 import com.formswim.teststream.ingestion.model.UploadReviewSession;
 import com.formswim.teststream.ingestion.repository.UploadHistoryRepository;
 import com.formswim.teststream.ingestion.repository.UploadReviewSessionRepository;
+import com.formswim.teststream.workspace.services.FolderPathSyncService;
 
 @Service
 public class TestIngestionService {
@@ -37,6 +38,7 @@ public class TestIngestionService {
     private final FileHashService fileHashService;
     private final UploadDiffService uploadDiffService;
     private final UploadReviewService uploadReviewService;
+    private final FolderPathSyncService folderPathSyncService;
     private final TransactionTemplate transactionTemplate;
 
     public TestIngestionService(ExcelParserService excelParserService,
@@ -47,6 +49,7 @@ public class TestIngestionService {
                                 FileHashService fileHashService,
                                 UploadDiffService uploadDiffService,
                                 UploadReviewService uploadReviewService,
+                                FolderPathSyncService folderPathSyncService,
                                 PlatformTransactionManager transactionManager) {
         this.excelParserService = excelParserService;
         this.csvParserService = csvParserService;
@@ -56,6 +59,7 @@ public class TestIngestionService {
         this.fileHashService = fileHashService;
         this.uploadDiffService = uploadDiffService;
         this.uploadReviewService = uploadReviewService;
+        this.folderPathSyncService = folderPathSyncService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -157,6 +161,11 @@ public class TestIngestionService {
         parsed.setStagedNewCount(stagedNewCases.size());
 
         if (changedConflicts.isEmpty()) {
+            folderPathSyncService.ensureFolderPathsExist(
+                teamKey,
+                newCasesToSave.stream().map(TestCase::getFolder).toList(),
+                "upload-direct"
+            );
             testCaseRepository.saveAll(newCasesToSave);
             uploadHistoryRepository.save(new UploadHistory(teamKey, file.getOriginalFilename() == null ? "upload" : file.getOriginalFilename(), fileHash));
             parsed.setImportedCount(newCasesToSave.size());
