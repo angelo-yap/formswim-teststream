@@ -220,9 +220,9 @@ export function createGrid(tbody) {
                 '<td class="px-3 sm:px-6 py-2.5"><div class="min-w-0 flex flex-wrap gap-2" data-ws-tags="' + escHtml(encodedTags) + '" tabindex="' + tagsTabIndex + '">' + tagsCell + '</div></td>' +
                 '<td class="pl-3 pr-6 sm:pl-6 sm:pr-4 py-2.5 text-white/55"><div class="min-w-0 whitespace-nowrap">' + escHtml(updated) + '</div></td>' +
                 '<td class="px-2 sm:px-4 py-2.5 text-right">' +
-                    '<div class="inline-flex items-center gap-2" data-work-key="' + escHtml(workKey) + '">' +
-                        '<button type="button" class="ws-row-action ws-row-preview ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="preview" data-work-key="' + escHtml(workKey) + '" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" aria-controls="' + escHtml(previewElementId) + '">' + (isExpanded ? 'Hide preview' : 'Preview') + '</button>' +
-                        '<a class="ws-row-action ws-row-edit ws-interactive px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="edit" data-work-key="' + escHtml(workKey) + '" href="' + escHtml(previewUrl) + '">Edit</a>' +
+                    '<div class="inline-flex items-center gap-2 whitespace-nowrap" data-work-key="' + escHtml(workKey) + '">' +
+                        '<button type="button" class="ws-row-action ws-row-preview ws-interactive min-w-[7.2rem] whitespace-nowrap text-center px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="preview" data-work-key="' + escHtml(workKey) + '" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" aria-controls="' + escHtml(previewElementId) + '">' + (isExpanded ? 'Hide Preview' : 'Preview') + '</button>' +
+                        '<a class="ws-row-action ws-row-edit ws-interactive whitespace-nowrap px-2.5 py-1.5 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] text-xs" data-action="edit" data-work-key="' + escHtml(workKey) + '" href="' + escHtml(previewUrl) + '">Edit</a>' +
                     '</div>' +
                 '</td>';
 
