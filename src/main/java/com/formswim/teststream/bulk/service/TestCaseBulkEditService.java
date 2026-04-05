@@ -300,6 +300,7 @@ public class TestCaseBulkEditService {
                 updatedCaseCount++;
             }
 
+            boolean anyStepChanged = false;
             for (TestStep step : testCase.getSteps()) {
                 boolean currentStepChanged = false;
 
@@ -320,11 +321,11 @@ public class TestCaseBulkEditService {
 
                 if (currentStepChanged) {
                     updatedStepCount++;
-                    stepChanged = true;
+                    anyStepChanged = true;
                 }
             }
 
-            if (caseChanged || stepChanged) {
+            if (caseChanged || anyStepChanged) {
                 testCase.setUpdatedOn(updatedOnValue);
             }
         }
