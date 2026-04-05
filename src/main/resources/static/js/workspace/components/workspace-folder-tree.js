@@ -6,15 +6,17 @@ export function createWorkspaceFolderTree(options) {
     const folderEmpty = options.folderEmpty;
     const newFolderButton = options.newFolderButton;
     const sidebar = options.sidebar;
-    const sidebarToggle = options.sidebarToggle;
+    const sidebarResizeHandle = options.sidebarResizeHandle;
     const sidebarContent = options.sidebarContent;
     const sidebarTitle = options.sidebarTitle;
     const sidebarInner = options.sidebarInner;
     const sidebarHeader = options.sidebarHeader;
-    const sidebarToggleExpandedHost = options.sidebarToggleExpandedHost;
-    const sidebarToggleCollapsedHost = options.sidebarToggleCollapsedHost;
     const showNotice = options.showNotice;
     const onFolderChanged = options.onFolderChanged;
+    const SIDEBAR_DEFAULT_WIDTH = 320;
+    const SIDEBAR_MIN_OPEN_WIDTH = 48;
+    const SIDEBAR_MAX_WIDTH = 560;
+    const SIDEBAR_CLOSE_SNAP_WIDTH = 24;
 
     let folderTreeModel = createFolderTreeModel([], []);
     let folderNodeByPath = new Map();
@@ -26,6 +28,7 @@ export function createWorkspaceFolderTree(options) {
     let activeFolderDropMode = null;
     let isFolderLoading = false;
     let pendingDeletePrompt = null;
+    let sidebarWidthPx = SIDEBAR_DEFAULT_WIDTH;
 
     function snapshotExpandedState(model) {
         const expandedByPath = new Map();
@@ -74,16 +77,22 @@ export function createWorkspaceFolderTree(options) {
         }
     }
 
-    function setSidebarExpanded(expanded) {
-        uiState.setSidebarExpanded(expanded);
-        const isSidebarExpanded = uiState.isSidebarExpanded();
+    function clampSidebarWidth(widthPx) {
+        return Math.min(Math.max(widthPx, SIDEBAR_MIN_OPEN_WIDTH), SIDEBAR_MAX_WIDTH);
+    }
+
+    function applySidebarWidth(widthPx) {
+        const numericWidth = Math.max(Number(widthPx) || 0, 0);
+        const isSidebarExpanded = numericWidth > 0;
+        uiState.setSidebarExpanded(isSidebarExpanded);
 
         if (sidebar) {
             if (isSidebarExpanded) {
-                sidebar.style.width = '';
-                sidebar.style.minWidth = '';
+                sidebar.style.width = String(numericWidth) + 'px';
+                sidebar.style.minWidth = String(numericWidth) + 'px';
                 sidebar.style.borderRight = '';
-                sidebar.style.overflow = '';
+                // Keep directory content clipped so it never overlays into the grid.
+                sidebar.style.overflow = 'hidden';
             } else {
                 sidebar.style.width = '0px';
                 sidebar.style.minWidth = '0px';
@@ -102,31 +111,42 @@ export function createWorkspaceFolderTree(options) {
 
         if (sidebarInner) {
             sidebarInner.style.padding = isSidebarExpanded ? '' : '0.25rem';
+            sidebarInner.style.overflow = 'hidden';
         }
 
         if (sidebarHeader) {
             sidebarHeader.style.justifyContent = isSidebarExpanded ? '' : 'center';
         }
 
-        if (sidebarToggle) {
-            sidebarToggle.setAttribute('aria-expanded', String(isSidebarExpanded));
-            sidebarToggle.setAttribute('aria-label', isSidebarExpanded ? 'Collapse repository sidebar' : 'Expand repository sidebar');
-            sidebarToggle.style.width = '';
-            sidebarToggle.style.padding = '';
-            sidebarToggle.innerHTML = isSidebarExpanded
-                ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M15 6l-6 6 6 6" /></svg>'
-                : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 6l6 6-6 6" /></svg>';
+        if (sidebarResizeHandle) {
+            sidebarResizeHandle.setAttribute('aria-valuenow', String(Math.round(numericWidth)));
+            sidebarResizeHandle.classList.toggle('bg-white/10', isSidebarExpanded);
+            sidebarResizeHandle.classList.toggle('bg-white/20', !isSidebarExpanded);
         }
 
-        if (sidebarToggleExpandedHost && sidebarToggleCollapsedHost && sidebarToggle) {
-            if (isSidebarExpanded) {
-                sidebarToggleExpandedHost.appendChild(sidebarToggle);
-                sidebarToggleCollapsedHost.classList.add('hidden');
-            } else {
-                sidebarToggleCollapsedHost.appendChild(sidebarToggle);
-                sidebarToggleCollapsedHost.classList.remove('hidden');
-            }
+        if (isSidebarExpanded) {
+            sidebarWidthPx = numericWidth;
         }
+    }
+
+    function setSidebarWidth(widthPx) {
+        const numericWidth = Number(widthPx) || 0;
+        if (numericWidth <= SIDEBAR_CLOSE_SNAP_WIDTH) {
+            applySidebarWidth(0);
+            return;
+        }
+
+        applySidebarWidth(clampSidebarWidth(numericWidth));
+    }
+
+    function setSidebarExpanded(expanded) {
+        if (expanded) {
+            const nextWidth = sidebarWidthPx > 0 ? sidebarWidthPx : SIDEBAR_DEFAULT_WIDTH;
+            setSidebarWidth(nextWidth);
+            return;
+        }
+
+        applySidebarWidth(0);
     }
 
     function createFolderTreeModel(folderNames, folderNodes) {
@@ -715,7 +735,7 @@ export function createWorkspaceFolderTree(options) {
             '<span class="shrink-0 text-white/60">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></svg>' +
             '</span>' +
-            '<span class="min-w-0 truncate">Show all files</span>';
+            '<span class="min-w-0 truncate">Show all files <span id="wsTotalCount" class="text-white/55">(' + String(uiState.getPageState().totalCount) + ')</span></span>';
 
         if (isFolderLoading) {
             const loadingSpinner = document.createElement('span');
@@ -1096,9 +1116,30 @@ export function createWorkspaceFolderTree(options) {
         return folderTreeModel;
     }
 
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', () => {
-            setSidebarExpanded(!uiState.isSidebarExpanded());
+    if (sidebarResizeHandle && sidebar) {
+        sidebarResizeHandle.setAttribute('aria-valuemin', '0');
+        sidebarResizeHandle.setAttribute('aria-valuemax', String(SIDEBAR_MAX_WIDTH));
+        sidebarResizeHandle.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) {
+                return;
+            }
+
+            const startX = Number(event.clientX) || 0;
+            const startWidth = sidebar.getBoundingClientRect().width || 0;
+
+            const onPointerMove = (moveEvent) => {
+                const nextWidth = startWidth + ((Number(moveEvent.clientX) || 0) - startX);
+                setSidebarWidth(nextWidth);
+            };
+
+            const onPointerUp = () => {
+                document.removeEventListener('pointermove', onPointerMove);
+                document.removeEventListener('pointerup', onPointerUp);
+            };
+
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+            event.preventDefault();
         });
     }
 

@@ -19,7 +19,6 @@ const importBtn = document.getElementById('importBtn');
 const importFile = document.getElementById('importFile');
 const importForm = document.getElementById('importForm');
 const tbody = document.getElementById('wsTbody');
-const totalCount = document.getElementById('wsTotalCount');
 const selectAll = document.getElementById('wsSelectAll');
 const searchInput = document.getElementById('wsSearch');
 const filterComponent = document.getElementById('wsFilterComponent');
@@ -44,13 +43,11 @@ const folderTree = document.getElementById('wsFolderTree');
 const folderLoading = document.getElementById('wsFolderLoading');
 const folderEmpty = document.getElementById('wsFolderEmpty');
 const sidebar = document.getElementById('wsSidebar');
-const sidebarToggle = document.getElementById('wsSidebarToggle');
+const sidebarResizeHandle = document.getElementById('wsSidebarResizeHandle');
 const sidebarContent = document.getElementById('wsSidebarContent');
 const sidebarTitle = document.getElementById('wsSidebarTitle');
 const sidebarInner = document.getElementById('wsSidebarInner');
 const sidebarHeader = document.getElementById('wsSidebarHeader');
-const sidebarToggleExpandedHost = document.getElementById('wsSidebarToggleExpandedHost');
-const sidebarToggleCollapsedHost = document.getElementById('wsSidebarToggleCollapsedHost');
 const newFolderButton = document.getElementById('wsNewFolderButton');
 
 const organizeModal = document.getElementById('organizeModal');
@@ -128,7 +125,7 @@ const dataController = createWorkspaceDataController({
     grid,
     selection,
     tbody,
-    totalCount,
+    getTotalCountElement: () => document.getElementById('wsTotalCount'),
     pageInfo,
     prevPageButton,
     nextPageButton,
@@ -150,13 +147,11 @@ const folderTreeController = createWorkspaceFolderTree({
     folderEmpty,
     newFolderButton,
     sidebar,
-    sidebarToggle,
+    sidebarResizeHandle,
     sidebarContent,
     sidebarTitle,
     sidebarInner,
     sidebarHeader,
-    sidebarToggleExpandedHost,
-    sidebarToggleCollapsedHost,
     showNotice: (type, message) => showNotice(type, message),
     onFolderChanged: () => {
         dataController.applyFilters({ resetPage: true });

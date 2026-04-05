@@ -42,6 +42,9 @@ export function createWorkspaceDataController(options) {
     const selection = options.selection;
     const tbody = options.tbody;
     const totalCount = options.totalCount;
+    const getTotalCountElement = typeof options.getTotalCountElement === 'function'
+        ? options.getTotalCountElement
+        : null;
     const pageInfo = options.pageInfo;
     const prevPageButton = options.prevPageButton;
     const nextPageButton = options.nextPageButton;
@@ -97,8 +100,9 @@ export function createWorkspaceDataController(options) {
     function renderCurrentPage() {
         const pageState = uiState.getPageState();
 
-        if (totalCount) {
-            totalCount.textContent = String(pageState.totalCount);
+        const totalCountElement = getTotalCountElement ? getTotalCountElement() : totalCount;
+        if (totalCountElement) {
+            totalCountElement.textContent = '(' + String(pageState.totalCount) + ')';
         }
 
         const visibleIds = currentPageCases.map((testCase) => testCase.workKey).filter(Boolean);
