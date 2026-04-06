@@ -1,15 +1,21 @@
 // Color palette for custom tags
 const TAG_COLORS = [
-    { label: 'Red',    value: '#ef4444' },
-    { label: 'Orange', value: '#f97316' },
-    { label: 'Yellow', value: '#eab308' },
-    { label: 'Green',  value: '#22c55e' },
-    { label: 'Teal',   value: '#14b8a6' },
-    { label: 'Blue',   value: '#3b82f6' },
-    { label: 'Violet', value: '#8b5cf6' },
-    { label: 'Pink',   value: '#ec4899' },
-    { label: 'Rose',   value: '#f43f5e' },
-    { label: 'Gray',   value: '#6b7280' },
+    { label: 'Red',       value: '#ef4444' },
+    { label: 'Orange',    value: '#f97316' },
+    { label: 'Amber',     value: '#f59e0b' },
+    { label: 'Yellow',    value: '#eab308' },
+    { label: 'Lime',      value: '#84cc16' },
+    { label: 'Green',     value: '#22c55e' },
+    { label: 'Emerald',   value: '#10b981' },
+    { label: 'Teal',      value: '#14b8a6' },
+    { label: 'Cyan',      value: '#06b6d4' },
+    { label: 'Blue',      value: '#3b82f6' },
+    { label: 'Indigo',    value: '#6366f1' },
+    { label: 'Violet',    value: '#8b5cf6' },
+    { label: 'Purple',    value: '#a855f7' },
+    { label: 'Pink',      value: '#ec4899' },
+    { label: 'Rose',      value: '#f43f5e' },
+    { label: 'Gray',      value: '#6b7280' },
 ];
 
 function getCsrfHeaders() {
@@ -73,9 +79,8 @@ export function createWorkspaceTags({ onTagsChanged, onTagListChanged }) {
             const checked = assignedTagIds.has(tag.id) ? 'checked' : '';
             return `<label class="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 cursor-pointer group">
                 <input type="checkbox" class="ws-tag-check h-3.5 w-3.5 accent-[#E7FF02]" data-tag-id="${tag.id}" ${checked} />
-                <span class="inline-block w-2.5 h-2.5 rounded-full shrink-0" style="background:${escHtml(tag.color)}"></span>
-                <span class="text-xs text-white/80 flex-1 truncate">${escHtml(tag.name)}</span>
-                <button type="button" class="ws-tag-delete hidden group-hover:inline-flex text-white/30 hover:text-red-400 text-xs px-1" data-tag-id="${tag.id}" aria-label="Delete tag">✕</button>
+                <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full flex-1 truncate" style="background:${escHtml(tag.color)}33;color:${escHtml(tag.color)}">${escHtml(tag.name)}</span>
+                <button type="button" class="ws-tag-delete hidden group-hover:inline-flex text-white/30 hover:text-red-400 text-xs px-1 shrink-0" data-tag-id="${tag.id}" aria-label="Delete tag">✕</button>
             </label>`;
         }).join('');
 

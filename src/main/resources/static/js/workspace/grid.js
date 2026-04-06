@@ -74,7 +74,7 @@ function buildCustomTagBadges(customTags) {
     for (const tag of customTags) {
         const color = escHtml(tag.color || '#6b7280');
         const name = escHtml(tag.name || '');
-        html += '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs border border-white/15 text-white/80" style="border-left: 3px solid ' + color + '">' + name + '</span>';
+        html += '<span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full" style="background:' + color + '33;color:' + color + '">' + name + '</span>';
     }
     return html;
 }

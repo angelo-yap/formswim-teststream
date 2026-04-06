@@ -148,7 +148,7 @@ export function renderInlinePreviewRow(testCase, options) {
                             '<p class="mt-1 text-xs text-white/85 leading-6 break-words">' + textOrDash(testCase?.precondition) + '</p>' +
                         '</div>' +
                         '<div>' +
-                            '<p class="text-[11px] uppercase tracking-wider text-white/45">Tags</p>' +
+                            '<p class="text-[11px] uppercase tracking-wider text-white/45">Type</p>' +
                             '<div class="mt-2 flex flex-wrap gap-2">' + renderTagBadges(testCase) + '</div>' +
                         '</div>' +
                         '<div>' +
