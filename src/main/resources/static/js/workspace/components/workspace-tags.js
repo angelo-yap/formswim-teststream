@@ -77,11 +77,17 @@ export function createWorkspaceTags({ onTagsChanged, onTagListChanged }) {
 
         const list = allTags.map((tag) => {
             const checked = assignedTagIds.has(tag.id) ? 'checked' : '';
-            return `<label class="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 cursor-pointer group">
-                <input type="checkbox" class="ws-tag-check h-3.5 w-3.5 accent-[#E7FF02]" data-tag-id="${tag.id}" ${checked} />
-                <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full flex-1 truncate" style="background:${escHtml(tag.color)}33;color:${escHtml(tag.color)}">${escHtml(tag.name)}</span>
-                <button type="button" class="ws-tag-delete hidden group-hover:inline-flex text-white/30 hover:text-red-400 text-xs px-1 shrink-0" data-tag-id="${tag.id}" aria-label="Delete tag">✕</button>
-            </label>`;
+            const checkId = 'ws-tag-check-' + tag.id;
+            const usageCount = tag.usageCount || 0;
+            const usageBadge = usageCount > 0
+                ? `<span class="text-white/25 text-[10px] shrink-0" title="${usageCount} test case${usageCount === 1 ? '' : 's'}">${usageCount}</span>`
+                : '';
+            return `<div class="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5">
+                <input type="checkbox" id="${checkId}" class="ws-tag-check h-3.5 w-3.5 accent-[#E7FF02] shrink-0" data-tag-id="${tag.id}" ${checked} />
+                <label for="${checkId}" class="inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full flex-1 truncate cursor-pointer" style="background:${escHtml(tag.color)}33;color:${escHtml(tag.color)}">${escHtml(tag.name)}</label>
+                ${usageBadge}
+                <button type="button" class="ws-tag-delete text-white/25 hover:text-red-400 text-xs px-1 shrink-0" data-tag-id="${tag.id}" data-tag-name="${escHtml(tag.name)}" data-usage-count="${usageCount}" aria-label="Delete tag">✕</button>
+            </div>`;
         }).join('');
 
         const colorSwatches = TAG_COLORS.map((c) => {
@@ -107,18 +113,41 @@ export function createWorkspaceTags({ onTagsChanged, onTagListChanged }) {
         popover.querySelectorAll('.ws-tag-check').forEach((checkbox) => {
             checkbox.addEventListener('change', () => {
                 const tagId = Number(checkbox.dataset.tagId);
+                const previouslyChecked = !checkbox.checked;
+
                 if (checkbox.checked) {
                     assignedTagIds.add(tagId);
                 } else {
                     assignedTagIds.delete(tagId);
                 }
-                saveTags(currentWorkKey, Array.from(assignedTagIds))
+
+                // Optimistic update — fire immediately with local state
+                if (typeof onTagsChanged === 'function') {
+                    const optimisticTags = allTags.filter((t) => assignedTagIds.has(t.id));
+                    onTagsChanged({ workKey: currentWorkKey, tags: optimisticTags });
+                }
+
+                const savedWorkKey = currentWorkKey;
+                saveTags(savedWorkKey, Array.from(assignedTagIds))
                     .then((updatedTags) => {
                         if (typeof onTagsChanged === 'function') {
-                            onTagsChanged({ workKey: currentWorkKey, tags: updatedTags });
+                            onTagsChanged({ workKey: savedWorkKey, tags: updatedTags });
                         }
                     })
-                    .catch(console.error);
+                    .catch((err) => {
+                        console.error('Failed to save tags:', err);
+                        if (previouslyChecked) {
+                            assignedTagIds.add(tagId);
+                            checkbox.checked = true;
+                        } else {
+                            assignedTagIds.delete(tagId);
+                            checkbox.checked = false;
+                        }
+                        if (typeof onTagsChanged === 'function') {
+                            const rolledBackTags = allTags.filter((t) => assignedTagIds.has(t.id));
+                            onTagsChanged({ workKey: savedWorkKey, tags: rolledBackTags });
+                        }
+                    });
             });
         });
 
@@ -126,7 +155,16 @@ export function createWorkspaceTags({ onTagsChanged, onTagListChanged }) {
         popover.querySelectorAll('.ws-tag-delete').forEach((btn) => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 const tagId = Number(btn.dataset.tagId);
+                const tagName = btn.dataset.tagName || 'this tag';
+                const usageCount = Number(btn.dataset.usageCount) || 0;
+                if (usageCount > 0) {
+                    const noun = usageCount === 1 ? '1 test case' : usageCount + ' test cases';
+                    if (!confirm(`Delete "${tagName}"? It is currently assigned to ${noun} and will be removed from all of them.`)) {
+                        return;
+                    }
+                }
                 deleteTag(tagId)
                     .then(() => {
                         allTags = allTags.filter((t) => t.id !== tagId);
@@ -142,7 +180,7 @@ export function createWorkspaceTags({ onTagsChanged, onTagListChanged }) {
                             onTagListChanged();
                         }
                     })
-                    .catch(console.error);
+                    .catch((err) => { console.error('Delete tag failed:', err); });
             });
         });
 

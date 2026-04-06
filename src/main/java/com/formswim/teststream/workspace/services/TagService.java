@@ -1,6 +1,8 @@
 package com.formswim.teststream.workspace.services;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -28,9 +30,19 @@ public class TagService {
     }
 
     public List<TagResponse> listTags(String teamKey) {
-        return tagRepository.findByTeamKeyOrderByNameAsc(teamKey)
-                .stream()
-                .map(TagResponse::from)
+        List<Tag> tags = tagRepository.findByTeamKeyOrderByNameAsc(teamKey);
+        if (tags.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> tagIds = tags.stream().map(Tag::getId).collect(Collectors.toList());
+        Map<Long, Long> countByTagId = new HashMap<>();
+        for (Object[] row : tagRepository.countUsageByTagIds(tagIds)) {
+            countByTagId.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+        }
+
+        return tags.stream()
+                .map(tag -> TagResponse.from(tag, countByTagId.getOrDefault(tag.getId(), 0L)))
                 .collect(Collectors.toList());
     }
 
@@ -60,6 +72,7 @@ public class TagService {
     public void deleteTag(String teamKey, Long tagId) {
         Tag tag = tagRepository.findByTeamKeyAndId(teamKey, tagId)
                 .orElseThrow(() -> new TagNotFoundException("Tag not found."));
+        tagRepository.deleteFromJoinTableByTagId(tagId);
         tagRepository.delete(tag);
     }
 

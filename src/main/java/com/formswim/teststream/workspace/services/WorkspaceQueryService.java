@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.formswim.teststream.shared.domain.TestCase;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
@@ -30,12 +31,14 @@ public class WorkspaceQueryService {
         return normalized.isEmpty() ? null : normalized;
     }
 
+    @Transactional(readOnly = true)
     public List<TestCase> findCasesByOrderedIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
 
         List<TestCase> cases = testCaseRepository.findAllWithStepsByIdIn(ids);
+        cases.forEach(tc -> tc.getCustomTags().size()); // initialize within transaction via @BatchSize(50)
         Map<Long, Integer> positionById = new HashMap<>();
         for (int index = 0; index < ids.size(); index++) {
             positionById.put(ids.get(index), index);
