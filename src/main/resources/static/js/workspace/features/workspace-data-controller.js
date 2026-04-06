@@ -195,6 +195,7 @@ export function createWorkspaceDataController(options) {
                 populateSelect(filterComponent, values.components);
                 populateSelect(filterStatus, values.statuses);
                 populateSelect(filterTag, values.tags);
+                populateCustomTagSelect(filterCustomTag, values.customTags);
             })
             .catch(() => {
                 const components = uniqueSorted(currentPageCases.map((item) => item?.components));
@@ -204,6 +205,27 @@ export function createWorkspaceDataController(options) {
                 populateSelect(filterStatus, statuses);
                 populateSelect(filterTag, tags);
             });
+    }
+
+    function populateCustomTagSelect(selectEl, customTags) {
+        if (!selectEl) return;
+        const previous = String(selectEl.value || '').trim();
+        selectEl.innerHTML = '<option value="">All</option>';
+        for (const tag of (customTags || [])) {
+            const option = document.createElement('option');
+            option.value = String(tag.id);
+            option.textContent = tag.name;
+            selectEl.appendChild(option);
+        }
+        if (previous) selectEl.value = previous;
+    }
+
+    function updateTestCaseTags(workKey, tags) {
+        const idx = currentPageCases.findIndex((tc) => tc.workKey === workKey);
+        if (idx !== -1) {
+            currentPageCases[idx] = { ...currentPageCases[idx], customTags: tags };
+            renderCurrentPage();
+        }
     }
 
     function getCurrentPageCases() {
@@ -220,6 +242,7 @@ export function createWorkspaceDataController(options) {
         loadCurrentPage,
         loadFilterOptions,
         rerenderCurrentPage,
-        updatePageControls
+        updatePageControls,
+        updateTestCaseTags
     };
 }
