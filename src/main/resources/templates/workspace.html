@@ -150,32 +150,38 @@
 			border-top: 1px solid rgba(255, 255, 255, 0.08);
 		}
 
-		/* Subtle, fixed-width sidebar scrollbar (no oversized hover growth). */
-		#wsSidebarContent {
+		/* Subtle, fixed-width scrollbar (no oversized hover growth). */
+		#wsSidebarContent,
+		#wsGridFrame {
 			scrollbar-width: thin;
 			scrollbar-color: rgba(163, 163, 163, 0.45) transparent;
 		}
 
-		#wsSidebarContent::-webkit-scrollbar {
+		#wsSidebarContent::-webkit-scrollbar,
+		#wsGridFrame::-webkit-scrollbar {
 			width: 8px;
 		}
 
-		#wsSidebarContent::-webkit-scrollbar-track {
+		#wsSidebarContent::-webkit-scrollbar-track,
+		#wsGridFrame::-webkit-scrollbar-track {
 			background: transparent;
 		}
 
-		#wsSidebarContent::-webkit-scrollbar-thumb {
+		#wsSidebarContent::-webkit-scrollbar-thumb,
+		#wsGridFrame::-webkit-scrollbar-thumb {
 			background-color: rgba(163, 163, 163, 0.45);
 			border-radius: 999px;
 			border: 2px solid transparent;
 			background-clip: padding-box;
 		}
 
-		#wsSidebarContent:hover::-webkit-scrollbar {
+		#wsSidebarContent:hover::-webkit-scrollbar,
+		#wsGridFrame:hover::-webkit-scrollbar {
 			width: 8px;
 		}
 
-		#wsSidebarContent:hover::-webkit-scrollbar-thumb {
+		#wsSidebarContent:hover::-webkit-scrollbar-thumb,
+		#wsGridFrame:hover::-webkit-scrollbar-thumb {
 			background-color: rgba(163, 163, 163, 0.62);
 		}
 	</style>

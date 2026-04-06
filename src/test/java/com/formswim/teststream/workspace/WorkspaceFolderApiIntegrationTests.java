@@ -30,9 +30,11 @@ import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
 import com.formswim.teststream.shared.domain.TestCase;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestStep;
 import com.formswim.teststream.support.TestCaseFixtures;
 import com.formswim.teststream.workspace.repository.FolderRepository;
 import com.formswim.teststream.workspace.services.FolderBackfillService;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -56,6 +58,9 @@ class WorkspaceFolderApiIntegrationTests {
 
     @Autowired
     private FolderBackfillService folderBackfillService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void setUp() {
@@ -100,53 +105,242 @@ class WorkspaceFolderApiIntegrationTests {
             .andExpect(jsonPath("$.path").value("Project/Sprint-1"));
     }
 
-            @Test
-            void postFolderRejectsNameLongerThan255Characters() throws Exception {
-            String oversized = "A".repeat(256);
+    @Test
+    void postTestCaseCreatesBlankCaseWithManualIdAndName() throws Exception {
+        mockMvc.perform(post("/api/testcases")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of(
+                    "workKey", "TC-NEW-001",
+                    "name", "New blank testcase",
+                    "folder", "Project/Sprint-1"
+                ))))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.workKey").value("TC-NEW-001"))
+            .andExpect(jsonPath("$.name").value("New blank testcase"))
+            .andExpect(jsonPath("$.folder").value("Project/Sprint-1"));
 
-            mockMvc.perform(post("/api/folders")
+        TestCase created = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-NEW-001").orElseThrow();
+        assertThat(created.getSummary()).isEqualTo("New blank testcase");
+        assertThat(created.getDescription()).isEmpty();
+        assertThat(created.getFolder()).isEqualTo("Project/Sprint-1");
+    }
+
+    @Test
+    void postTestCaseWithFolderSyncsFolderNodes() throws Exception {
+        mockMvc.perform(post("/api/testcases")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of(
+                    "workKey", "TC-SYNC-001",
+                    "name", "Folder sync testcase",
+                    "folder", "Quality/Smoke"
+                ))))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.workKey").value("TC-SYNC-001"))
+            .andExpect(jsonPath("$.folder").value("Quality/Smoke"));
+
+        MvcResult folderNodesResult = mockMvc.perform(get("/api/folders/nodes")
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isOk())
+            .andReturn();
+
+        List<Map<String, Object>> nodes = objectMapper.readValue(
+            folderNodesResult.getResponse().getContentAsByteArray(),
+            new TypeReference<List<Map<String, Object>>>() {}
+        );
+        List<String> paths = nodes.stream()
+            .map(node -> String.valueOf(node.get("path")))
+            .toList();
+
+        assertThat(paths).contains("Quality", "Quality/Smoke");
+    }
+
+    @Test
+    void postTestCaseRejectsOversizedFolderSegment() throws Exception {
+        String oversized = "A".repeat(256);
+
+        mockMvc.perform(post("/api/testcases")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of(
+                    "workKey", "TC-SYNC-OVERSIZED",
+                    "name", "Invalid folder testcase",
+                    "folder", oversized + "/Child"
+                ))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Folder segment exceeds max length of 255 characters."));
+
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-SYNC-OVERSIZED")).isEmpty();
+    }
+
+    @Test
+    void postTestCaseRejectsDuplicateManualIdInTeam() throws Exception {
+        testCaseRepository.save(TestCaseFixtures.basicCase("TEAM1", "TC-DUP-001", ""));
+
+        mockMvc.perform(post("/api/testcases")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of(
+                    "workKey", "TC-DUP-001",
+                    "name", "Another testcase"
+                ))))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("A testcase with this ID already exists."));
+    }
+
+    @Test
+    void postTestCaseRejectsBlankManualId() throws Exception {
+        mockMvc.perform(post("/api/testcases")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of(
+                    "workKey", "   ",
+                    "name", "Blank id testcase"
+                ))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Testcase ID is required."));
+    }
+
+    @Test
+    void deleteTestCaseDeletesOwnedCaseByWorkKey() throws Exception {
+        testCaseRepository.save(TestCaseFixtures.basicCase("TEAM1", "TC-DEL-001", "Project/Sprint-1"));
+
+        mockMvc.perform(delete("/api/testcases/{workKey}", "TC-DEL-001")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isNoContent());
+
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-DEL-001")).isEmpty();
+    }
+
+    @Test
+    void deleteTestCaseReturnsNotFoundForMissingOrForeignCase() throws Exception {
+        testCaseRepository.save(TestCaseFixtures.basicCase("TEAM2", "TC-DEL-002", ""));
+
+        mockMvc.perform(delete("/api/testcases/{workKey}", "TC-DEL-002")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("Testcase not found."));
+    }
+
+    @Test
+    void deleteTestCaseRejectsOversizedWorkKey() throws Exception {
+        String oversized = "A".repeat(101);
+
+        mockMvc.perform(delete("/api/testcases/{workKey}", oversized)
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Testcase ID cannot exceed 100 characters."));
+    }
+
+    @Test
+    void bulkDeleteTestCasesDeletesOwnedKeysInSingleRequest() throws Exception {
+        testCaseRepository.saveAll(List.of(
+            TestCaseFixtures.basicCase("TEAM1", "TC-BDEL-001", ""),
+            TestCaseFixtures.basicCase("TEAM1", "TC-BDEL-002", "")
+        ));
+
+        mockMvc.perform(post("/api/testcases/bulk-delete")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of("workKeys", List.of("TC-BDEL-001", "TC-BDEL-002")))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.requestedCount").value(2))
+            .andExpect(jsonPath("$.deletedCount").value(2))
+            .andExpect(jsonPath("$.missingCount").value(0));
+
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-BDEL-001")).isEmpty();
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-BDEL-002")).isEmpty();
+    }
+
+    @Test
+    void bulkDeleteTestCasesDeletesCasesWithSteps() throws Exception {
+        TestCase withSteps = TestCaseFixtures.basicCase("TEAM1", "TC-BDEL-STEP-001", "");
+        withSteps.addStep(new TestStep(1, "Open app", "", "App opens"));
+        testCaseRepository.save(withSteps);
+
+        mockMvc.perform(post("/api/testcases/bulk-delete")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of("workKeys", List.of("TC-BDEL-STEP-001")))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.requestedCount").value(1))
+            .andExpect(jsonPath("$.deletedCount").value(1))
+            .andExpect(jsonPath("$.missingCount").value(0));
+
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-BDEL-STEP-001")).isEmpty();
+        Integer stepCount = jdbcTemplate.queryForObject("select count(*) from test_step", Integer.class);
+        assertThat(stepCount).isZero();
+    }
+
+    @Test
+    void bulkDeleteTestCasesRejectsEmptyPayload() throws Exception {
+        mockMvc.perform(post("/api/testcases/bulk-delete")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of("workKeys", List.of()))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("At least one testcase ID is required."));
+    }
+
+    @Test
+    void postFolderRejectsNameLongerThan255Characters() throws Exception {
+        String oversized = "A".repeat(256);
+
+        mockMvc.perform(post("/api/folders")
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", oversized))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Folder name cannot exceed 255 characters."));
-            }
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Folder name cannot exceed 255 characters."));
+    }
 
-            @Test
-            void postFolderReturnsNotFoundWhenParentMissing() throws Exception {
-            mockMvc.perform(post("/api/folders")
+    @Test
+    void postFolderReturnsNotFoundWhenParentMissing() throws Exception {
+        mockMvc.perform(post("/api/folders")
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", "Sprint-1", "parentId", 99999L))))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Parent folder not found."));
-            }
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("Parent folder not found."));
+    }
 
-            @Test
-            void patchFolderReturnsNotFoundWhenFolderMissing() throws Exception {
-            mockMvc.perform(patch("/api/folders/{id}", 99999L)
+    @Test
+    void patchFolderReturnsNotFoundWhenFolderMissing() throws Exception {
+        mockMvc.perform(patch("/api/folders/{id}", 99999L)
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", "Renamed"))))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Folder not found."));
-            }
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("Folder not found."));
+    }
 
-            @Test
-            void postFolderRejectsDuplicateRootNameIgnoringCase() throws Exception {
-            createFolder("Project", null);
+    @Test
+    void postFolderRejectsDuplicateRootNameIgnoringCase() throws Exception {
+        createFolder("Project", null);
 
-            mockMvc.perform(post("/api/folders")
+        mockMvc.perform(post("/api/folders")
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", "project"))))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("A folder with this name already exists in the target location."));
-            }
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("A folder with this name already exists in the target location."));
+    }
 
     @Test
     void patchFolderRejectsCycles() throws Exception {
