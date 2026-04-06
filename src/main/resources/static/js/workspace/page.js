@@ -1,6 +1,7 @@
 import { createWorkspacePageApi } from './api/workspace-page-api.js';
 import { createBulkEdit } from './bulk-edit.js';
 import { createWorkspaceFolderTree } from './components/workspace-folder-tree.js';
+import { createWorkspaceTags } from './components/workspace-tags.js';
 import { createDrawer } from './drawer.js';
 import { bindSelectedExport } from './export-selected.js';
 import { createWorkspaceDataController } from './features/workspace-data-controller.js';
@@ -25,6 +26,7 @@ const searchInput = document.getElementById('wsSearch');
 const filterComponent = document.getElementById('wsFilterComponent');
 const filterStatus = document.getElementById('wsFilterStatus');
 const filterTag = document.getElementById('wsFilterTag');
+const filterCustomTag = document.getElementById('wsFilterCustomTag');
 const bulkBar = document.getElementById('bulkBar');
 const bulkCount = document.getElementById('bulkCount');
 const bulkExportSelected = document.getElementById('bulkExportSelected');
