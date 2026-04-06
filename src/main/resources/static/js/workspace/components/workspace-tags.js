@@ -26,7 +26,7 @@ function escHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
-export function createWorkspaceTags({ onTagsChanged }) {
+export function createWorkspaceTags({ onTagsChanged, onTagListChanged }) {
     let popover = null;
     let currentAnchor = null;
     let currentWorkKey = null;
