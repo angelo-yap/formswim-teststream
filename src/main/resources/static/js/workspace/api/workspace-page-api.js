@@ -159,15 +159,23 @@ export function createWorkspacePageApi(options) {
         }
     }
 
+    function fetchCustomTags() {
+        return fetch('/api/custom-tags')
+            .then((r) => r.ok ? r.json() : [])
+            .then((data) => (Array.isArray(data) ? data : []));
+    }
+
     function fetchFilterOptions() {
         return Promise.all([
             fetchOptionValues(componentsBaseUrl),
             fetchOptionValues(statusesBaseUrl),
-            fetchOptionValues(tagsBaseUrl)
-        ]).then(([components, statuses, tags]) => ({
+            fetchOptionValues(tagsBaseUrl),
+            fetchCustomTags()
+        ]).then(([components, statuses, tags, customTags]) => ({
             components,
             statuses,
-            tags
+            tags,
+            customTags
         }));
     }
 
