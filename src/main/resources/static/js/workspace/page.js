@@ -77,7 +77,8 @@ uiState.hydrateInputs({
     searchInput,
     filterComponent,
     filterStatus,
-    filterTag
+    filterTag,
+    filterCustomTag
 });
 
 const api = createWorkspacePageApi({
