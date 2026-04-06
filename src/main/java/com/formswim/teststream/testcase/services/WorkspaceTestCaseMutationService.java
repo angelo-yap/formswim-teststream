@@ -111,7 +111,12 @@ public class WorkspaceTestCaseMutationService {
             return new TestCaseBulkDeleteResponse(normalizedWorkKeys.size(), 0, normalizedWorkKeys.size());
         }
 
-        int deletedCount = testCaseRepository.bulkDeleteByTeamKeyAndWorkKeys(teamKey, owned);
+        List<TestCase> ownedCases = testCaseRepository.findAllWithStepsByTeamKeyAndWorkKeyIn(teamKey, owned);
+        int deletedCount = ownedCases.size();
+        if (deletedCount > 0) {
+            testCaseRepository.deleteAll(ownedCases);
+            testCaseRepository.flush();
+        }
         int missingCount = Math.max(normalizedWorkKeys.size() - deletedCount, 0);
         return new TestCaseBulkDeleteResponse(normalizedWorkKeys.size(), deletedCount, missingCount);
     }

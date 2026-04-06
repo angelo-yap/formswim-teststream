@@ -30,9 +30,11 @@ import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.repository.UserRepository;
 import com.formswim.teststream.shared.domain.TestCase;
 import com.formswim.teststream.shared.domain.TestCaseRepository;
+import com.formswim.teststream.shared.domain.TestStep;
 import com.formswim.teststream.support.TestCaseFixtures;
 import com.formswim.teststream.workspace.repository.FolderRepository;
 import com.formswim.teststream.workspace.services.FolderBackfillService;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -56,6 +58,9 @@ class WorkspaceFolderApiIntegrationTests {
 
     @Autowired
     private FolderBackfillService folderBackfillService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void setUp() {
@@ -225,16 +230,16 @@ class WorkspaceFolderApiIntegrationTests {
             .andExpect(jsonPath("$.message").value("Testcase not found."));
     }
 
-            @Test
-            void deleteTestCaseRejectsOversizedWorkKey() throws Exception {
-            String oversized = "A".repeat(101);
+    @Test
+    void deleteTestCaseRejectsOversizedWorkKey() throws Exception {
+        String oversized = "A".repeat(101);
 
-            mockMvc.perform(delete("/api/testcases/{workKey}", oversized)
+        mockMvc.perform(delete("/api/testcases/{workKey}", oversized)
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Testcase ID cannot exceed 100 characters."));
-            }
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Testcase ID cannot exceed 100 characters."));
+    }
 
     @Test
     void bulkDeleteTestCasesDeletesOwnedKeysInSingleRequest() throws Exception {
@@ -258,6 +263,27 @@ class WorkspaceFolderApiIntegrationTests {
     }
 
     @Test
+    void bulkDeleteTestCasesDeletesCasesWithSteps() throws Exception {
+        TestCase withSteps = TestCaseFixtures.basicCase("TEAM1", "TC-BDEL-STEP-001", "");
+        withSteps.addStep(new TestStep(1, "Open app", "", "App opens"));
+        testCaseRepository.save(withSteps);
+
+        mockMvc.perform(post("/api/testcases/bulk-delete")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of("workKeys", List.of("TC-BDEL-STEP-001")))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.requestedCount").value(1))
+            .andExpect(jsonPath("$.deletedCount").value(1))
+            .andExpect(jsonPath("$.missingCount").value(0));
+
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-BDEL-STEP-001")).isEmpty();
+        Integer stepCount = jdbcTemplate.queryForObject("select count(*) from test_step", Integer.class);
+        assertThat(stepCount).isZero();
+    }
+
+    @Test
     void bulkDeleteTestCasesRejectsEmptyPayload() throws Exception {
         mockMvc.perform(post("/api/testcases/bulk-delete")
                 .with(csrf())
@@ -268,53 +294,53 @@ class WorkspaceFolderApiIntegrationTests {
             .andExpect(jsonPath("$.message").value("At least one testcase ID is required."));
     }
 
-            @Test
-            void postFolderRejectsNameLongerThan255Characters() throws Exception {
-            String oversized = "A".repeat(256);
+    @Test
+    void postFolderRejectsNameLongerThan255Characters() throws Exception {
+        String oversized = "A".repeat(256);
 
-            mockMvc.perform(post("/api/folders")
+        mockMvc.perform(post("/api/folders")
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", oversized))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Folder name cannot exceed 255 characters."));
-            }
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Folder name cannot exceed 255 characters."));
+    }
 
-            @Test
-            void postFolderReturnsNotFoundWhenParentMissing() throws Exception {
-            mockMvc.perform(post("/api/folders")
+    @Test
+    void postFolderReturnsNotFoundWhenParentMissing() throws Exception {
+        mockMvc.perform(post("/api/folders")
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", "Sprint-1", "parentId", 99999L))))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Parent folder not found."));
-            }
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("Parent folder not found."));
+    }
 
-            @Test
-            void patchFolderReturnsNotFoundWhenFolderMissing() throws Exception {
-            mockMvc.perform(patch("/api/folders/{id}", 99999L)
+    @Test
+    void patchFolderReturnsNotFoundWhenFolderMissing() throws Exception {
+        mockMvc.perform(patch("/api/folders/{id}", 99999L)
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", "Renamed"))))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Folder not found."));
-            }
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("Folder not found."));
+    }
 
-            @Test
-            void postFolderRejectsDuplicateRootNameIgnoringCase() throws Exception {
-            createFolder("Project", null);
+    @Test
+    void postFolderRejectsDuplicateRootNameIgnoringCase() throws Exception {
+        createFolder("Project", null);
 
-            mockMvc.perform(post("/api/folders")
+        mockMvc.perform(post("/api/folders")
                 .with(csrf())
                 .with(user("team1.user@example.com").roles("USER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(Map.of("name", "project"))))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("A folder with this name already exists in the target location."));
-            }
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("A folder with this name already exists in the target location."));
+    }
 
     @Test
     void patchFolderRejectsCycles() throws Exception {

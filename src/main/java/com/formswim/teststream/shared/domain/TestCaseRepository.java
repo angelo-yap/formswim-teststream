@@ -124,15 +124,6 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                                              @Param("workKeys") Collection<String> workKeys,
                                              @Param("targetFolder") String targetFolder);
 
-                @Modifying(clearAutomatically = true, flushAutomatically = true)
-                @Query("""
-                                                delete from TestCase testCase
-                                                where testCase.teamKey = :teamKey
-                                                        and testCase.workKey in :workKeys
-                                                """)
-                int bulkDeleteByTeamKeyAndWorkKeys(@Param("teamKey") String teamKey,
-                                                                                                                                                         @Param("workKeys") Collection<String> workKeys);
-
     @Query("""
             select distinct testCase
             from TestCase testCase
