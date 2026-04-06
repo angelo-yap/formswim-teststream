@@ -206,6 +206,10 @@ function getApiFieldKey(fieldKey) {
     return stepMatch ? stepMatch[1] : fieldKey;
 }
 
+function isStepField(fieldKey) {
+    return /^step-\d+-/.test(fieldKey);
+}
+
 function showNotice(type, message) {
     const notice = document.getElementById('detailsNotice');
     const msg = document.getElementById('detailsNoticeMsg');
@@ -252,18 +256,37 @@ function flashFieldSaved(fieldKey) {
 async function saveFieldEdit(workKey, fieldKey, oldValue, newValue) {
     const csrf = getCsrf();
     const apiField = getApiFieldKey(fieldKey);
+    const currentValue = String(oldValue || '');
+    const payload = {
+        workKeys: [workKey]
+    };
+
+    if (fieldKey === 'status') {
+        payload.statusValue = newValue;
+    } else if (isStepField(fieldKey)) {
+        if (!currentValue.trim()) {
+            const err = new Error('Empty step fields cannot be edited');
+            err.status = 400;
+            throw err;
+        }
+        payload.findText = currentValue;
+        payload.replaceText = newValue;
+        payload.fields = [apiField];
+    } else if (currentValue.trim()) {
+        payload.findText = currentValue;
+        payload.replaceText = newValue;
+        payload.fields = [apiField];
+    } else {
+        payload.fieldValues = { [apiField]: newValue };
+    }
+
     const response = await fetch('/api/testcases/bulk-edit', {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
             [csrf.headerName]: csrf.token
         },
-        body: JSON.stringify({
-            workKeys: [workKey],
-            findText: oldValue,
-            replaceText: newValue,
-            fields: [apiField]
-        })
+        body: JSON.stringify(payload)
     });
     if (!response.ok) {
         const err = new Error('Edit failed with status ' + response.status);
@@ -289,13 +312,22 @@ function updateUpdatedOn() {
 
 function updateFolderSegments(newFolderPath) {
     const container = document.getElementById('folderSegmentsContainer');
+    const displayEl = document.querySelector('[data-field-display="folder"]');
     if (!container) {
         return;
     }
     const segments = String(newFolderPath || '').split('/').map((s) => s.trim()).filter(Boolean);
     if (segments.length === 0) {
         container.innerHTML = '';
+        container.classList.add('hidden');
+        if (displayEl) {
+            displayEl.classList.remove('sr-only');
+        }
         return;
+    }
+    container.classList.remove('hidden');
+    if (displayEl) {
+        displayEl.classList.add('sr-only');
     }
     container.innerHTML = segments.map((segment, index) => {
         const sep = index < segments.length - 1
@@ -315,7 +347,7 @@ function applyDisplayUpdate(fieldKey, newValue) {
         const emptyLabel = displayEl.dataset.emptyLabel || 'Not provided';
         displayEl.innerHTML = renderMarkdown(newValue, emptyLabel);
     } else {
-        displayEl.textContent = newValue;
+        displayEl.textContent = newValue || displayEl.dataset.emptyLabel || '-';
     }
     if (fieldKey === 'folder') {
         updateFolderSegments(newValue);
@@ -377,7 +409,7 @@ function getEditErrorMessage(error) {
         return 'You do not have permission to edit this test case.';
     }
     if (status === 400) {
-        return 'The current value may have changed. Refresh and try again.';
+        return 'This edit was not accepted. Check the value and try again.';
     }
     return 'Edit failed. Please try again.';
 }
@@ -420,14 +452,6 @@ function initFieldEditing() {
                 return;
             }
 
-            if (!oldValue.trim()) {
-                if (errorEl) {
-                    errorEl.textContent = 'Empty fields cannot be edited here. Use bulk edit to add content.';
-                    errorEl.classList.remove('hidden');
-                }
-                return;
-            }
-
             if (errorEl) {
                 errorEl.classList.add('hidden');
             }
@@ -438,7 +462,7 @@ function initFieldEditing() {
 
             try {
                 const result = await saveFieldEdit(workKey, fieldKey, oldValue, newValue);
-                const didChange = Number(result?.totalReplacements || 0) > 0;
+                const didChange = Number(result?.updatedCaseCount || 0) > 0 || Number(result?.updatedStepCount || 0) > 0;
 
                 if (didChange) {
                     applyDisplayUpdate(fieldKey, newValue);
@@ -448,7 +472,7 @@ function initFieldEditing() {
                     showNotice('success', 'Field updated.');
                 } else {
                     if (errorEl) {
-                        errorEl.textContent = 'No match found. The value may have changed — refresh and try again.';
+                        errorEl.textContent = 'No changes were applied.';
                         errorEl.classList.remove('hidden');
                     }
                 }

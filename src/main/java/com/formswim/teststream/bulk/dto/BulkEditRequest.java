@@ -3,7 +3,9 @@ package com.formswim.teststream.bulk.dto;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Request payload for PATCH /api/testcases/bulk-edit.
@@ -26,6 +28,8 @@ public class BulkEditRequest {
     private Boolean caseSensitive;
 
     private String statusValue;
+
+    private Map<String, String> fieldValues = new LinkedHashMap<>();
 
     /**
      * Returns requested work keys as a non-null list.
@@ -103,5 +107,19 @@ public class BulkEditRequest {
 
     public void setStatusValue(String statusValue) {
         this.statusValue = statusValue;
+    }
+
+    /**
+     * Optional direct-assignment values keyed by canonical field names.
+     */
+    public Map<String, String> getFieldValues() {
+        if (fieldValues == null) {
+            fieldValues = new LinkedHashMap<>();
+        }
+        return fieldValues;
+    }
+
+    public void setFieldValues(Map<String, String> fieldValues) {
+        this.fieldValues = fieldValues == null ? new LinkedHashMap<>() : new LinkedHashMap<>(fieldValues);
     }
 }

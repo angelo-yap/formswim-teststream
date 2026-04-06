@@ -1,6 +1,7 @@
 package com.formswim.teststream.bulk;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -74,11 +75,16 @@ class BulkEditIntegrationTests {
         team1CaseB.setSummary("Click in second case");
         team1CaseB.addStep(new TestStep(1, "Click next", "", ""));
 
+        TestCase team1BlankCase = TestCaseFixtures.basicCase("TEAM1", "TC-103", "");
+        team1BlankCase.setPriority("");
+        team1BlankCase.setFolder("");
+        team1BlankCase.setUpdatedOn("2026-03-18");
+
         TestCase team2Case = TestCaseFixtures.basicCase("TEAM2", "TC-201", "Auth/Login");
         team2Case.setSummary("Click from another team");
         team2Case.addStep(new TestStep(1, "Click hidden", "", ""));
 
-        testCaseRepository.saveAll(List.of(team1CaseA, team1CaseB, team2Case));
+        testCaseRepository.saveAll(List.of(team1CaseA, team1CaseB, team1BlankCase, team2Case));
     }
 
     @Test
@@ -141,6 +147,68 @@ class BulkEditIntegrationTests {
         assertThat(edited.getStatus()).isEqualTo("Pass");
         assertThat(edited.getUpdatedOn()).isEqualTo(LocalDate.now().toString());
         assertThat(edited.getSummary()).isEqualTo("Please Click the button. Click once.");
+    }
+
+    @Test
+    void bulkEditSupportsDirectAssignmentForInitiallyBlankPriority() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-103"));
+        payload.put("fieldValues", Map.of("priority", "Critical"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedCaseCount").value(1))
+            .andExpect(jsonPath("$.totalReplacements").value(0));
+
+        TestCase edited = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-103").orElseThrow();
+        assertThat(edited.getPriority()).isEqualTo("Critical");
+        assertThat(edited.getUpdatedOn()).isEqualTo(LocalDate.now().toString());
+    }
+
+    @Test
+    void bulkEditDirectAssignmentForBlankFolderCreatesMissingFolderNodes() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-103"));
+        payload.put("fieldValues", Map.of("folder", "QA/Edited"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updatedCaseCount").value(1));
+
+        TestCase edited = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-103").orElseThrow();
+        assertThat(edited.getFolder()).isEqualTo("QA/Edited");
+
+        mockMvc.perform(get("/api/folders")
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasItems("QA", "QA/Edited")));
+    }
+
+    @Test
+    void bulkEditRejectsUnsupportedDirectAssignmentFieldAndDoesNotMutate() throws Exception {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("workKeys", List.of("TC-103"));
+        payload.put("fieldValues", Map.of("stepSummary", "Nope"));
+
+        mockMvc.perform(patch("/api/testcases/bulk-edit")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest());
+
+        TestCase untouched = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-103").orElseThrow();
+        assertThat(untouched.getPriority()).isEmpty();
+        assertThat(untouched.getFolder()).isEmpty();
+        assertThat(untouched.getUpdatedOn()).isEqualTo("2026-03-18");
     }
 
     @Test
