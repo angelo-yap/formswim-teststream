@@ -127,6 +127,9 @@ let previewControls = {
 const tagsController = createWorkspaceTags({
     onTagsChanged: ({ workKey, tags }) => {
         dataController.updateTestCaseTags(workKey, tags);
+    },
+    onTagListChanged: () => {
+        dataController.loadFilterOptions();
     }
 });
 
