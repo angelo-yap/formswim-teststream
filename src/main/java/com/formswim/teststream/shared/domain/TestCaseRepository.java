@@ -27,7 +27,10 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                   and (:tag is null or :tag = ''
                        or lower(coalesce(testCase.components, '')) like lower(concat('%', :tag, '%'))
                        or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :tag, '%')))
-                        and (
+                  and (:customTagId is null or exists (
+                       select 1 from testCase.customTags ct where ct.id = :customTagId
+                  ))
+                  and (
                                 :folder is null or :folder = ''
                                 or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) = lower(:folder)
                                 or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) like lower(concat(:folder, '/%'))
@@ -57,7 +60,10 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                   and (:tag is null or :tag = ''
                        or lower(coalesce(testCase.components, '')) like lower(concat('%', :tag, '%'))
                        or lower(coalesce(testCase.testCaseType, '')) like lower(concat('%', :tag, '%')))
-                        and (
+                  and (:customTagId is null or exists (
+                       select 1 from testCase.customTags ct where ct.id = :customTagId
+                  ))
+                  and (
                                 :folder is null or :folder = ''
                                 or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) = lower(:folder)
                                 or lower(trim(function('replace', coalesce(testCase.folder, ''), '\\', '/'))) like lower(concat(:folder, '/%'))
@@ -83,6 +89,7 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
                                              @Param("status") String status,
                                              @Param("component") String component,
                                              @Param("tag") String tag,
+                                             @Param("customTagId") Long customTagId,
                                              @Param("folder") String folder,
                                              Pageable pageable);
 

@@ -1,6 +1,7 @@
 package com.formswim.teststream.workspace.services;
 
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -16,7 +17,7 @@ import com.formswim.teststream.workspace.dto.TagResponse;
 @Service
 public class TagService {
 
-    private static final java.util.regex.Pattern HEX_COLOR = java.util.regex.Pattern.compile("^#[0-9A-Fa-f]{6}$");
+    private static final Pattern HEX_COLOR = Pattern.compile("^#[0-9A-Fa-f]{6}$");
 
     private final TagRepository tagRepository;
     private final TestCaseRepository testCaseRepository;
@@ -51,8 +52,7 @@ public class TagService {
             throw new TagConflictException("A tag named \"" + name + "\" already exists.");
         }
 
-        Tag tag = new Tag(name, color, teamKey);
-        tag = tagRepository.save(tag);
+        Tag tag = tagRepository.save(new Tag(name, color, teamKey));
         return TagResponse.from(tag);
     }
 
@@ -68,12 +68,11 @@ public class TagService {
         TestCase testCase = testCaseRepository.findByTeamKeyAndWorkKey(teamKey, workKey)
                 .orElseThrow(() -> new TagNotFoundException("Test case not found."));
 
-        List<Tag> tags = tagIds == null
-                ? List.of()
-                : tagIds.stream()
-                        .map(id -> tagRepository.findByTeamKeyAndId(teamKey, id)
-                                .orElseThrow(() -> new TagNotFoundException("Tag " + id + " not found.")))
-                        .collect(Collectors.toList());
+        List<Long> ids = tagIds == null ? List.of() : tagIds;
+        List<Tag> tags = ids.stream()
+                .map((Long id) -> tagRepository.findByTeamKeyAndId(teamKey, id)
+                        .orElseThrow(() -> new TagNotFoundException("Tag " + id + " not found.")))
+                .collect(Collectors.toList());
 
         testCase.setCustomTags(tags);
         testCaseRepository.save(testCase);
