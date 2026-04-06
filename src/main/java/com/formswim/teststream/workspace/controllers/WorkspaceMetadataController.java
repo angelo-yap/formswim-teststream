@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -28,9 +29,15 @@ import com.formswim.teststream.shared.domain.TestCaseRepository;
 import com.formswim.teststream.workspace.dto.FolderCreateRequest;
 import com.formswim.teststream.workspace.dto.FolderResponse;
 import com.formswim.teststream.workspace.dto.FolderUpdateRequest;
+import com.formswim.teststream.workspace.dto.TagRequest;
+import com.formswim.teststream.workspace.dto.TagResponse;
 import com.formswim.teststream.workspace.services.FolderBadRequestException;
 import com.formswim.teststream.workspace.services.FolderConflictException;
 import com.formswim.teststream.workspace.services.FolderNotFoundException;
+import com.formswim.teststream.workspace.services.TagBadRequestException;
+import com.formswim.teststream.workspace.services.TagConflictException;
+import com.formswim.teststream.workspace.services.TagNotFoundException;
+import com.formswim.teststream.workspace.services.TagService;
 import com.formswim.teststream.workspace.services.WorkspaceFolderService;
 import com.formswim.teststream.workspace.services.WorkspaceFolderMutationService;
 import com.formswim.teststream.workspace.services.WorkspaceQueryService;
@@ -47,19 +54,21 @@ public class WorkspaceMetadataController {
     private final WorkspaceQueryService workspaceQueryService;
     private final WorkspaceFolderService workspaceFolderService;
     private final WorkspaceFolderMutationService workspaceFolderMutationService;
-
+    private final TagService tagService;
 
     public WorkspaceMetadataController(TestCaseRepository testCaseRepository,
                                        CurrentUserService currentUserService,
-                                        WorkspaceQueryService workspaceQueryService,
+                                       WorkspaceQueryService workspaceQueryService,
                                        WorkspaceFolderService workspaceFolderService,
-                                       WorkspaceFolderMutationService workspaceFolderMutationService
+                                       WorkspaceFolderMutationService workspaceFolderMutationService,
+                                       TagService tagService
     ) {
         this.testCaseRepository = testCaseRepository;
         this.currentUserService = currentUserService;
         this.workspaceQueryService = workspaceQueryService;
         this.workspaceFolderService = workspaceFolderService;
         this.workspaceFolderMutationService = workspaceFolderMutationService;
+        this.tagService = tagService;
     }
     /**
      * GET /api/folders
@@ -258,5 +267,85 @@ public class WorkspaceMetadataController {
             .sorted(String.CASE_INSENSITIVE_ORDER)
             .collect(Collectors.toList());
         return ResponseEntity.ok(statuses);
+    }
+
+    @GetMapping("/api/custom-tags")
+    @ResponseBody
+    public ResponseEntity<List<TagResponse>> getCustomTags(HttpSession session, Authentication authentication) {
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(tagService.listTags(user.getTeamKey()));
+    }
+
+    @PostMapping("/api/custom-tags")
+    @ResponseBody
+    public ResponseEntity<?> createCustomTag(@RequestBody TagRequest request,
+                                             HttpSession session,
+                                             Authentication authentication) {
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        try {
+            TagResponse created = tagService.createTag(user.getTeamKey(), request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        } catch (TagBadRequestException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        } catch (TagConflictException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/api/custom-tags/{id}")
+    @ResponseBody
+    public ResponseEntity<?> deleteCustomTag(@PathVariable Long id,
+                                             HttpSession session,
+                                             Authentication authentication) {
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        try {
+            tagService.deleteTag(user.getTeamKey(), id);
+            return ResponseEntity.noContent().build();
+        } catch (TagNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
+        }
+    }
+
+    @PutMapping("/api/testcases/{workKey}/custom-tags")
+    @ResponseBody
+    public ResponseEntity<?> setTestCaseTags(@PathVariable String workKey,
+                                             @RequestBody List<Long> tagIds,
+                                             HttpSession session,
+                                             Authentication authentication) {
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        try {
+            List<TagResponse> tags = tagService.setTagsForTestCase(user.getTeamKey(), workKey, tagIds);
+            return ResponseEntity.ok(tags);
+        } catch (TagNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
+        }
     }
 }

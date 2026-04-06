@@ -49,6 +49,7 @@ public class WorkspaceQueryController {
                                                           @RequestParam(required = false) String status,
                                                           @RequestParam(required = false) String component,
                                                           @RequestParam(required = false) String tag,
+                                                          @RequestParam(required = false) Long customTagId,
                                                           @RequestParam(required = false) String folder,
                                                           @RequestParam(defaultValue = "0") int page,
                                                           @RequestParam(defaultValue = "50") int size,
@@ -78,6 +79,7 @@ public class WorkspaceQueryController {
                 normalizedStatus,
                 normalizedComponent,
                 normalizedTag,
+                customTagId,
                 null,
                 pageable
             );
@@ -98,6 +100,7 @@ public class WorkspaceQueryController {
             normalizedStatus,
             normalizedComponent,
             normalizedTag,
+            customTagId,
             null,
             Pageable.unpaged()
         );
