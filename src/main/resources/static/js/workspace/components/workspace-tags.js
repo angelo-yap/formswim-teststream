@@ -141,11 +141,14 @@ export function createWorkspaceTags({ onTagsChanged }) {
         // Color swatch selection
         popover.querySelectorAll('.ws-color-swatch').forEach((btn) => {
             btn.addEventListener('click', () => {
+                const savedName = popover.querySelector('#wsNewTagName')?.value || '';
                 newTagColor = btn.dataset.color;
                 renderPopover();
-                // Restore focus to name input after re-render
                 const nameInput = popover.querySelector('#wsNewTagName');
-                if (nameInput) nameInput.focus();
+                if (nameInput) {
+                    nameInput.value = savedName;
+                    nameInput.focus();
+                }
             });
         });
 

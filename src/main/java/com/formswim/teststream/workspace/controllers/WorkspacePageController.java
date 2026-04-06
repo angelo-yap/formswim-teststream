@@ -76,6 +76,7 @@ public class WorkspacePageController {
             workspaceQueryService.normalizeQueryParam(component),
             null,
             null,
+            null,
             pageable
         );
 
