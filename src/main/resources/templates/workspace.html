@@ -32,8 +32,83 @@
 			box-shadow: inset 0 2px 0 rgba(231, 255, 2, 0.95);
 		}
 
-		/* Stronger grid-only borders for the test-case table. */
-		#wsGridTopBar {
+		body.workspace-theme-soft {
+			--ws-soft-page: #1e1e1e;
+			--ws-soft-header: #242424;
+			--ws-soft-sidebar: #2a2a2a;
+			--ws-soft-grid: #232323;
+			--ws-soft-footer: #262626;
+			--ws-soft-control: #303030;
+			--ws-soft-dropdown: #2d2d2d;
+			--ws-soft-border-strong: rgba(255, 255, 255, 0.30);
+			--ws-soft-border-muted: rgba(255, 255, 255, 0.18);
+			background-color: var(--ws-soft-page);
+			color: rgba(255, 255, 255, 0.96);
+		}
+
+		body.workspace-theme-soft #wsWorkspaceHeader {
+			background-color: var(--ws-soft-header) !important;
+		}
+
+		body.workspace-theme-soft #wsSidebar {
+			background-color: var(--ws-soft-sidebar) !important;
+		}
+
+		body.workspace-theme-soft #wsGridFrame {
+			background-color: var(--ws-soft-grid);
+		}
+
+		body.workspace-theme-soft #wsGridFooter {
+			background-color: var(--ws-soft-footer);
+		}
+
+		body.workspace-theme-soft input.bg-black,
+		body.workspace-theme-soft select.bg-black,
+		body.workspace-theme-soft div.bg-black,
+		body.workspace-theme-soft nav.bg-black {
+			background-color: var(--ws-soft-control) !important;
+		}
+
+		body.workspace-theme-soft #workspaceSettingsDropdown {
+			background-color: var(--ws-soft-dropdown) !important;
+		}
+
+		body.workspace-theme-soft #importNotice,
+		body.workspace-theme-soft #workspaceFlashContainer [data-flash-item],
+		body.workspace-theme-soft #bulkBarCard {
+			background-color: #2b2b2b !important;
+			border-color: rgba(255, 255, 255, 0.22) !important;
+		}
+
+		body.workspace-theme-soft #wsGridFrame,
+		body.workspace-theme-soft #wsWorkspaceHeader,
+		body.workspace-theme-soft #wsGridTable .border-b,
+		body.workspace-theme-soft #wsTbody .ws-row,
+		body.workspace-theme-soft #wsTbody .ws-preview-row {
+			border-color: var(--ws-soft-border-strong) !important;
+		}
+
+		body.workspace-theme-soft #wsSidebar,
+		body.workspace-theme-soft #wsGridFooter {
+			border-color: var(--ws-soft-border-muted) !important;
+		}
+
+		body.workspace-theme-black {
+			background-color: #000000;
+			color: rgba(255, 255, 255, 0.96);
+		}
+
+		body.workspace-theme-black .bg-black {
+			background-color: #000000 !important;
+		}
+
+		body.workspace-theme-black #importNotice,
+		body.workspace-theme-black #workspaceFlashContainer [data-flash-item],
+		body.workspace-theme-black #bulkBarCard {
+			background-color: rgba(0, 0, 0, 0.95) !important;
+		}
+
+		#wsWorkspaceHeader {
 			border-bottom-color: rgba(255, 255, 255, 0.38) !important;
 		}
 
@@ -74,11 +149,40 @@
 		.ws-preview-card {
 			border-top: 1px solid rgba(255, 255, 255, 0.08);
 		}
+
+		/* Subtle, fixed-width sidebar scrollbar (no oversized hover growth). */
+		#wsSidebarContent {
+			scrollbar-width: thin;
+			scrollbar-color: rgba(163, 163, 163, 0.45) transparent;
+		}
+
+		#wsSidebarContent::-webkit-scrollbar {
+			width: 8px;
+		}
+
+		#wsSidebarContent::-webkit-scrollbar-track {
+			background: transparent;
+		}
+
+		#wsSidebarContent::-webkit-scrollbar-thumb {
+			background-color: rgba(163, 163, 163, 0.45);
+			border-radius: 999px;
+			border: 2px solid transparent;
+			background-clip: padding-box;
+		}
+
+		#wsSidebarContent:hover::-webkit-scrollbar {
+			width: 8px;
+		}
+
+		#wsSidebarContent:hover::-webkit-scrollbar-thumb {
+			background-color: rgba(163, 163, 163, 0.62);
+		}
 	</style>
 </head>
 
-<body class="bg-black text-white">
-	<div class="min-h-screen">
+<body class="bg-black text-white workspace-theme-soft overflow-hidden">
+	<div class="h-dvh min-h-screen flex flex-col overflow-hidden">
 		<th:block th:replace="~{workspace/_header :: header}"></th:block>
 		<th:block th:replace="~{workspace/_notices :: notices}"></th:block>
 		<th:block th:replace="~{workspace/_main :: mainContent}"></th:block>

@@ -1,42 +1,29 @@
 export function bindWorkspaceHeaderControls() {
-    const accountToggle = document.getElementById('workspaceAccountToggle');
-    const account = document.getElementById('workspaceAccountDropdown');
-    const teamToggle = document.getElementById('workspaceTeamCodeToggle');
-    const team = document.getElementById('workspaceTeamCodeDropdown');
+    const FLASH_AUTO_DISMISS_MS = 5000;
+    const settingsToggle = document.getElementById('workspaceSettingsToggle');
+    const settingsIcon = document.getElementById('workspaceSettingsIcon');
+    const settingsDropdown = document.getElementById('workspaceSettingsDropdown');
     const teamCodeValue = document.getElementById('workspaceTeamCodeValue');
     const copyButtons = Array.from(document.querySelectorAll('[data-workspace-copy-team-code]'));
     const flashDismissButtons = Array.from(document.querySelectorAll('[data-workspace-flash-dismiss]'));
 
-    function toggleWorkspaceHeaderDropdown(which) {
-        const isAccountOpen = account && !account.classList.contains('hidden');
-        const isTeamOpen = team && !team.classList.contains('hidden');
-
-        const nextAccountOpen = which === 'account' ? !isAccountOpen : false;
-        const nextTeamOpen = which === 'team' ? !isTeamOpen : false;
-
-        if (account) {
-            account.classList.toggle('hidden', !nextAccountOpen);
-            account.setAttribute('aria-hidden', String(!nextAccountOpen));
-        }
-        if (team) {
-            team.classList.toggle('hidden', !nextTeamOpen);
-            team.setAttribute('aria-hidden', String(!nextTeamOpen));
+    function setSettingsOpen(isOpen) {
+        if (!settingsDropdown || !settingsToggle) {
+            return;
         }
 
-        if (accountToggle) {
-            accountToggle.setAttribute('aria-expanded', String(nextAccountOpen));
-        }
-        if (teamToggle) {
-            teamToggle.setAttribute('aria-expanded', String(nextTeamOpen));
+        settingsDropdown.classList.toggle('hidden', !isOpen);
+        settingsDropdown.setAttribute('aria-hidden', String(!isOpen));
+        settingsToggle.setAttribute('aria-expanded', String(isOpen));
+        if (settingsIcon) {
+            settingsIcon.classList.toggle('rotate-180', isOpen);
         }
     }
 
-    function dismissWorkspaceFlash(button) {
-        const item = button.closest('[data-flash-item]');
+    function dismissWorkspaceFlashItem(item) {
         if (item) {
             item.classList.add('hidden');
         }
-
         const container = document.getElementById('workspaceFlashContainer');
         if (!container) {
             return;
@@ -46,6 +33,27 @@ export function bindWorkspaceHeaderControls() {
         if (visibleItems.length === 0) {
             container.classList.add('hidden');
         }
+    }
+
+    function dismissWorkspaceFlash(button) {
+        const item = button.closest('[data-flash-item]');
+        dismissWorkspaceFlashItem(item);
+    }
+
+    function scheduleWorkspaceFlashAutoDismiss() {
+        const items = Array.from(document.querySelectorAll('#workspaceFlashContainer [data-flash-item]:not(.hidden)'));
+        items.forEach((item) => {
+            if (!(item instanceof HTMLElement)) {
+                return;
+            }
+            if (item.dataset.autoDismissBound === 'true') {
+                return;
+            }
+            item.dataset.autoDismissBound = 'true';
+            window.setTimeout(() => {
+                dismissWorkspaceFlashItem(item);
+            }, FLASH_AUTO_DISMISS_MS);
+        });
     }
 
     async function copyWorkspaceTeamCode() {
@@ -86,12 +94,30 @@ export function bindWorkspaceHeaderControls() {
         }
     }
 
-    if (accountToggle) {
-        accountToggle.addEventListener('click', () => toggleWorkspaceHeaderDropdown('account'));
+    if (settingsToggle && settingsDropdown) {
+        settingsToggle.addEventListener('click', () => {
+            const isOpen = !settingsDropdown.classList.contains('hidden');
+            setSettingsOpen(!isOpen);
+        });
+
+        document.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof Node)) {
+                return;
+            }
+            if (settingsDropdown.contains(target) || settingsToggle.contains(target)) {
+                return;
+            }
+            setSettingsOpen(false);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                setSettingsOpen(false);
+            }
+        });
     }
-    if (teamToggle) {
-        teamToggle.addEventListener('click', () => toggleWorkspaceHeaderDropdown('team'));
-    }
+
     if (teamCodeValue) {
         teamCodeValue.addEventListener('click', () => {
             copyWorkspaceTeamCode();
@@ -113,6 +139,7 @@ export function bindWorkspaceHeaderControls() {
             dismissWorkspaceFlash(button);
         });
     });
+    scheduleWorkspaceFlashAutoDismiss();
 
     return {};
 }

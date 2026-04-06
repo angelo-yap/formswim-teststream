@@ -1,3 +1,5 @@
+import { createWorkspaceTooltip } from './workspace-tooltip.js';
+
 export function createWorkspaceFolderTree(options) {
     const uiState = options.uiState;
     const api = options.api;
@@ -6,15 +8,17 @@ export function createWorkspaceFolderTree(options) {
     const folderEmpty = options.folderEmpty;
     const newFolderButton = options.newFolderButton;
     const sidebar = options.sidebar;
-    const sidebarToggle = options.sidebarToggle;
+    const sidebarResizeHandle = options.sidebarResizeHandle;
     const sidebarContent = options.sidebarContent;
     const sidebarTitle = options.sidebarTitle;
     const sidebarInner = options.sidebarInner;
     const sidebarHeader = options.sidebarHeader;
-    const sidebarToggleExpandedHost = options.sidebarToggleExpandedHost;
-    const sidebarToggleCollapsedHost = options.sidebarToggleCollapsedHost;
     const showNotice = options.showNotice;
     const onFolderChanged = options.onFolderChanged;
+    const SIDEBAR_DEFAULT_WIDTH = 320;
+    const SIDEBAR_MIN_OPEN_WIDTH = 48;
+    const SIDEBAR_MAX_WIDTH = 560;
+    const SIDEBAR_CLOSE_SNAP_WIDTH = 24;
 
     let folderTreeModel = createFolderTreeModel([], []);
     let folderNodeByPath = new Map();
@@ -26,6 +30,45 @@ export function createWorkspaceFolderTree(options) {
     let activeFolderDropMode = null;
     let isFolderLoading = false;
     let pendingDeletePrompt = null;
+    let sidebarWidthPx = SIDEBAR_DEFAULT_WIDTH;
+    const TREE_BASE_PADDING_PX = 0;
+    const TREE_INDENT_STEP_PX = 12;
+    const folderLabelTooltip = createWorkspaceTooltip({
+        className: 'fixed z-50 border border-white/15 bg-black/90 px-2 py-1 text-xs text-white/85',
+        maxWidth: '20rem',
+        whiteSpace: 'normal',
+        wordBreak: 'break-word'
+    });
+
+    function isHorizontallyTruncated(element) {
+        if (!element) {
+            return false;
+        }
+        return element.scrollWidth > element.clientWidth + 1;
+    }
+
+    function bindTruncationTooltip(element, text) {
+        if (!element) {
+            return;
+        }
+        const fullText = String(text || '').trim();
+        if (!fullText) {
+            return;
+        }
+
+        const show = () => {
+            if (!isHorizontallyTruncated(element)) {
+                return;
+            }
+            folderLabelTooltip.show(element, fullText, { asText: true });
+        };
+        const hide = () => folderLabelTooltip.hide();
+
+        element.addEventListener('mouseenter', show);
+        element.addEventListener('mouseleave', hide);
+        element.addEventListener('focusin', show);
+        element.addEventListener('focusout', hide);
+    }
 
     function snapshotExpandedState(model) {
         const expandedByPath = new Map();
@@ -74,16 +117,22 @@ export function createWorkspaceFolderTree(options) {
         }
     }
 
-    function setSidebarExpanded(expanded) {
-        uiState.setSidebarExpanded(expanded);
-        const isSidebarExpanded = uiState.isSidebarExpanded();
+    function clampSidebarWidth(widthPx) {
+        return Math.min(Math.max(widthPx, SIDEBAR_MIN_OPEN_WIDTH), SIDEBAR_MAX_WIDTH);
+    }
+
+    function applySidebarWidth(widthPx) {
+        const numericWidth = Math.max(Number(widthPx) || 0, 0);
+        const isSidebarExpanded = numericWidth > 0;
+        uiState.setSidebarExpanded(isSidebarExpanded);
 
         if (sidebar) {
             if (isSidebarExpanded) {
-                sidebar.style.width = '';
-                sidebar.style.minWidth = '';
+                sidebar.style.width = String(numericWidth) + 'px';
+                sidebar.style.minWidth = String(numericWidth) + 'px';
                 sidebar.style.borderRight = '';
-                sidebar.style.overflow = '';
+                // Keep directory content clipped so it never overlays into the grid.
+                sidebar.style.overflow = 'hidden';
             } else {
                 sidebar.style.width = '0px';
                 sidebar.style.minWidth = '0px';
@@ -102,31 +151,42 @@ export function createWorkspaceFolderTree(options) {
 
         if (sidebarInner) {
             sidebarInner.style.padding = isSidebarExpanded ? '' : '0.25rem';
+            sidebarInner.style.overflow = 'hidden';
         }
 
         if (sidebarHeader) {
             sidebarHeader.style.justifyContent = isSidebarExpanded ? '' : 'center';
         }
 
-        if (sidebarToggle) {
-            sidebarToggle.setAttribute('aria-expanded', String(isSidebarExpanded));
-            sidebarToggle.setAttribute('aria-label', isSidebarExpanded ? 'Collapse repository sidebar' : 'Expand repository sidebar');
-            sidebarToggle.style.width = '';
-            sidebarToggle.style.padding = '';
-            sidebarToggle.innerHTML = isSidebarExpanded
-                ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M15 6l-6 6 6 6" /></svg>'
-                : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M9 6l6 6-6 6" /></svg>';
+        if (sidebarResizeHandle) {
+            sidebarResizeHandle.setAttribute('aria-valuenow', String(Math.round(numericWidth)));
+            sidebarResizeHandle.classList.toggle('bg-white/10', isSidebarExpanded);
+            sidebarResizeHandle.classList.toggle('bg-white/20', !isSidebarExpanded);
         }
 
-        if (sidebarToggleExpandedHost && sidebarToggleCollapsedHost && sidebarToggle) {
-            if (isSidebarExpanded) {
-                sidebarToggleExpandedHost.appendChild(sidebarToggle);
-                sidebarToggleCollapsedHost.classList.add('hidden');
-            } else {
-                sidebarToggleCollapsedHost.appendChild(sidebarToggle);
-                sidebarToggleCollapsedHost.classList.remove('hidden');
-            }
+        if (isSidebarExpanded) {
+            sidebarWidthPx = numericWidth;
         }
+    }
+
+    function setSidebarWidth(widthPx) {
+        const numericWidth = Number(widthPx) || 0;
+        if (numericWidth <= SIDEBAR_CLOSE_SNAP_WIDTH) {
+            applySidebarWidth(0);
+            return;
+        }
+
+        applySidebarWidth(clampSidebarWidth(numericWidth));
+    }
+
+    function setSidebarExpanded(expanded) {
+        if (expanded) {
+            const nextWidth = sidebarWidthPx > 0 ? sidebarWidthPx : SIDEBAR_DEFAULT_WIDTH;
+            setSidebarWidth(nextWidth);
+            return;
+        }
+
+        applySidebarWidth(0);
     }
 
     function createFolderTreeModel(folderNames, folderNodes) {
@@ -250,7 +310,7 @@ export function createWorkspaceFolderTree(options) {
             return;
         }
 
-        const { root, resolve, onKeyDown } = pendingDeletePrompt;
+        const { root, resolve, onKeyDown, previousActiveElement } = pendingDeletePrompt;
         pendingDeletePrompt = null;
 
         if (onKeyDown) {
@@ -258,6 +318,9 @@ export function createWorkspaceFolderTree(options) {
         }
         if (root && root.parentNode) {
             root.parentNode.removeChild(root);
+        }
+        if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
+            previousActiveElement.focus();
         }
         resolve(Boolean(confirmed));
     }
@@ -268,12 +331,22 @@ export function createWorkspaceFolderTree(options) {
         }
 
         return new Promise((resolve) => {
+            const isSoftTheme = document.body?.dataset?.workspaceTheme !== 'black';
+            const previousActiveElement = document.activeElement;
             const root = document.createElement('div');
-            root.className = 'fixed right-4 top-4 z-[1400] w-[min(28rem,calc(100vw-2rem))]';
+            root.className = 'fixed inset-0 z-[1400] flex items-center justify-center p-4';
+            root.style.backgroundColor = isSoftTheme
+                ? 'rgba(20, 20, 20, 0.46)'
+                : 'rgba(0, 0, 0, 0.62)';
+            root.style.backdropFilter = 'blur(2px)';
 
             const notice = document.createElement('div');
-            notice.className = 'border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80 shadow-[0_18px_48px_rgba(0,0,0,0.55)]';
-            notice.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            notice.className = 'w-[min(32rem,calc(100vw-2rem))] border px-5 py-5 text-sm text-white/85 rounded-md shadow-[0_24px_80px_rgba(0,0,0,0.55)]';
+            notice.style.backgroundColor = isSoftTheme ? '#2b2b2b' : 'rgba(0, 0, 0, 0.95)';
+            notice.style.borderColor = 'rgba(255, 255, 255, 0.24)';
+            notice.setAttribute('role', 'dialog');
+            notice.setAttribute('aria-modal', 'true');
+            notice.setAttribute('aria-label', 'Confirm folder delete');
 
             const headingRow = document.createElement('div');
             headingRow.className = 'flex items-start justify-between gap-3';
@@ -282,7 +355,8 @@ export function createWorkspaceFolderTree(options) {
             headingWrap.className = 'min-w-0';
 
             const badge = document.createElement('span');
-            badge.className = 'font-bold text-black px-2 py-1 mr-3 bg-white/70';
+            badge.className = 'font-bold text-black px-2 py-1 mr-3';
+            badge.style.backgroundColor = '#E7FF02';
             badge.textContent = 'Confirm';
 
             const heading = document.createElement('span');
@@ -294,7 +368,7 @@ export function createWorkspaceFolderTree(options) {
             message.textContent = 'Delete "' + String(path || '') + '"? Only empty folders can be deleted.';
 
             const actions = document.createElement('div');
-            actions.className = 'mt-3 flex items-center justify-end gap-2';
+            actions.className = 'mt-5 flex items-center justify-end gap-2';
 
             const cancelButton = document.createElement('button');
             cancelButton.type = 'button';
@@ -325,22 +399,46 @@ export function createWorkspaceFolderTree(options) {
                 if (event.key === 'Escape') {
                     event.preventDefault();
                     dismissDeletePrompt(false);
+                    return;
+                }
+
+                if (event.key === 'Tab') {
+                    const focusables = [cancelButton, deleteButton];
+                    const first = focusables[0];
+                    const last = focusables[focusables.length - 1];
+
+                    if (event.shiftKey && document.activeElement === first) {
+                        event.preventDefault();
+                        last.focus();
+                        return;
+                    }
+                    if (!event.shiftKey && document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
+                        return;
+                    }
                 }
             };
 
             pendingDeletePrompt = {
                 root,
                 resolve,
-                onKeyDown
+                onKeyDown,
+                previousActiveElement
             };
 
             document.addEventListener('keydown', onKeyDown);
 
             cancelButton.addEventListener('click', () => dismissDeletePrompt(false));
             deleteButton.addEventListener('click', () => dismissDeletePrompt(true));
+            root.addEventListener('click', (event) => {
+                if (event.target === root) {
+                    dismissDeletePrompt(false);
+                }
+            });
 
             window.requestAnimationFrame(() => {
-                deleteButton.focus();
+                cancelButton.focus();
             });
         });
     }
@@ -688,26 +786,27 @@ export function createWorkspaceFolderTree(options) {
             return;
         }
 
+        folderLabelTooltip.hide();
         folderTree.innerHTML = '';
 
         const selectedFolder = uiState.getSelectedFolder();
         const selectedRowClasses = 'bg-[#E7FF02]/30 text-white';
         const unselectedRowClasses = 'text-white/80 hover:bg-white/5';
         const rowWrapClasses = 'select-none';
-        const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pl-2 pr-2 text-sm rounded-md transition-colors w-full';
+        const rowInnerBaseClasses = 'flex items-center gap-2 py-2 pl-0 pr-2 text-sm rounded-md transition-colors w-full';
         const rowSelectButtonClasses = 'min-w-0 flex-1 flex items-center gap-2 text-left';
 
         const showAllWrap = document.createElement('div');
         showAllWrap.className = rowWrapClasses;
-        showAllWrap.style.paddingLeft = '12px';
+        showAllWrap.style.paddingLeft = String(TREE_BASE_PADDING_PX) + 'px';
 
         const showAllInner = document.createElement('div');
         showAllInner.className = rowInnerBaseClasses + ' ' + (selectedFolder ? unselectedRowClasses : selectedRowClasses);
 
         const showAllButton = document.createElement('button');
         showAllButton.type = 'button';
-        showAllButton.className = rowSelectButtonClasses;
-        showAllButton.setAttribute('aria-label', 'Show all files');
+        showAllButton.className = rowSelectButtonClasses + ' pl-2';
+        showAllButton.setAttribute('aria-label', 'Show all test cases');
         if (!selectedFolder) {
             showAllButton.setAttribute('aria-current', 'true');
         }
@@ -715,7 +814,7 @@ export function createWorkspaceFolderTree(options) {
             '<span class="shrink-0 text-white/60">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></svg>' +
             '</span>' +
-            '<span class="min-w-0 truncate">Show all files</span>';
+            '<span class="min-w-0 truncate">Show all test cases</span>';
 
         if (isFolderLoading) {
             const loadingSpinner = document.createElement('span');
@@ -755,7 +854,7 @@ export function createWorkspaceFolderTree(options) {
         function renderInlineEditorRow(parentNode, depth) {
             const rowWrap = document.createElement('div');
             rowWrap.className = rowWrapClasses;
-            rowWrap.style.paddingLeft = String(12 + depth * 16) + 'px';
+            rowWrap.style.paddingLeft = String(TREE_BASE_PADDING_PX + depth * TREE_INDENT_STEP_PX) + 'px';
 
             const rowInner = document.createElement('div');
             rowInner.className = rowInnerBaseClasses + ' text-white/90 bg-white/5';
@@ -809,14 +908,14 @@ export function createWorkspaceFolderTree(options) {
             const isOpen = Boolean(hasChildren && node.expanded);
             const rowWrap = document.createElement('div');
             rowWrap.className = rowWrapClasses;
-            rowWrap.style.paddingLeft = String(12 + depth * 16) + 'px';
+            rowWrap.style.paddingLeft = String(TREE_BASE_PADDING_PX + depth * TREE_INDENT_STEP_PX) + 'px';
             rowWrap.style.position = 'relative';
 
             if (depth > 0) {
                 for (let guideLevel = 1; guideLevel <= depth; guideLevel++) {
                     const guide = document.createElement('span');
                     guide.className = 'pointer-events-none absolute top-0 bottom-0 w-px bg-white/20';
-                    guide.style.left = String(12 + (guideLevel - 1) * 16 + 8) + 'px';
+                    guide.style.left = String(TREE_BASE_PADDING_PX + (guideLevel - 1) * TREE_INDENT_STEP_PX + 8) + 'px';
                     rowWrap.appendChild(guide);
                 }
             }
@@ -870,6 +969,7 @@ export function createWorkspaceFolderTree(options) {
             const labelSpan = document.createElement('span');
             labelSpan.className = 'min-w-0 truncate';
             labelSpan.textContent = node.name;
+            bindTruncationTooltip(labelSpan, node.name);
 
             const isRenameEditing = Boolean(inlineEditorState && inlineEditorState.mode === 'rename' && inlineEditorState.targetPath === node.path);
 
@@ -1096,9 +1196,55 @@ export function createWorkspaceFolderTree(options) {
         return folderTreeModel;
     }
 
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', () => {
-            setSidebarExpanded(!uiState.isSidebarExpanded());
+    if (sidebarResizeHandle && sidebar) {
+        sidebarResizeHandle.setAttribute('aria-valuemin', '0');
+        sidebarResizeHandle.setAttribute('aria-valuemax', String(SIDEBAR_MAX_WIDTH));
+        sidebarResizeHandle.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) {
+                return;
+            }
+
+            const pointerId = event.pointerId;
+            const startX = Number(event.clientX) || 0;
+            const startWidth = sidebar.getBoundingClientRect().width || 0;
+
+            const onPointerMove = (moveEvent) => {
+                const nextWidth = startWidth + ((Number(moveEvent.clientX) || 0) - startX);
+                setSidebarWidth(nextWidth);
+            };
+
+            const cleanupDrag = () => {
+                document.removeEventListener('pointermove', onPointerMove);
+                document.removeEventListener('pointerup', onPointerUp);
+                document.removeEventListener('pointercancel', onPointerCancel);
+                window.removeEventListener('blur', onWindowBlur);
+                if (
+                    typeof sidebarResizeHandle.hasPointerCapture === 'function' &&
+                    typeof sidebarResizeHandle.releasePointerCapture === 'function' &&
+                    sidebarResizeHandle.hasPointerCapture(pointerId)
+                ) {
+                    sidebarResizeHandle.releasePointerCapture(pointerId);
+                }
+            };
+
+            const onPointerUp = () => {
+                cleanupDrag();
+            };
+            const onPointerCancel = () => {
+                cleanupDrag();
+            };
+            const onWindowBlur = () => {
+                cleanupDrag();
+            };
+
+            if (typeof sidebarResizeHandle.setPointerCapture === 'function') {
+                sidebarResizeHandle.setPointerCapture(pointerId);
+            }
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+            document.addEventListener('pointercancel', onPointerCancel);
+            window.addEventListener('blur', onWindowBlur);
+            event.preventDefault();
         });
     }
 

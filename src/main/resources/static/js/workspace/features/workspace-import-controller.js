@@ -1,4 +1,5 @@
 export function createWorkspaceImportController(options) {
+    const NOTICE_AUTO_DISMISS_MS = 5000;
     const api = options.api;
     const importBtn = options.importBtn;
     const importFile = options.importFile;
@@ -6,11 +7,18 @@ export function createWorkspaceImportController(options) {
     const importNoticeContainer = options.importNoticeContainer;
     const importNotice = options.importNotice;
     const importNoticeBadge = options.importNoticeBadge;
+    const importNoticeOk = options.importNoticeOk;
     const importNoticeMessage = options.importNoticeMessage;
     const importNoticeClose = options.importNoticeClose;
     const onUploadComplete = options.onUploadComplete;
+    let noticeAutoDismissHandle = 0;
 
     function clearNotice() {
+        if (noticeAutoDismissHandle) {
+            window.clearTimeout(noticeAutoDismissHandle);
+            noticeAutoDismissHandle = 0;
+        }
+
         if (!importNoticeContainer) {
             return;
         }
@@ -26,25 +34,36 @@ export function createWorkspaceImportController(options) {
             return;
         }
 
+        if (noticeAutoDismissHandle) {
+            window.clearTimeout(noticeAutoDismissHandle);
+            noticeAutoDismissHandle = 0;
+        }
+
         const isSuccess = type === 'success';
         importNoticeContainer.classList.remove('hidden');
         importNoticeMessage.textContent = message;
 
+        importNoticeBadge.textContent = 'OK';
         if (isSuccess) {
             importNotice.style.borderColor = 'rgba(231, 255, 2, 0.35)';
-            importNoticeBadge.textContent = 'OK';
             importNoticeBadge.classList.remove('bg-white/70');
             importNoticeBadge.style.backgroundColor = '#E7FF02';
         } else {
             importNotice.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-            importNoticeBadge.textContent = 'Error';
             importNoticeBadge.classList.add('bg-white/70');
             importNoticeBadge.style.backgroundColor = '';
         }
+
+        noticeAutoDismissHandle = window.setTimeout(() => {
+            clearNotice();
+        }, NOTICE_AUTO_DISMISS_MS);
     }
 
     if (importNoticeClose) {
         importNoticeClose.addEventListener('click', clearNotice);
+    }
+    if (importNoticeOk) {
+        importNoticeOk.addEventListener('click', clearNotice);
     }
 
     if (importBtn && importFile) {

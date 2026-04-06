@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 	<th:block th:fragment="header">
-		<header class="border-b border-white/10">
+		<header id="wsWorkspaceHeader" class="border-b border-white/10">
 			<div class="w-full px-6 sm:px-8 py-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
 				<div class="flex-1 min-w-0">
 					<div class="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -15,7 +15,7 @@
 							</div>
 						</div>
 
-						<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:w-[34rem]">
+						<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
 							<div>
 								<label class="block text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Component</label>
 								<select id="wsFilterComponent" class="mt-2 w-full bg-black border border-white/15 px-3 py-3 text-sm text-white/85 focus:outline-none focus:border-[#E7FF02]">
@@ -50,90 +50,79 @@
 						<a th:href="@{/workspace/export}" class="px-4 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-sm">
 							Export
 						</a>
-					</div>
+					
+					<div class="relative">
+						<button
+							type="button"
+							id="workspaceSettingsToggle"
+							class="w-[46px] h-[38px] p-0 inline-flex items-center justify-center leading-none border border-white/20 hover:border-[#E7FF02] transition-colors text-sm"
+							aria-haspopup="true"
+							aria-controls="workspaceSettingsDropdown"
+							aria-expanded="false"
+							aria-label="Workspace settings"
+						>
+							<svg id="workspaceSettingsIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 90" fill="none" class="block w-5 h-5 origin-center transform-gpu transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] pointer-events-none">
+								<path fill="#A3A3A3" d="M 52.1 90 H 37.9 c -2.867 0 -5.2 -2.333 -5.2 -5.2 v -2.114 c 0 -0.329 -0.191 -0.634 -0.454 -0.725 c -1.482 -0.511 -2.955 -1.122 -4.375 -1.816 c -0.246 -0.118 -0.576 -0.046 -0.802 0.18 l -1.516 1.516 c -0.981 0.982 -2.288 1.523 -3.677 1.523 c -1.389 0 -2.695 -0.541 -3.677 -1.524 L 8.16 71.799 c -2.027 -2.027 -2.027 -5.326 0 -7.354 l 1.516 -1.516 c 0.223 -0.223 0.299 -0.56 0.181 -0.8 c -0.695 -1.423 -1.307 -2.895 -1.818 -4.377 C 7.947 57.49 7.643 57.3 7.314 57.3 H 5.2 c -2.867 0 -5.2 -2.333 -5.2 -5.2 V 37.9 c 0 -2.867 2.333 -5.2 5.2 -5.2 h 2.115 c 0.329 0 0.633 -0.19 0.724 -0.454 c 0.513 -1.483 1.124 -2.956 1.817 -4.374 c 0.12 -0.246 0.046 -0.576 -0.181 -0.802 L 8.16 25.555 c -2.027 -2.028 -2.027 -5.327 0 -7.354 L 18.201 8.159 c 0.982 -0.982 2.288 -1.522 3.677 -1.522 c 1.389 0 2.695 0.541 3.677 1.522 l 1.516 1.517 c 0.224 0.223 0.559 0.3 0.801 0.18 c 1.418 -0.693 2.891 -1.305 4.375 -1.818 C 32.51 7.947 32.7 7.643 32.7 7.314 V 5.2 c 0 -2.867 2.333 -5.2 5.2 -5.2 h 14.2 c 2.867 0 5.2 2.333 5.2 5.2 v 2.115 c 0 0.329 0.19 0.633 0.453 0.724 c 1.482 0.512 2.954 1.124 4.375 1.818 c 0.247 0.118 0.575 0.045 0.802 -0.181 l 1.516 -1.516 c 2.027 -2.027 5.326 -2.027 7.354 0 L 81.84 18.2 c 2.027 2.028 2.027 5.327 0 7.354 l -1.516 1.516 c -0.227 0.227 -0.301 0.556 -0.181 0.802 c 0.695 1.42 1.307 2.893 1.818 4.376 c 0.09 0.262 0.395 0.452 0.724 0.452 H 84.8 c 2.867 0 5.2 2.333 5.2 5.2 V 52.1 c 0 2.867 -2.333 5.2 -5.2 5.2 h -2.114 c -0.329 0 -0.634 0.19 -0.725 0.454 c -0.51 1.478 -1.121 2.95 -1.815 4.373 c -0.119 0.244 -0.044 0.58 0.179 0.803 l 1.516 1.516 c 2.027 2.027 2.027 5.326 0 7.354 L 71.799 81.84 c -0.982 0.982 -2.288 1.523 -3.677 1.523 c -1.39 0 -2.696 -0.542 -3.678 -1.525 l -1.514 -1.513 c -0.228 -0.226 -0.557 -0.302 -0.803 -0.182 c -1.42 0.695 -2.893 1.307 -4.376 1.818 c -0.262 0.09 -0.452 0.395 -0.452 0.724 V 84.8 C 57.3 87.667 54.967 90 52.1 90 z M 39.7 83 h 10.6 v -0.314 c 0 -3.322 2.076 -6.272 5.167 -7.34 c 1.216 -0.42 2.422 -0.921 3.588 -1.491 c 2.936 -1.434 6.481 -0.822 8.824 1.521 l 0.243 0.242 l 7.495 -7.495 l -0.242 -0.243 c -2.345 -2.344 -2.955 -5.891 -1.519 -8.825 c 0.569 -1.166 1.07 -2.373 1.488 -3.585 c 1.068 -3.093 4.019 -5.169 7.341 -5.169 H 83 V 39.7 h -0.314 c -3.322 0 -6.272 -2.076 -7.34 -5.167 c -0.42 -1.216 -0.921 -2.422 -1.491 -3.588 c -1.434 -2.936 -0.823 -6.482 1.521 -8.825 l 0.242 -0.243 l -7.495 -7.495 l -0.243 0.243 c -2.344 2.344 -5.89 2.953 -8.824 1.52 c -1.166 -0.57 -2.373 -1.071 -3.587 -1.491 c -3.091 -1.067 -5.168 -4.017 -5.168 -7.34 V 7 H 39.7 v 0.314 c 0 3.323 -2.077 6.272 -5.168 7.34 c -1.217 0.42 -2.424 0.922 -3.587 1.491 c -2.936 1.434 -6.481 0.823 -8.825 -1.52 l -0.243 -0.243 l -7.495 7.495 l 0.243 0.243 c 2.343 2.344 2.954 5.89 1.52 8.825 c -0.568 1.163 -1.07 2.37 -1.49 3.587 c -1.068 3.092 -4.018 5.168 -7.34 5.168 H 7 v 10.6 h 0.314 c 3.323 0 6.272 2.077 7.34 5.168 c 0.419 1.214 0.921 2.421 1.491 3.588 c 1.435 2.933 0.824 6.479 -1.52 8.823 l -0.243 0.243 l 7.496 7.495 l 0.242 -0.242 c 2.344 -2.346 5.891 -2.954 8.826 -1.52 c 1.164 0.568 2.37 1.07 3.585 1.489 c 3.092 1.068 5.168 4.019 5.168 7.341 V 83 z M 45.028 70.402 c -6.738 0 -13.204 -2.652 -17.991 -7.439 c -5.265 -5.265 -7.947 -12.561 -7.359 -20.016 c 0.97 -12.296 10.974 -22.3 23.27 -23.27 c 7.457 -0.588 14.751 2.095 20.016 7.359 c 5.265 5.266 7.947 12.561 7.36 20.017 c -0.971 12.297 -10.975 22.3 -23.271 23.27 l 0 0 C 46.376 70.376 45.701 70.402 45.028 70.402 z M 44.969 26.598 c -0.489 0 -0.979 0.02 -1.471 0.058 c -8.899 0.702 -16.14 7.943 -16.842 16.843 c -0.427 5.41 1.516 10.7 5.331 14.515 s 9.1 5.761 14.516 5.331 l 0 0 c 8.899 -0.701 16.141 -7.941 16.843 -16.842 c 0.427 -5.41 -1.517 -10.701 -5.331 -14.516 C 54.546 28.519 49.857 26.598 44.969 26.598 z" />
+							</svg>
+						</button>
 
-					<div class="flex items-center gap-3">
-						<div class="hidden sm:flex items-start gap-4">
-							<div class="relative text-right min-w-0">
-								<button
-									type="button"
-									class="text-xs uppercase tracking-wider text-white/45 hover:text-[#E7FF02] transition-colors select-none"
-									style="font-family: 'Work Sans', sans-serif; font-weight: 700;"
-									data-workspace-dropdown-toggle="account"
-									aria-haspopup="true"
-									aria-controls="workspaceAccountDropdown"
-									aria-expanded="false"
-									id="workspaceAccountToggle"
-								>
-									Account <span aria-hidden="true" class="text-white/45"></span>
-								</button>
-								<div
-									id="workspaceAccountDropdown"
-									class="hidden absolute right-0 mt-2 z-50 w-64 border border-white/20 bg-black px-4 py-3 text-left"
-									role="dialog"
-									aria-label="Account details"
-									aria-hidden="true"
-								>
-									<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Signed in as</p>
-									<p class="mt-1 text-sm text-white/80 break-words" th:text="${userEmail != null ? userEmail : 'Signed in'}">Signed in</p>
-								</div>
+						<div
+							id="workspaceSettingsDropdown"
+							class="hidden absolute right-0 mt-2 z-50 w-[19rem] border border-white/20 bg-black px-4 py-4 text-left"
+							role="dialog"
+							aria-label="Workspace settings"
+							aria-hidden="true"
+						>
+							<div>
+								<label for="wsThemeSelect" class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Theme</label>
+								<select id="wsThemeSelect" class="mt-2 w-full bg-black border border-white/20 px-3 py-2 text-sm text-white/80 focus:outline-none focus:border-[#E7FF02]">
+									<option value="soft">Dark Gray</option>
+									<option value="black">High Contrast</option>
+								</select>
 							</div>
 
-							<div class="relative text-right min-w-0" th:if="${teamKey != null}">
-								<button
-									type="button"
-									class="text-xs uppercase tracking-wider text-white/45 hover:text-[#E7FF02] transition-colors select-none"
-									style="font-family: 'Work Sans', sans-serif; font-weight: 700;"
-									data-workspace-dropdown-toggle="team"
-									aria-haspopup="true"
-									aria-controls="workspaceTeamCodeDropdown"
-									aria-expanded="false"
-									id="workspaceTeamCodeToggle"
-								>
-									Team code <span aria-hidden="true" class="text-white/45"></span>
-								</button>
-								<div
-									id="workspaceTeamCodeDropdown"
-									class="hidden absolute right-0 mt-2 z-50 w-64 border border-white/20 bg-black px-4 py-3 text-left"
-									role="dialog"
-									aria-label="Team code"
-									aria-hidden="true"
-								>
-									<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Team code</p>
-									<div class="mt-2 flex items-center justify-between gap-2">
-										<div
-											id="workspaceTeamCodeValue"
-											class="font-mono text-sm text-white/80 tracking-widest cursor-pointer select-text transition-colors hover:text-white"
-											th:text="${teamKey}"
-											title="Copy to clipboard"
-											role="button"
-											tabindex="0"
-										>
-											TEAMCODE
-										</div>
-										<button
-											type="button"
-											class="shrink-0 p-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors"
-											aria-label="Copy team code"
-											title="Copy to clipboard"
-											data-workspace-copy-team-code
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4">
-												<rect x="9" y="9" width="10" height="10" rx="1"></rect>
-												<rect x="5" y="5" width="10" height="10" rx="1"></rect>
-											</svg>
-										</button>
+							<div class="mt-4 pt-4 border-t border-white/10" th:if="${teamKey != null}">
+								<p class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Team code</p>
+								<div class="mt-2 flex items-center justify-between gap-2">
+									<div
+										id="workspaceTeamCodeValue"
+										class="font-mono text-sm text-white/80 tracking-widest cursor-pointer select-text transition-colors hover:text-white"
+										th:text="${teamKey}"
+										title="Copy to clipboard"
+										role="button"
+										tabindex="0"
+									>
+										TEAMCODE
 									</div>
-									<div class="text-xs text-white/45 mt-2" id="workspaceCopyTeamCodeStatus" aria-live="polite"></div>
+									<button
+										type="button"
+										class="shrink-0 p-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors"
+										aria-label="Copy team code"
+										title="Copy to clipboard"
+										data-workspace-copy-team-code
+									>
+										<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4">
+											<rect x="9" y="9" width="10" height="10" rx="1"></rect>
+											<rect x="5" y="5" width="10" height="10" rx="1"></rect>
+										</svg>
+									</button>
 								</div>
+								<div class="text-xs text-white/45 mt-2" id="workspaceCopyTeamCodeStatus" aria-live="polite"></div>
 							</div>
+
+							<div class="mt-4 pt-4 border-t border-white/10">
+								<p id="workspaceAccountToggle" class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Account</p>
+								<p class="mt-1 text-sm text-white/80 break-words" th:text="${userEmail != null ? userEmail : 'Signed in'}">Signed in</p>
+							</div>
+
+							<form class="mt-4 pt-4 border-t border-white/10" th:action="@{/logout}" method="post">
+								<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+								<button type="submit" class="w-full px-4 py-2 text-black font-bold hover:opacity-80 transition-opacity text-sm" style="background-color: #E7FF02;">
+									Logout
+								</button>
+							</form>
 						</div>
-						<form th:action="@{/logout}" method="post">
-							<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-							<button type="submit" class="px-4 py-2 text-black font-bold hover:opacity-80 transition-opacity text-sm" style="background-color: #E7FF02;">
-								Logout
-							</button>
-						</form>
+					</div>
 					</div>
 				</div>
 			</div>

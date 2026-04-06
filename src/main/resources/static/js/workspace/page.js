@@ -11,6 +11,7 @@ import { createWorkspaceMoveController } from './features/workspace-move-control
 import { createWorkspaceOrganizeModal } from './features/workspace-organize-modal.js';
 import { bindWorkspacePreviewControls } from './features/workspace-preview-controls.js';
 import { bindWorkspaceRowActions } from './features/workspace-row-actions.js';
+import { bindWorkspaceThemeControls } from './features/workspace-theme-controls.js';
 import { createGrid } from './grid.js';
 import { createSelection } from './selection.js';
 import { createWorkspaceUiState } from './state/workspace-ui-state.js';
@@ -19,7 +20,6 @@ const importBtn = document.getElementById('importBtn');
 const importFile = document.getElementById('importFile');
 const importForm = document.getElementById('importForm');
 const tbody = document.getElementById('wsTbody');
-const totalCount = document.getElementById('wsTotalCount');
 const selectAll = document.getElementById('wsSelectAll');
 const searchInput = document.getElementById('wsSearch');
 const filterComponent = document.getElementById('wsFilterComponent');
@@ -37,6 +37,7 @@ const collapseAllPreviews = document.getElementById('wsCollapsePreviews');
 const importNoticeContainer = document.getElementById('importNoticeContainer');
 const importNotice = document.getElementById('importNotice');
 const importNoticeBadge = document.getElementById('importNoticeBadge');
+const importNoticeOk = document.getElementById('importNoticeOk');
 const importNoticeMessage = document.getElementById('importNoticeMessage');
 const importNoticeClose = document.getElementById('importNoticeClose');
 
@@ -44,13 +45,11 @@ const folderTree = document.getElementById('wsFolderTree');
 const folderLoading = document.getElementById('wsFolderLoading');
 const folderEmpty = document.getElementById('wsFolderEmpty');
 const sidebar = document.getElementById('wsSidebar');
-const sidebarToggle = document.getElementById('wsSidebarToggle');
+const sidebarResizeHandle = document.getElementById('wsSidebarResizeHandle');
 const sidebarContent = document.getElementById('wsSidebarContent');
 const sidebarTitle = document.getElementById('wsSidebarTitle');
 const sidebarInner = document.getElementById('wsSidebarInner');
 const sidebarHeader = document.getElementById('wsSidebarHeader');
-const sidebarToggleExpandedHost = document.getElementById('wsSidebarToggleExpandedHost');
-const sidebarToggleCollapsedHost = document.getElementById('wsSidebarToggleCollapsedHost');
 const newFolderButton = document.getElementById('wsNewFolderButton');
 
 const organizeModal = document.getElementById('organizeModal');
@@ -128,7 +127,7 @@ const dataController = createWorkspaceDataController({
     grid,
     selection,
     tbody,
-    totalCount,
+    getTotalCountElement: () => document.getElementById('wsTotalCount'),
     pageInfo,
     prevPageButton,
     nextPageButton,
@@ -150,13 +149,11 @@ const folderTreeController = createWorkspaceFolderTree({
     folderEmpty,
     newFolderButton,
     sidebar,
-    sidebarToggle,
+    sidebarResizeHandle,
     sidebarContent,
     sidebarTitle,
     sidebarInner,
     sidebarHeader,
-    sidebarToggleExpandedHost,
-    sidebarToggleCollapsedHost,
     showNotice: (type, message) => showNotice(type, message),
     onFolderChanged: () => {
         dataController.applyFilters({ resetPage: true });
@@ -185,7 +182,8 @@ importController = createWorkspaceImportController({
     importForm,
     importNoticeContainer,
     importNotice,
-    importNoticeBadge,
+    importNoticeBadge: importNoticeBadge || importNoticeOk,
+    importNoticeOk,
     importNoticeMessage,
     importNoticeClose,
     onUploadComplete: async () => {
@@ -241,6 +239,7 @@ createWorkspaceOrganizeModal({
 });
 
 bindWorkspaceHeaderControls();
+bindWorkspaceThemeControls();
 
 const bulkEdit = createBulkEdit({
     bulkEditButton: bulkEditOpen,

@@ -1,6 +1,6 @@
 # Current State
 
-Last updated: 2026-04-03
+Last updated: 2026-04-05
 
 ## Summary
 
@@ -60,6 +60,12 @@ Recent delivery:
 - `GET /api/folders` now reads derived paths from the folder table while keeping the existing `List<String>` response shape
 - folder APIs now support create, rename/reparent with cycle rejection, and explicit delete with conflict safeguards
 - workspace sidebar now supports New Folder, folder context-menu actions, and folder drag/reparent behavior
+- workspace theme now defaults to a softer dark gray and includes a header theme selector (`Dark Gray` / `High Contrast`) persisted in `localStorage`
+- workspace header now uses a single animated settings menu (theme selector, team code, account, logout), with account controls removed from the main header row
+- workspace notice popup can now be dismissed via both `OK` and `X`, and notice/bulk bars now visually follow the selected workspace theme
+- folder delete confirmation is now a centered modal with blue-tinted backdrop, theme-aware styling, and keyboard focus trapping
+- landing/login/register now use the same gray dark surface family as workspace for visual consistency
+- workspace now uses a fixed-height split-pane shell with independent sidebar/grid scrolling (page scroll disabled in workspace view)
 
 Primary active goals:
 

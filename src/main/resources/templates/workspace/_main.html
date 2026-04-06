@@ -2,65 +2,40 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 	<th:block th:fragment="mainContent">
-		<main class="w-full px-0 sm:px-0">
-			<div id="wsGridTopBar" class="px-6 sm:px-8 py-6 border-b border-white/10">
-				<div class="flex items-center justify-between gap-6">
-					<div class="flex items-start gap-3 min-w-0">
-						<div id="wsSidebarToggleCollapsedHost" class="hidden shrink-0"></div>
-						<div class="min-w-0">
-							<h1 class="text-base uppercase tracking-wider text-white/70" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Test cases</h1>
-							<p class="text-xs text-white/45 mt-1">Click row body to select. Preview expands inline under each test case.</p>
-						</div>
-					</div>
-					<div class="text-right">
-						<p class="text-xs text-white/45">Total</p>
-						<p id="wsTotalCount" class="text-sm text-white/70" th:text="${testCaseCount != null ? testCaseCount : '-'}">-</p>
-						<button id="wsCollapsePreviews" type="button" class="hidden mt-2 px-3 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-[11px] uppercase tracking-wider text-white/70">
-							Collapse all previews
-						</button>
-					</div>
-				</div>
-			</div>
-
-			<div class="flex min-h-[calc(100vh-12rem)]">
-				<aside id="wsSidebar" class="w-[18rem] sm:w-[20rem] border-r border-white/10 bg-black shrink-0">
-					<div id="wsSidebarInner" class="px-6 py-5">
+		<main class="w-full px-0 sm:px-0 flex-1 min-h-0 flex flex-col">
+			<div class="flex flex-1 min-h-0">
+				<aside id="wsSidebar" class="w-[18rem] sm:w-[20rem] border-r border-white/10 bg-black shrink-0 self-stretch min-h-0 flex flex-col">
+					<div id="wsSidebarInner" class="px-6 py-5 flex-1 min-h-0 flex flex-col">
 						<div id="wsSidebarHeader" class="flex items-center justify-between gap-3">
-							<div class="flex items-center gap-2 min-w-0">
-								<p id="wsSidebarTitle" class="text-xs uppercase tracking-wider text-white/45" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">Directory</p>
-								<button
-									id="wsNewFolderButton"
-									type="button"
-									class="px-2 py-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-[10px] uppercase tracking-wider text-white/75"
-								>
-									New Folder
-								</button>
-							</div>
-							<div id="wsSidebarToggleExpandedHost" class="shrink-0">
-								<button
-									id="wsSidebarToggle"
-									type="button"
-									class="shrink-0 h-10 w-10 flex items-center justify-center border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-white/70"
-									aria-label="Collapse repository sidebar"
-									aria-controls="wsSidebar"
-									aria-expanded="true"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
-										<path d="M15 6l-6 6 6 6" />
-									</svg>
-								</button>
-							</div>
+							<button
+								id="wsNewFolderButton"
+								type="button"
+								class="px-2 py-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-[10px] uppercase tracking-wider text-white/75"
+							>
+								New Folder
+							</button>
+							<p id="wsSidebarTitle" class="text-[11px] uppercase tracking-wider text-white/45 whitespace-nowrap" style="font-family: 'Work Sans', sans-serif; font-weight: 700;">
+								Test cases:
+								<span id="wsTotalCount" class="text-white/70" th:text="${testCaseCount != null ? testCaseCount : '-'}">-</span>
+							</p>
 						</div>
-						<div id="wsSidebarContent" class="mt-4" aria-label="Folder tree">
+						<div id="wsSidebarContent" class="mt-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1" aria-label="Folder tree">
 							<div id="wsFolderLoading" class="hidden text-xs text-white/45" aria-hidden="true">Loading folders...</div>
 							<div id="wsFolderEmpty" class="hidden text-xs text-white/45">No folders found.</div>
 							<nav id="wsFolderTree" class="mt-2 space-y-1"></nav>
 						</div>
 					</div>
 				</aside>
+				<div
+					id="wsSidebarResizeHandle"
+					class="w-2 shrink-0 cursor-col-resize bg-white/10 hover:bg-[#E7FF02]/70 transition-colors"
+					role="separator"
+					aria-label="Resize directory sidebar"
+					aria-orientation="vertical"
+				></div>
 
-				<section class="flex-1 min-w-0">
-					<div id="wsGridFrame" class="overflow-x-hidden">
+				<section class="flex-1 min-w-0 min-h-0 flex flex-col">
+					<div id="wsGridFrame" class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
 						<table id="wsGridTable" class="w-full table-fixed text-sm">
 							<thead class="text-white/50">
 								<tr class="border-b border-white/10">
@@ -86,9 +61,12 @@
 					</div>
 				</section>
 			</div>
-			<div class="px-6 sm:px-8 py-4 border-t border-white/10 flex items-center justify-between gap-3">
+			<div id="wsGridFooter" class="px-6 sm:px-8 py-4 border-t border-white/10 flex items-center justify-between gap-3">
 				<p id="wsPageInfo" class="text-xs text-white/45">Page 1 of 1</p>
 				<div class="flex items-center gap-2">
+					<button id="wsCollapsePreviews" type="button" class="hidden px-3 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-[11px] uppercase tracking-wider text-white/70">
+						Collapse all previews
+					</button>
 					<button id="wsPrevPage" type="button" class="px-3 py-2 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs disabled:opacity-40 disabled:cursor-not-allowed">
 						Previous
 					</button>

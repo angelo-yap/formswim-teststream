@@ -2,8 +2,8 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 	<th:block th:fragment="notices">
-		<div id="workspaceFlashContainer" class="px-6 sm:px-8 pt-5 space-y-3" th:if="${importSuccessMessage != null or importErrorMessage != null}">
-			<div data-flash-item th:if="${importSuccessMessage != null}" class="border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80" style="border-color: rgba(231, 255, 2, 0.35);">
+		<div id="workspaceFlashContainer" class="fixed top-4 left-1/2 -translate-x-1/2 z-[1300] w-[min(42rem,calc(100vw-2rem))] space-y-3 pointer-events-none" th:if="${importSuccessMessage != null or importErrorMessage != null}">
+			<div data-flash-item th:if="${importSuccessMessage != null}" class="pointer-events-auto border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80" style="border-color: rgba(231, 255, 2, 0.35);">
 				<div class="flex items-start justify-between gap-3">
 					<div class="min-w-0">
 						<span class="font-bold text-black px-2 py-1 mr-3" style="background-color: #E7FF02;">OK</span>
@@ -17,7 +17,7 @@
 					</button>
 				</div>
 			</div>
-			<div data-flash-item th:if="${importErrorMessage != null}" class="border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80">
+			<div data-flash-item th:if="${importErrorMessage != null}" class="pointer-events-auto border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80">
 				<div class="flex items-start justify-between gap-3">
 					<div class="min-w-0">
 						<span class="font-bold text-black px-2 py-1 mr-3 bg-white/70">Error</span>
@@ -33,11 +33,13 @@
 			</div>
 		</div>
 
-		<div id="importNoticeContainer" class="px-6 sm:px-8 pt-5 hidden" aria-live="polite">
-			<div id="importNotice" class="border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80">
+		<div id="importNoticeContainer" class="fixed top-4 left-1/2 -translate-x-1/2 z-[1300] w-[min(42rem,calc(100vw-2rem))] hidden pointer-events-none" aria-live="polite">
+			<div id="importNotice" class="pointer-events-auto border border-white/10 bg-black/95 px-4 py-3 text-sm text-white/80">
 				<div class="flex items-start justify-between gap-3">
 					<div class="min-w-0">
-						<span id="importNoticeBadge" class="font-bold text-black px-2 py-1 mr-3 bg-white/70">Error</span>
+						<button id="importNoticeOk" type="button" class="font-bold text-black px-2 py-1 mr-3 bg-white/70 border border-transparent hover:border-[#E7FF02] transition-colors" aria-label="Acknowledge notification">
+							OK
+						</button>
 						<span id="importNoticeMessage" class="whitespace-pre-line">Import status.</span>
 					</div>
 					<button id="importNoticeClose" type="button" aria-label="Dismiss notification" class="shrink-0 px-2 py-1 border border-white/20 hover:border-[#E7FF02] hover:text-[#E7FF02] transition-colors text-xs leading-none">

@@ -64,13 +64,18 @@ export function createWorkspaceTooltip(options) {
         tooltipEl.innerHTML = '';
     }
 
-    function show(anchorEl, html) {
+    function show(anchorEl, content, options) {
         if (!anchorEl) {
             return;
         }
 
+        const renderAsText = Boolean(options && options.asText);
         const tooltip = ensureElement();
-        tooltip.innerHTML = String(html || '');
+        if (renderAsText) {
+            tooltip.textContent = String(content || '');
+        } else {
+            tooltip.innerHTML = String(content || '');
+        }
         tooltip.style.display = 'block';
 
         const anchorRect = anchorEl.getBoundingClientRect();
