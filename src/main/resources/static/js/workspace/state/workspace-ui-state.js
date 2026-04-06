@@ -39,6 +39,9 @@ export function createWorkspaceUiState(options) {
         if (elements.filterTag) {
             elements.filterTag.dataset.pendingValue = initialSearchParams.get('tag') || '';
         }
+        if (elements.filterCustomTag) {
+            elements.filterCustomTag.dataset.pendingValue = initialSearchParams.get('customTagId') || '';
+        }
     }
 
     function getActiveFilterValue(selectEl) {
