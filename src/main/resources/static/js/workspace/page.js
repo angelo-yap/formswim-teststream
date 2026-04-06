@@ -124,6 +124,12 @@ let previewControls = {
     refresh() {}
 };
 
+const tagsController = createWorkspaceTags({
+    onTagsChanged: ({ workKey, tags }) => {
+        dataController.updateTestCaseTags(workKey, tags);
+    }
+});
+
 const dataController = createWorkspaceDataController({
     api,
     uiState,
@@ -138,7 +144,9 @@ const dataController = createWorkspaceDataController({
     filterComponent,
     filterStatus,
     filterTag,
+    filterCustomTag,
     syncRowSelectionUi: () => syncRowSelectionUi(),
+    onTagClick: (args) => tagsController.open(args),
     onAfterRender: () => {
         previewControls.refresh();
     }
