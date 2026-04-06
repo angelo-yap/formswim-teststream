@@ -269,6 +269,21 @@ export function createGrid(tbody) {
                 });
             }
 
+            const customTagsEl = row.querySelector('.ws-custom-tags');
+            if (customTagsEl && viewOptions.onTagClick) {
+                const handler = (e) => {
+                    e.stopPropagation();
+                    viewOptions.onTagClick({ workKey, anchor: customTagsEl, testCase });
+                };
+                customTagsEl.addEventListener('click', handler);
+                customTagsEl.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handler(e);
+                    }
+                });
+            }
+
             tbody.appendChild(row);
 
             if (isExpanded) {
