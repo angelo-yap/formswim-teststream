@@ -3,13 +3,19 @@ package com.formswim.teststream.shared.domain;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+
+import org.hibernate.annotations.BatchSize;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -103,6 +109,15 @@ public class TestCase {
     @OneToMany(mappedBy = "testCase", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("stepNumber ASC")
     private List<TestStep> steps = new ArrayList<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @BatchSize(size = 50)
+    @JoinTable(
+        name = "test_case_custom_tags",
+        joinColumns = @JoinColumn(name = "test_case_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private List<Tag> customTags = new ArrayList<>();
 
     protected TestCase() {
     }
@@ -350,5 +365,13 @@ public class TestCase {
 
     public List<TestStep> getSteps() {
         return steps;
+    }
+
+    public List<Tag> getCustomTags() {
+        return customTags;
+    }
+
+    public void setCustomTags(List<Tag> customTags) {
+        this.customTags = customTags;
     }
 }
