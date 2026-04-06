@@ -59,6 +59,7 @@ export function createWorkspaceUiState(options) {
             component: getActiveFilterValue(input.filterComponent),
             status: getActiveFilterValue(input.filterStatus),
             tag: getActiveFilterValue(input.filterTag),
+            customTagId: getActiveFilterValue(input.filterCustomTag),
             folder: selectedFolder
         };
     }
@@ -80,6 +81,9 @@ export function createWorkspaceUiState(options) {
         }
         if (query.tag) {
             params.set('tag', query.tag);
+        }
+        if (query.customTagId) {
+            params.set('customTagId', query.customTagId);
         }
         if (query.folder) {
             params.set('folder', query.folder);
@@ -103,6 +107,9 @@ export function createWorkspaceUiState(options) {
         }
         if (query.tag) {
             params.set('tag', query.tag);
+        }
+        if (query.customTagId) {
+            params.set('customTagId', query.customTagId);
         }
         if (query.folder) {
             params.set('folder', query.folder);
