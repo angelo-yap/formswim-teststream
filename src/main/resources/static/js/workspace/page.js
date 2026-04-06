@@ -302,6 +302,9 @@ if (filterStatus) {
 if (filterTag) {
     filterTag.addEventListener('change', () => dataController.applyFilters({ resetPage: true }));
 }
+if (filterCustomTag) {
+    filterCustomTag.addEventListener('change', () => dataController.applyFilters({ resetPage: true }));
+}
 if (prevPageButton) {
     prevPageButton.addEventListener('click', () => {
         const pageState = uiState.getPageState();

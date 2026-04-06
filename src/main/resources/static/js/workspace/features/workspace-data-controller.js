@@ -52,7 +52,9 @@ export function createWorkspaceDataController(options) {
     const filterComponent = options.filterComponent;
     const filterStatus = options.filterStatus;
     const filterTag = options.filterTag;
+    const filterCustomTag = options.filterCustomTag;
     const syncRowSelectionUi = options.syncRowSelectionUi;
+    const onTagClick = typeof options.onTagClick === 'function' ? options.onTagClick : null;
     const onAfterRender = typeof options.onAfterRender === 'function' ? options.onAfterRender : null;
 
     let currentPageCases = [];
@@ -63,7 +65,8 @@ export function createWorkspaceDataController(options) {
             searchInput,
             filterComponent,
             filterStatus,
-            filterTag
+            filterTag,
+            filterCustomTag
         };
     }
 
@@ -110,7 +113,8 @@ export function createWorkspaceDataController(options) {
         selection.retainSelectedIds(visibleIds);
         const expandedPreviewKeys = uiState.getExpandedPreviewKeys();
         grid.renderRows(currentPageCases, new Set(selection.getSelectedIds()), {
-            expandedPreviewKeys
+            expandedPreviewKeys,
+            onTagClick
         });
         selection.setVisibleIds(visibleIds);
         selection.bindRowCheckboxes(tbody);
