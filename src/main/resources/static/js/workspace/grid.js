@@ -66,6 +66,19 @@ function buildTagBadges(testCase, maxVisible = 3) {
     };
 }
 
+function buildCustomTagBadges(customTags) {
+    if (!customTags || customTags.length === 0) {
+        return '<span class="text-white/25 text-xs italic">Add tag...</span>';
+    }
+    let html = '';
+    for (const tag of customTags) {
+        const color = escHtml(tag.color || '#6b7280');
+        const name = escHtml(tag.name || '');
+        html += '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs border border-white/15 text-white/80" style="border-left: 3px solid ' + color + '">' + name + '</span>';
+    }
+    return html;
+}
+
 function buildPreviewElementId(workKey) {
     return 'ws-preview-' + String(workKey || '').replace(/[^a-zA-Z0-9_-]/g, '-');
 }
@@ -165,9 +178,9 @@ export function createGrid(tbody) {
         for (const testCase of testCases) {
             const workKey = testCase.workKey || '-';
             const title = testCase.summary || '-';
-            const folder = testCase.folder || '';
             const status = testCase.status || '-';
             const tagModel = buildTagBadges(testCase, 3);
+            const customTags = Array.isArray(testCase.customTags) ? testCase.customTags : [];
             const updated = testCase.updatedOn || '-';
             const previewUrl = '/workspace/test-cases/' + encodeURIComponent(workKey);
             const isSelected = selectedIds.has(workKey);
@@ -186,10 +199,13 @@ export function createGrid(tbody) {
             row.dataset.status = status;
             row.dataset.updated = updated;
 
+            const customTagBadgesHtml = buildCustomTagBadges(customTags);
             const titleCell =
                 '<div class="min-w-0">' +
                     '<div class="font-semibold text-white/85 truncate ws-title-text" data-ws-title tabindex="0">' + escHtml(title) + '</div>' +
-                    (folder ? '<div class="text-white/45 text-xs mt-0.5 truncate">' + escHtml(folder) + '</div>' : '') +
+                    '<div class="mt-1 flex flex-wrap gap-1 ws-custom-tags" data-work-key="' + escHtml(workKey) + '" role="button" tabindex="0" aria-label="Edit tags">' +
+                        customTagBadgesHtml +
+                    '</div>' +
                 '</div>';
 
             const tagsCell = tagModel.html || '<span class="text-white/45">-</span>';
