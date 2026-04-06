@@ -178,6 +178,9 @@ export function createWorkspaceTags({ onTagsChanged, onTagListChanged }) {
                     if (typeof onTagsChanged === 'function') {
                         onTagsChanged({ workKey: currentWorkKey, tags: updatedTags });
                     }
+                    if (typeof onTagListChanged === 'function') {
+                        onTagListChanged();
+                    }
                 })
                 .catch((err) => showError(err.message || 'Could not create tag.'));
         }
