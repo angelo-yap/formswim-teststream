@@ -256,14 +256,24 @@ function flashFieldSaved(fieldKey) {
 async function saveFieldEdit(workKey, fieldKey, oldValue, newValue) {
     const csrf = getCsrf();
     const apiField = getApiFieldKey(fieldKey);
+    const currentValue = String(oldValue || '');
     const payload = {
         workKeys: [workKey]
     };
 
     if (fieldKey === 'status') {
         payload.statusValue = newValue;
-    } else if (oldValue.trim() || isStepField(fieldKey)) {
-        payload.findText = oldValue;
+    } else if (isStepField(fieldKey)) {
+        if (!currentValue.trim()) {
+            const err = new Error('Empty step fields cannot be edited');
+            err.status = 400;
+            throw err;
+        }
+        payload.findText = currentValue;
+        payload.replaceText = newValue;
+        payload.fields = [apiField];
+    } else if (currentValue.trim()) {
+        payload.findText = currentValue;
         payload.replaceText = newValue;
         payload.fields = [apiField];
     } else {
