@@ -29,6 +29,7 @@ const bulkBar = document.getElementById('bulkBar');
 const bulkCount = document.getElementById('bulkCount');
 const bulkExportSelected = document.getElementById('bulkExportSelected');
 const bulkEditOpen = document.getElementById('bulkEditOpen');
+const bulkDelete = document.getElementById('bulkDelete');
 const bulkOrganize = document.getElementById('bulkOrganize');
 const pageInfo = document.getElementById('wsPageInfo');
 const prevPageButton = document.getElementById('wsPrevPage');
@@ -51,6 +52,10 @@ const sidebarTitle = document.getElementById('wsSidebarTitle');
 const sidebarInner = document.getElementById('wsSidebarInner');
 const sidebarHeader = document.getElementById('wsSidebarHeader');
 const newFolderButton = document.getElementById('wsNewFolderButton');
+const newTestcaseButton = document.getElementById('wsNewTestcaseButton');
+const newTestcaseForm = document.getElementById('wsNewTestcaseForm');
+const newTestcaseIdInput = document.getElementById('wsNewTestcaseId');
+const newTestcaseNameInput = document.getElementById('wsNewTestcaseName');
 
 const organizeModal = document.getElementById('organizeModal');
 const organizeBackdrop = document.getElementById('organizeBackdrop');
@@ -196,6 +201,107 @@ importController = createWorkspaceImportController({
 });
 showNotice = (type, message) => importController.showNotice(type, message);
 
+function clearNewTestcaseForm() {
+    if (newTestcaseIdInput) {
+        newTestcaseIdInput.value = '';
+    }
+    if (newTestcaseNameInput) {
+        newTestcaseNameInput.value = '';
+    }
+}
+
+function hideNewTestcaseForm() {
+    if (!newTestcaseForm) {
+        return;
+    }
+    newTestcaseForm.classList.add('hidden');
+    clearNewTestcaseForm();
+}
+
+function showNewTestcaseForm() {
+    if (!newTestcaseForm) {
+        return;
+    }
+    newTestcaseForm.classList.remove('hidden');
+    window.requestAnimationFrame(() => {
+        if (newTestcaseIdInput) {
+            newTestcaseIdInput.focus();
+            newTestcaseIdInput.select();
+        }
+    });
+}
+
+async function submitNewTestcaseFromForm() {
+    if (typeof api.createTestCase !== 'function') {
+        showNotice('error', 'Testcase create API is unavailable.');
+        return;
+    }
+
+    const workKey = String(newTestcaseIdInput?.value || '').trim();
+    const name = String(newTestcaseNameInput?.value || '').trim();
+    const folder = uiState.getSelectedFolder() || '';
+
+    if (!workKey || !name) {
+        showNotice('error', 'Testcase ID and name are required.');
+        return;
+    }
+
+    try {
+        await api.createTestCase({
+            workKey,
+            name,
+            folder
+        });
+
+        hideNewTestcaseForm();
+        await Promise.all([
+            dataController.loadCurrentPage({ page: 0 }),
+            dataController.loadFilterOptions()
+        ]);
+        showNotice('success', 'Testcase sucessfully created');
+    } catch (error) {
+        showNotice('error', error?.message || 'Failed to create testcase.');
+    }
+}
+
+if (newTestcaseButton) {
+    newTestcaseButton.addEventListener('click', () => {
+        if (!newTestcaseForm || newTestcaseForm.classList.contains('hidden')) {
+            showNewTestcaseForm();
+            return;
+        }
+        hideNewTestcaseForm();
+    });
+}
+
+if (newTestcaseIdInput) {
+    newTestcaseIdInput.addEventListener('keydown', async (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            hideNewTestcaseForm();
+            return;
+        }
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            await submitNewTestcaseFromForm();
+        }
+    });
+}
+
+if (newTestcaseNameInput) {
+    newTestcaseNameInput.addEventListener('keydown', async (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            hideNewTestcaseForm();
+            return;
+        }
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            await submitNewTestcaseFromForm();
+        }
+    });
+}
+
 const moveController = createWorkspaceMoveController({
     api,
     selection,
@@ -318,5 +424,162 @@ folderTreeController.loadFolders();
 if (bulkDeselectAll) {
     bulkDeselectAll.addEventListener('click', () => {
         selection.clearSelection();
+    });
+}
+
+function confirmBulkDeleteTestcases(count) {
+    return new Promise((resolve) => {
+        const isSoftTheme = document.body?.dataset?.workspaceTheme !== 'black';
+        const previousActiveElement = document.activeElement;
+
+        const root = document.createElement('div');
+        root.className = 'fixed inset-0 z-[1400] flex items-center justify-center p-4';
+        root.style.backgroundColor = isSoftTheme ? 'rgba(20, 20, 20, 0.46)' : 'rgba(0, 0, 0, 0.62)';
+        root.style.backdropFilter = 'blur(2px)';
+
+        const notice = document.createElement('div');
+        notice.className = 'w-[min(32rem,calc(100vw-2rem))] border px-5 py-5 text-sm text-white/85 rounded-md shadow-[0_24px_80px_rgba(0,0,0,0.55)]';
+        notice.style.backgroundColor = isSoftTheme ? '#2b2b2b' : 'rgba(0, 0, 0, 0.95)';
+        notice.style.borderColor = 'rgba(255, 255, 255, 0.24)';
+        notice.setAttribute('role', 'dialog');
+        notice.setAttribute('aria-modal', 'true');
+        notice.setAttribute('aria-label', 'Confirm testcase delete');
+
+        const headingWrap = document.createElement('div');
+        headingWrap.className = 'min-w-0';
+
+        const badge = document.createElement('span');
+        badge.className = 'font-bold text-black px-2 py-1 mr-3';
+        badge.style.backgroundColor = '#E7FF02';
+        badge.textContent = 'Confirm';
+
+        const heading = document.createElement('span');
+        heading.className = 'font-medium text-white';
+        heading.textContent = 'Delete testcase(s)?';
+
+        const message = document.createElement('p');
+        message.className = 'mt-2 break-words text-white/75';
+        message.textContent = 'Delete ' + count + ' selected testcase(s)? This action cannot be undone.';
+
+        const actions = document.createElement('div');
+        actions.className = 'mt-5 flex items-center justify-end gap-2';
+
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.className = 'px-3 py-1.5 border border-white/20 hover:border-white/40 text-white/85 hover:text-white transition-colors text-xs';
+        cancelButton.textContent = 'Cancel';
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'px-3 py-1.5 border text-black font-semibold text-xs transition-colors';
+        deleteButton.style.borderColor = '#E7FF02';
+        deleteButton.style.backgroundColor = '#E7FF02';
+        deleteButton.textContent = 'Delete';
+
+        actions.appendChild(cancelButton);
+        actions.appendChild(deleteButton);
+
+        headingWrap.appendChild(badge);
+        headingWrap.appendChild(heading);
+        headingWrap.appendChild(message);
+        notice.appendChild(headingWrap);
+        notice.appendChild(actions);
+        root.appendChild(notice);
+        document.body.appendChild(root);
+
+        const cleanup = (confirmed) => {
+            document.removeEventListener('keydown', onKeyDown);
+            if (root.parentNode) {
+                root.parentNode.removeChild(root);
+            }
+            if (previousActiveElement && typeof previousActiveElement.focus === 'function') {
+                previousActiveElement.focus();
+            }
+            resolve(Boolean(confirmed));
+        };
+
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                cleanup(false);
+                return;
+            }
+
+            if (event.key === 'Tab') {
+                const first = cancelButton;
+                const last = deleteButton;
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                    return;
+                }
+                if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+        cancelButton.addEventListener('click', () => cleanup(false));
+        deleteButton.addEventListener('click', () => cleanup(true));
+        root.addEventListener('click', (event) => {
+            if (event.target === root) {
+                cleanup(false);
+            }
+        });
+
+        window.requestAnimationFrame(() => {
+            cancelButton.focus();
+        });
+    });
+}
+
+if (bulkDelete) {
+    bulkDelete.addEventListener('click', async () => {
+        if (typeof api.deleteTestCase !== 'function') {
+            showNotice('error', 'Testcase delete API is unavailable.');
+            return;
+        }
+
+        const selectedWorkKeys = selection.getSelectedIds();
+        if (!Array.isArray(selectedWorkKeys) || selectedWorkKeys.length === 0) {
+            showNotice('error', 'Select at least one testcase to delete.');
+            return;
+        }
+
+        const confirmed = await confirmBulkDeleteTestcases(selectedWorkKeys.length);
+        if (!confirmed) {
+            return;
+        }
+
+        const results = await Promise.allSettled(
+            selectedWorkKeys.map((workKey) => api.deleteTestCase(workKey))
+        );
+
+        const failed = [];
+        for (let i = 0; i < results.length; i += 1) {
+            if (results[i].status === 'rejected') {
+                failed.push(selectedWorkKeys[i]);
+            }
+        }
+
+        await Promise.all([
+            dataController.loadCurrentPage(),
+            dataController.loadFilterOptions()
+        ]);
+        selection.clearSelection();
+
+        if (failed.length === 0) {
+            showNotice('success', 'Testcase deleted.');
+            return;
+        }
+
+        if (failed.length === selectedWorkKeys.length) {
+            showNotice('error', 'Testcase delete failed.');
+            return;
+        }
+
+        showNotice('error', 'Testcase delete failed.');
     });
 }

@@ -100,6 +100,81 @@ class WorkspaceFolderApiIntegrationTests {
             .andExpect(jsonPath("$.path").value("Project/Sprint-1"));
     }
 
+    @Test
+    void postTestCaseCreatesBlankCaseWithManualIdAndName() throws Exception {
+        mockMvc.perform(post("/api/testcases")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of(
+                    "workKey", "TC-NEW-001",
+                    "name", "New blank testcase",
+                    "folder", "Project/Sprint-1"
+                ))))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.workKey").value("TC-NEW-001"))
+            .andExpect(jsonPath("$.name").value("New blank testcase"))
+            .andExpect(jsonPath("$.folder").value("Project/Sprint-1"));
+
+        TestCase created = testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-NEW-001").orElseThrow();
+        assertThat(created.getSummary()).isEqualTo("New blank testcase");
+        assertThat(created.getDescription()).isEmpty();
+        assertThat(created.getFolder()).isEqualTo("Project/Sprint-1");
+    }
+
+    @Test
+    void postTestCaseRejectsDuplicateManualIdInTeam() throws Exception {
+        testCaseRepository.save(TestCaseFixtures.basicCase("TEAM1", "TC-DUP-001", ""));
+
+        mockMvc.perform(post("/api/testcases")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of(
+                    "workKey", "TC-DUP-001",
+                    "name", "Another testcase"
+                ))))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.message").value("A testcase with this ID already exists."));
+    }
+
+    @Test
+    void postTestCaseRejectsBlankManualId() throws Exception {
+        mockMvc.perform(post("/api/testcases")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of(
+                    "workKey", "   ",
+                    "name", "Blank id testcase"
+                ))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Testcase ID is required."));
+    }
+
+    @Test
+    void deleteTestCaseDeletesOwnedCaseByWorkKey() throws Exception {
+        testCaseRepository.save(TestCaseFixtures.basicCase("TEAM1", "TC-DEL-001", "Project/Sprint-1"));
+
+        mockMvc.perform(delete("/api/testcases/{workKey}", "TC-DEL-001")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isNoContent());
+
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-DEL-001")).isEmpty();
+    }
+
+    @Test
+    void deleteTestCaseReturnsNotFoundForMissingOrForeignCase() throws Exception {
+        testCaseRepository.save(TestCaseFixtures.basicCase("TEAM2", "TC-DEL-002", ""));
+
+        mockMvc.perform(delete("/api/testcases/{workKey}", "TC-DEL-002")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("Testcase not found."));
+    }
+
             @Test
             void postFolderRejectsNameLongerThan255Characters() throws Exception {
             String oversized = "A".repeat(256);

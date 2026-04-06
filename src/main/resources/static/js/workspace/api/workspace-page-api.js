@@ -121,6 +121,27 @@ export function createWorkspacePageApi(options) {
         return parseJsonOrEmpty(response);
     }
 
+    async function createTestCase(input) {
+        const response = await fetch('/api/testcases', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getCsrfHeaders()
+            },
+            body: JSON.stringify({
+                workKey: input?.workKey || '',
+                name: input?.name || '',
+                folder: input?.folder || ''
+            })
+        });
+
+        if (!response.ok) {
+            return toApiError(response, 'Failed to create testcase.');
+        }
+
+        return parseJsonOrEmpty(response);
+    }
+
     async function updateFolder(folderId, input) {
         const payload = {};
         if (Object.prototype.hasOwnProperty.call(input || {}, 'name')) {
@@ -156,6 +177,19 @@ export function createWorkspacePageApi(options) {
 
         if (!response.ok) {
             return toApiError(response, 'Failed to delete folder.');
+        }
+    }
+
+    async function deleteTestCase(workKey) {
+        const response = await fetch('/api/testcases/' + encodeURIComponent(String(workKey || '')), {
+            method: 'DELETE',
+            headers: {
+                ...getCsrfHeaders()
+            }
+        });
+
+        if (!response.ok) {
+            return toApiError(response, 'Failed to delete testcase.');
         }
     }
 
@@ -229,7 +263,9 @@ export function createWorkspacePageApi(options) {
     return {
         bulkMove,
         createFolder,
+        createTestCase,
         deleteFolder,
+        deleteTestCase,
         fetchFilterOptions,
         fetchFolders,
         fetchFolderNodes,
