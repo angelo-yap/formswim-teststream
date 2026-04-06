@@ -193,6 +193,25 @@ export function createWorkspacePageApi(options) {
         }
     }
 
+    async function bulkDeleteTestCases(input) {
+        const response = await fetch('/api/testcases/bulk-delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getCsrfHeaders()
+            },
+            body: JSON.stringify({
+                workKeys: Array.isArray(input?.workKeys) ? input.workKeys : []
+            })
+        });
+
+        if (!response.ok) {
+            return toApiError(response, 'Failed to delete testcase.');
+        }
+
+        return parseJsonOrEmpty(response);
+    }
+
     function fetchFilterOptions() {
         return Promise.all([
             fetchOptionValues(componentsBaseUrl),
@@ -264,6 +283,7 @@ export function createWorkspacePageApi(options) {
         bulkMove,
         createFolder,
         createTestCase,
+        bulkDeleteTestCases,
         deleteFolder,
         deleteTestCase,
         fetchFilterOptions,

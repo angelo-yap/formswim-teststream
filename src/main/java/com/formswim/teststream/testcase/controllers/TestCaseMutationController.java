@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.formswim.teststream.auth.model.AppUser;
 import com.formswim.teststream.auth.service.CurrentUserService;
+import com.formswim.teststream.testcase.dto.TestCaseBulkDeleteRequest;
+import com.formswim.teststream.testcase.dto.TestCaseBulkDeleteResponse;
 import com.formswim.teststream.testcase.dto.TestCaseCreateRequest;
 import com.formswim.teststream.testcase.dto.TestCaseCreateResponse;
 import com.formswim.teststream.testcase.services.TestCaseBadRequestException;
@@ -101,6 +103,34 @@ public class TestCaseMutationController {
                 .body(Map.of("message", "Testcase could not be deleted because it is still referenced."));
         } catch (TransactionSystemException ex) {
             return ResponseEntity.badRequest().body(Map.of("message", "Testcase delete request failed validation."));
+        }
+    }
+
+    @PostMapping("/api/testcases/bulk-delete")
+    @ResponseBody
+    public ResponseEntity<?> bulkDeleteTestCases(@RequestBody TestCaseBulkDeleteRequest request,
+                                                 HttpSession session,
+                                                 Authentication authentication) {
+        Optional<AppUser> currentUser = currentUserService.resolveCurrentUser(session, authentication);
+        if (currentUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        AppUser user = currentUser.get();
+        if (user.getTeamKey() == null || user.getTeamKey().isBlank()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        try {
+            TestCaseBulkDeleteResponse result = workspaceTestCaseMutationService.bulkDeleteTestCases(user.getTeamKey(), request);
+            return ResponseEntity.ok(result);
+        } catch (TestCaseBadRequestException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        } catch (DataIntegrityViolationException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", "Testcase bulk delete conflicted with another request. Please retry."));
+        } catch (TransactionSystemException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Testcase bulk delete request failed validation."));
         }
     }
 }

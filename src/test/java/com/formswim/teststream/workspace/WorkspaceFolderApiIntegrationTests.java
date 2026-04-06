@@ -123,6 +123,56 @@ class WorkspaceFolderApiIntegrationTests {
     }
 
     @Test
+    void postTestCaseWithFolderSyncsFolderNodes() throws Exception {
+        mockMvc.perform(post("/api/testcases")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of(
+                    "workKey", "TC-SYNC-001",
+                    "name", "Folder sync testcase",
+                    "folder", "Quality/Smoke"
+                ))))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.workKey").value("TC-SYNC-001"))
+            .andExpect(jsonPath("$.folder").value("Quality/Smoke"));
+
+        MvcResult folderNodesResult = mockMvc.perform(get("/api/folders/nodes")
+                .with(user("team1.user@example.com").roles("USER")))
+            .andExpect(status().isOk())
+            .andReturn();
+
+        List<Map<String, Object>> nodes = objectMapper.readValue(
+            folderNodesResult.getResponse().getContentAsByteArray(),
+            new TypeReference<List<Map<String, Object>>>() {}
+        );
+        List<String> paths = nodes.stream()
+            .map(node -> String.valueOf(node.get("path")))
+            .toList();
+
+        assertThat(paths).contains("Quality", "Quality/Smoke");
+    }
+
+    @Test
+    void postTestCaseRejectsOversizedFolderSegment() throws Exception {
+        String oversized = "A".repeat(256);
+
+        mockMvc.perform(post("/api/testcases")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of(
+                    "workKey", "TC-SYNC-OVERSIZED",
+                    "name", "Invalid folder testcase",
+                    "folder", oversized + "/Child"
+                ))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Folder segment exceeds max length of 255 characters."));
+
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-SYNC-OVERSIZED")).isEmpty();
+    }
+
+    @Test
     void postTestCaseRejectsDuplicateManualIdInTeam() throws Exception {
         testCaseRepository.save(TestCaseFixtures.basicCase("TEAM1", "TC-DUP-001", ""));
 
@@ -173,6 +223,49 @@ class WorkspaceFolderApiIntegrationTests {
                 .with(user("team1.user@example.com").roles("USER")))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.message").value("Testcase not found."));
+    }
+
+            @Test
+            void deleteTestCaseRejectsOversizedWorkKey() throws Exception {
+            String oversized = "A".repeat(101);
+
+            mockMvc.perform(delete("/api/testcases/{workKey}", oversized)
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Testcase ID cannot exceed 100 characters."));
+            }
+
+    @Test
+    void bulkDeleteTestCasesDeletesOwnedKeysInSingleRequest() throws Exception {
+        testCaseRepository.saveAll(List.of(
+            TestCaseFixtures.basicCase("TEAM1", "TC-BDEL-001", ""),
+            TestCaseFixtures.basicCase("TEAM1", "TC-BDEL-002", "")
+        ));
+
+        mockMvc.perform(post("/api/testcases/bulk-delete")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of("workKeys", List.of("TC-BDEL-001", "TC-BDEL-002")))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.requestedCount").value(2))
+            .andExpect(jsonPath("$.deletedCount").value(2))
+            .andExpect(jsonPath("$.missingCount").value(0));
+
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-BDEL-001")).isEmpty();
+        assertThat(testCaseRepository.findByTeamKeyAndWorkKey("TEAM1", "TC-BDEL-002")).isEmpty();
+    }
+
+    @Test
+    void bulkDeleteTestCasesRejectsEmptyPayload() throws Exception {
+        mockMvc.perform(post("/api/testcases/bulk-delete")
+                .with(csrf())
+                .with(user("team1.user@example.com").roles("USER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(Map.of("workKeys", List.of()))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("At least one testcase ID is required."));
     }
 
             @Test

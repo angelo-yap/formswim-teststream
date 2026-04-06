@@ -56,6 +56,7 @@ const newTestcaseButton = document.getElementById('wsNewTestcaseButton');
 const newTestcaseForm = document.getElementById('wsNewTestcaseForm');
 const newTestcaseIdInput = document.getElementById('wsNewTestcaseId');
 const newTestcaseNameInput = document.getElementById('wsNewTestcaseName');
+const newTestcaseCancel = document.getElementById('wsNewTestcaseCancel');
 
 const organizeModal = document.getElementById('organizeModal');
 const organizeBackdrop = document.getElementById('organizeBackdrop');
@@ -258,7 +259,7 @@ async function submitNewTestcaseFromForm() {
             dataController.loadCurrentPage({ page: 0 }),
             dataController.loadFilterOptions()
         ]);
-        showNotice('success', 'Testcase sucessfully created');
+        showNotice('success', 'Testcase successfully created');
     } catch (error) {
         showNotice('error', error?.message || 'Failed to create testcase.');
     }
@@ -281,10 +282,6 @@ if (newTestcaseIdInput) {
             hideNewTestcaseForm();
             return;
         }
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            await submitNewTestcaseFromForm();
-        }
     });
 }
 
@@ -295,10 +292,19 @@ if (newTestcaseNameInput) {
             hideNewTestcaseForm();
             return;
         }
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            await submitNewTestcaseFromForm();
-        }
+    });
+}
+
+if (newTestcaseForm) {
+    newTestcaseForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        await submitNewTestcaseFromForm();
+    });
+}
+
+if (newTestcaseCancel) {
+    newTestcaseCancel.addEventListener('click', () => {
+        hideNewTestcaseForm();
     });
 }
 
@@ -537,7 +543,7 @@ function confirmBulkDeleteTestcases(count) {
 
 if (bulkDelete) {
     bulkDelete.addEventListener('click', async () => {
-        if (typeof api.deleteTestCase !== 'function') {
+        if (typeof api.bulkDeleteTestCases !== 'function') {
             showNotice('error', 'Testcase delete API is unavailable.');
             return;
         }
@@ -553,15 +559,12 @@ if (bulkDelete) {
             return;
         }
 
-        const results = await Promise.allSettled(
-            selectedWorkKeys.map((workKey) => api.deleteTestCase(workKey))
-        );
-
-        const failed = [];
-        for (let i = 0; i < results.length; i += 1) {
-            if (results[i].status === 'rejected') {
-                failed.push(selectedWorkKeys[i]);
-            }
+        let result;
+        try {
+            result = await api.bulkDeleteTestCases({ workKeys: selectedWorkKeys });
+        } catch (error) {
+            showNotice('error', error?.message || 'Testcase delete failed.');
+            return;
         }
 
         await Promise.all([
@@ -570,13 +573,11 @@ if (bulkDelete) {
         ]);
         selection.clearSelection();
 
-        if (failed.length === 0) {
-            showNotice('success', 'Testcase deleted.');
-            return;
-        }
+        const deletedCount = Number(result?.deletedCount || 0);
+        const requestedCount = Number(result?.requestedCount || selectedWorkKeys.length);
 
-        if (failed.length === selectedWorkKeys.length) {
-            showNotice('error', 'Testcase delete failed.');
+        if (deletedCount >= requestedCount && requestedCount > 0) {
+            showNotice('success', 'Testcase deleted.');
             return;
         }
 
